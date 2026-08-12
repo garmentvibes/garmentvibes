@@ -17,6 +17,6 @@ export const useRecentlyViewedStore = create<RecentlyViewedState>()(
         set({ productIds: [productId, ...existing].slice(0, MAX_ITEMS) });
       },
     }),
-    { name: "garmentvibes-retail-recently-viewed" }
+    { name: "garmentvibes-retail-recently-viewed", skipHydration: true }
   )
 );

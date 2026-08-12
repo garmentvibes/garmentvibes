@@ -2,6 +2,8 @@ import Link from "next/link";
 import { WholesaleProductCard } from "@/components/wholesale/product-card";
 import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 
+export const metadata = { title: "Wholesale Apparel Sourcing" };
+
 const CATEGORY_TILES = [
   { href: "/wholesale/catalog/women", label: "Women" },
   { href: "/wholesale/catalog/men", label: "Men" },

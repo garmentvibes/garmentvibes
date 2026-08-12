@@ -7,6 +7,7 @@ import { ShoppingBag, User, Search, Heart, Menu, X } from "lucide-react";
 import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useWishlistStore } from "@/lib/stores/wishlist-store";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 
 const NAV_LINKS = [
   { href: "/shop/women", label: "Women" },
@@ -19,10 +20,14 @@ export function RetailSiteHeader() {
   const [query, setQuery] = useState("");
   const router = useRouter();
 
+  const mounted = useHasMounted();
   const lines = useCartStore((s) => s.lines);
-  const { totalItems } = cartTotals(lines);
-  const wishlistCount = useWishlistStore((s) => s.productIds.length);
-  const user = useSessionStore((s) => s.user);
+  const { totalItems: totalItemsRaw } = cartTotals(lines);
+  const totalItems = mounted ? totalItemsRaw : 0;
+  const wishlistCountRaw = useWishlistStore((s) => s.productIds.length);
+  const wishlistCount = mounted ? wishlistCountRaw : 0;
+  const userRaw = useSessionStore((s) => s.user);
+  const user = mounted ? userRaw : null;
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

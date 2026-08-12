@@ -1,5 +1,10 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "Shop Retail or Source Wholesale",
+};
 
 export default function HomePage() {
   return (

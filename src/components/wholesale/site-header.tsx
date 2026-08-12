@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ClipboardList, User, Search, Menu, X } from "lucide-react";
 import { useWholesaleOrderStore, wholesaleOrderTotals } from "@/lib/stores/wholesale-order-store";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 
 const NAV_LINKS = [
   { href: "/wholesale/catalog", label: "Catalog" },
@@ -19,9 +20,12 @@ export function WholesaleSiteHeader() {
   const [query, setQuery] = useState("");
   const router = useRouter();
 
+  const mounted = useHasMounted();
   const lines = useWholesaleOrderStore((s) => s.lines);
-  const { totalUnits } = wholesaleOrderTotals(lines);
-  const user = useSessionStore((s) => s.user);
+  const { totalUnits: totalUnitsRaw } = wholesaleOrderTotals(lines);
+  const totalUnits = mounted ? totalUnitsRaw : 0;
+  const userRaw = useSessionStore((s) => s.user);
+  const user = mounted ? userRaw : null;
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

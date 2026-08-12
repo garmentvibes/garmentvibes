@@ -4,6 +4,8 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuoteRefLabel } from "./quote-ref-label";
 
+export const metadata = { title: "Request Received" };
+
 export default function QuoteConfirmationPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6">

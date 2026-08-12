@@ -3,6 +3,7 @@
 import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWishlistStore } from "@/lib/stores/wishlist-store";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 
 export function WishlistButton({
   productId,
@@ -13,7 +14,9 @@ export function WishlistButton({
   className?: string;
   size?: "sm" | "md";
 }) {
-  const isSaved = useWishlistStore((s) => s.isSaved(productId));
+  const mounted = useHasMounted();
+  const isSavedRaw = useWishlistStore((s) => s.isSaved(productId));
+  const isSaved = mounted && isSavedRaw;
   const toggle = useWishlistStore((s) => s.toggle);
 
   return (

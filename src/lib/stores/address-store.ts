@@ -38,6 +38,6 @@ export const useAddressStore = create<AddressState>()(
           addresses: get().addresses.map((a) => ({ ...a, isDefault: a.id === id })),
         }),
     }),
-    { name: "garmentvibes-retail-addresses" }
+    { name: "garmentvibes-retail-addresses", skipHydration: true }
   )
 );

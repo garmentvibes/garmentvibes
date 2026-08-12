@@ -37,6 +37,6 @@ export const useShipToStore = create<ShipToState>()(
       setDefault: (id) =>
         set({ addresses: get().addresses.map((a) => ({ ...a, isDefault: a.id === id })) }),
     }),
-    { name: "garmentvibes-wholesale-ship-to" }
+    { name: "garmentvibes-wholesale-ship-to", skipHydration: true }
   )
 );

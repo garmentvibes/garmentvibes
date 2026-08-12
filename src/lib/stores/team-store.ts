@@ -27,6 +27,6 @@ export const useTeamStore = create<TeamState>()(
         }),
       remove: (id) => set({ members: get().members.filter((m) => m.id !== id) }),
     }),
-    { name: "garmentvibes-wholesale-team" }
+    { name: "garmentvibes-wholesale-team", skipHydration: true }
   )
 );

@@ -4,6 +4,8 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OrderIdLabel } from "./order-id-label";
 
+export const metadata = { title: "Order Confirmed" };
+
 export default function OrderConfirmationPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6">

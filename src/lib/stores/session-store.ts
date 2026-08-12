@@ -34,6 +34,6 @@ export const useSessionStore = create<SessionState>()(
         set({ user: { ...user, ...updates } });
       },
     }),
-    { name: "garmentvibes-session" }
+    { name: "garmentvibes-session", skipHydration: true }
   )
 );

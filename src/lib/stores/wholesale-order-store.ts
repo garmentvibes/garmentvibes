@@ -40,7 +40,7 @@ export const useWholesaleOrderStore = create<WholesaleOrderState>()(
         set({ lines: get().lines.filter((l) => l.productId !== productId) }),
       clear: () => set({ lines: [] }),
     }),
-    { name: "garmentvibes-wholesale-order" }
+    { name: "garmentvibes-wholesale-order", skipHydration: true }
   )
 );
 

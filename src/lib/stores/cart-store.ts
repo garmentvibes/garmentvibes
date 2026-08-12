@@ -47,7 +47,7 @@ export const useCartStore = create<CartState>()(
         }),
       clear: () => set({ lines: [] }),
     }),
-    { name: "garmentvibes-retail-cart" }
+    { name: "garmentvibes-retail-cart", skipHydration: true }
   )
 );
 

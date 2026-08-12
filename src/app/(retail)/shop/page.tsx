@@ -3,6 +3,8 @@ import { ProductCard } from "@/components/retail/product-card";
 import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
 import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
 
+export const metadata = { title: "Shop Fashion Online" };
+
 const CATEGORY_TILES = [
   { href: "/shop/women", label: "Women", from: "from-rose-500", to: "to-rose-700" },
   { href: "/shop/men", label: "Men", from: "from-neutral-700", to: "to-neutral-900" },

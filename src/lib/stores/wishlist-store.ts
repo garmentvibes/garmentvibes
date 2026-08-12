@@ -21,6 +21,6 @@ export const useWishlistStore = create<WishlistState>()(
       },
       isSaved: (productId) => get().productIds.includes(productId),
     }),
-    { name: "garmentvibes-retail-wishlist" }
+    { name: "garmentvibes-retail-wishlist", skipHydration: true }
   )
 );
