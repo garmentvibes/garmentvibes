@@ -16,16 +16,36 @@ B2B wholesale portal, in one Next.js app, installable as a PWA on phones and tab
 ```
 src/
   app/
-    page.tsx              # landing chooser: Retail vs Wholesale
-    (retail)/shop/...      # retail storefront route group
-    (wholesale)/wholesale/... # B2B portal route group
+    page.tsx                    # landing chooser: Retail vs Wholesale
+    (retail)/shop/...            # retail storefront route group
+    (wholesale)/wholesale/...    # B2B portal route group
   components/
-    ui/                    # base UI primitives
+    ui/                          # base UI primitives
+    retail/, wholesale/          # mode-specific header/footer/cards
   lib/
-    supabase/              # browser/server/middleware Supabase clients
+    supabase/                    # browser/server/proxy Supabase clients
+    mock/                        # placeholder catalog data (pre-Supabase)
+    stores/                      # zustand: cart, wholesale order, mock session
     utils.ts
-  middleware.ts            # Supabase session refresh + role-based routing
+  types/catalog.ts               # retail + wholesale product types
+  proxy.ts                       # Supabase session refresh (Next.js 16 "Proxy")
+supabase/migrations/             # SQL schema, ready to apply once the project exists
 ```
+
+### Current state
+
+The retail storefront and wholesale portal are built against **mock catalog
+data** (`src/lib/mock/`) with a placeholder client-side session
+(`src/lib/stores/session-store.ts`) standing in for Supabase Auth, and a
+stubbed checkout (no real payment charge yet). This lets the whole app run
+and be clicked through with `npm run dev` even before a live Supabase
+project/Stripe/Razorpay are wired up. `src/proxy.ts` degrades gracefully —
+if `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` aren't set, it
+passes requests through instead of throwing.
+
+Retail and wholesale are **fully separate catalogs** (different products,
+not shared SKUs with dual pricing) — see `src/types/catalog.ts` and
+`supabase/migrations/0001_init.sql`.
 
 ## Getting started
 

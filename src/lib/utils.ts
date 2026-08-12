@@ -13,3 +13,10 @@ export function formatPrice(amountInMinorUnits: number, currency: "INR" | "USD" 
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+// Mock reference number generator for stubbed checkout/quote flows (Phase 5
+// wires real order IDs from the database). Kept out of components so the
+// impure Date.now() call isn't reachable from render analysis.
+export function generateReferenceId(prefix: string) {
+  return `${prefix}${Date.now().toString().slice(-8)}`;
+}
