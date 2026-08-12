@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SizeGuideModal } from "@/components/retail/size-guide-modal";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/lib/stores/cart-store";
 import type { RetailProduct } from "@/types/catalog";
@@ -64,7 +65,10 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
       </div>
 
       <div>
-        <p className="mb-2 text-sm font-medium text-neutral-700">Select Size</p>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-medium text-neutral-700">Select Size</p>
+          <SizeGuideModal />
+        </div>
         <div className="flex flex-wrap gap-2">
           {product.sizes.map((s) => (
             <button

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { WishlistButton } from "@/components/retail/wishlist-button";
 import { formatPrice } from "@/lib/utils";
 import type { RetailProduct } from "@/types/catalog";
 
@@ -21,6 +22,7 @@ export function ProductCard({ product }: { product: RetailProduct }) {
             Bestseller
           </Badge>
         )}
+        <WishlistButton productId={product.id} size="sm" className="absolute right-2 top-2" />
       </div>
       <div className="mt-2 space-y-0.5">
         <p className="text-xs font-semibold text-neutral-500">{product.brand}</p>

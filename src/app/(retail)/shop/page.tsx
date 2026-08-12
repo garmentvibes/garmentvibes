@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/retail/product-card";
+import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
 import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
 
 const CATEGORY_TILES = [
@@ -67,6 +68,8 @@ export default function ShopHomePage() {
           </div>
         </section>
       )}
+
+      <RecentlyViewedRail />
     </div>
   );
 }

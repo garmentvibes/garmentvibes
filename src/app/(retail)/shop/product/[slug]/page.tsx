@@ -1,12 +1,38 @@
 import { notFound } from "next/navigation";
 import { Star } from "lucide-react";
+import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumbs } from "@/components/retail/breadcrumbs";
+import { ProductGallery } from "@/components/retail/product-gallery";
 import { AddToCartPanel } from "@/components/retail/add-to-cart-panel";
-import { RETAIL_PRODUCTS, getRetailProductBySlug } from "@/lib/mock/retail-products";
+import { ProductReviews } from "@/components/retail/product-reviews";
+import { ProductCard } from "@/components/retail/product-card";
+import { RecentlyViewedTracker } from "@/components/retail/recently-viewed-tracker";
+import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
+import {
+  RETAIL_PRODUCTS,
+  getRetailProductBySlug,
+  getRelatedRetailProducts,
+} from "@/lib/mock/retail-products";
+import { getRetailReviews } from "@/lib/mock/retail-reviews";
 import { formatPrice } from "@/lib/utils";
 
 export function generateStaticParams() {
   return RETAIL_PRODUCTS.map((p) => ({ slug: p.slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const product = getRetailProductBySlug(slug);
+  if (!product) return {};
+  return {
+    title: product.name,
+    description: product.description,
+  };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -15,14 +41,21 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   if (!product) notFound();
 
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
+  const reviews = getRetailReviews(product.id);
+  const related = getRelatedRetailProducts(product);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-        <div className="aspect-[3/4] overflow-hidden rounded-lg bg-neutral-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
-        </div>
+      <RecentlyViewedTracker productId={product.id} />
+      <Breadcrumbs
+        items={[
+          { label: product.category, href: `/shop/${product.category}` },
+          { label: product.name },
+        ]}
+      />
+
+      <div className="mt-3 grid grid-cols-1 gap-10 md:grid-cols-2">
+        <ProductGallery images={product.images} productId={product.id} alt={product.name} />
 
         <div>
           <p className="text-sm font-semibold text-neutral-500">{product.brand}</p>
@@ -57,6 +90,26 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       </div>
+
+      <section className="mt-14 max-w-3xl">
+        <h2 className="mb-4 text-xl font-bold text-neutral-900">
+          Ratings &amp; Reviews ({reviews.length})
+        </h2>
+        <ProductReviews reviews={reviews} />
+      </section>
+
+      {related.length > 0 && (
+        <section className="mt-14">
+          <h2 className="mb-4 text-xl font-bold text-neutral-900">You May Also Like</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {related.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <RecentlyViewedRail excludeId={product.id} />
     </div>
   );
 }

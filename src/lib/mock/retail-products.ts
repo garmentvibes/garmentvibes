@@ -248,3 +248,17 @@ export function getRetailProductBySlug(slug: string) {
 export function getRetailProductsByCategory(category: string) {
   return RETAIL_PRODUCTS.filter((p) => p.category === category);
 }
+
+export function searchRetailProducts(query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return RETAIL_PRODUCTS.filter((p) =>
+    [p.name, p.brand, p.category, p.subcategory].some((field) => field.toLowerCase().includes(q))
+  );
+}
+
+export function getRelatedRetailProducts(product: RetailProduct, limit = 4) {
+  return RETAIL_PRODUCTS.filter(
+    (p) => p.id !== product.id && (p.category === product.category || p.subcategory === product.subcategory)
+  ).slice(0, limit);
+}
