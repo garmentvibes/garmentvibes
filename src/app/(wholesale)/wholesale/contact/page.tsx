@@ -6,6 +6,7 @@ import { Mail, Phone, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BUSINESS_INFO } from "@/lib/business-info";
 
 export default function WholesaleContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -33,9 +34,9 @@ export default function WholesaleContactPage() {
             <Phone className="h-5 w-5 text-blue-700" />
             +91 98765 12340
           </div>
-          <div className="flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-blue-700" />
-            B2B Sales, Bengaluru, Karnataka
+          <div className="flex items-start gap-3">
+            <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
+            {BUSINESS_INFO.address}
           </div>
           <p className="text-xs text-slate-400">Business hours: Mon–Sat, 9am–7pm IST</p>
         </div>

@@ -1,4 +1,5 @@
 import { ContentPage } from "@/components/shared/content-page";
+import { BUSINESS_INFO } from "@/lib/business-info";
 
 export const metadata = { title: "Terms of Service" };
 
@@ -8,6 +9,10 @@ export default function TermsPage() {
       <p>
         By using GarmentVibes, you agree to the terms below. Please read them carefully before placing
         an order.
+      </p>
+      <p className="text-xs text-neutral-400">
+        GarmentVibes is operated by {BUSINESS_INFO.legalName} (proprietor {BUSINESS_INFO.proprietor}),
+        GSTIN {BUSINESS_INFO.gstin}, registered at {BUSINESS_INFO.address}.
       </p>
       <h2>1. Orders &amp; Pricing</h2>
       <p>

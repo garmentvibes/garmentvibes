@@ -6,6 +6,7 @@ import { Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BUSINESS_INFO } from "@/lib/business-info";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -33,9 +34,9 @@ export default function ContactPage() {
             <Phone className="h-5 w-5 text-rose-500" />
             +91 98765 43210
           </div>
-          <div className="flex items-center gap-3">
-            <MapPin className="h-5 w-5 text-rose-500" />
-            Bengaluru, Karnataka, India
+          <div className="flex items-start gap-3">
+            <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+            {BUSINESS_INFO.address}
           </div>
           <p className="text-xs text-neutral-400">Support hours: Mon–Sat, 9am–7pm IST</p>
         </div>

@@ -1,10 +1,15 @@
 import { ContentPage } from "@/components/shared/content-page";
+import { BUSINESS_INFO } from "@/lib/business-info";
 
 export const metadata = { title: "Wholesale Terms" };
 
 export default function WholesaleTermsPage() {
   return (
     <ContentPage title="Wholesale Terms" subtitle="Last updated: August 2026" accent="text-blue-800">
+      <p className="text-xs text-slate-400">
+        GarmentVibes Wholesale is operated by {BUSINESS_INFO.legalName} (proprietor{" "}
+        {BUSINESS_INFO.proprietor}), GSTIN {BUSINESS_INFO.gstin}, registered at {BUSINESS_INFO.address}.
+      </p>
       <h2>1. Eligibility</h2>
       <p>
         Wholesale accounts are intended for registered businesses — retailers, boutiques, and
