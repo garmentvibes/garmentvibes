@@ -1,13 +1,18 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
+import { Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
+import { useAddressStore } from "@/lib/stores/address-store";
 import { formatPrice, generateReferenceId } from "@/lib/utils";
 
 const checkoutSchema = z.object({
@@ -21,17 +26,52 @@ const checkoutSchema = z.object({
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
 
+const PROMO_CODES: Record<string, number> = {
+  GARMENT10: 10,
+  WELCOME5: 5,
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const lines = useCartStore((s) => s.lines);
   const clear = useCartStore((s) => s.clear);
+  const addresses = useAddressStore((s) => s.addresses);
   const { totalItems, totalPrice } = cartTotals(lines);
+
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; percent: number } | null>(null);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CheckoutForm>({ resolver: zodResolver(checkoutSchema) });
+
+  function applyPromo() {
+    const code = promoInput.trim().toUpperCase();
+    const percent = PROMO_CODES[code];
+    if (!percent) {
+      toast.error("Invalid promo code");
+      return;
+    }
+    setAppliedPromo({ code, percent });
+    toast.success(`${code} applied — ${percent}% off`);
+  }
+
+  function fillFromSavedAddress(id: string) {
+    const addr = addresses.find((a) => a.id === id);
+    if (!addr) return;
+    setValue("fullName", addr.fullName);
+    setValue("phone", addr.phone);
+    setValue("addressLine1", addr.addressLine1);
+    setValue("city", addr.city);
+    setValue("state", addr.state);
+    setValue("pincode", addr.pincode);
+  }
+
+  const discount = appliedPromo ? Math.round((totalPrice * appliedPromo.percent) / 100) : 0;
+  const finalTotal = totalPrice - discount;
 
   function onSubmit() {
     // Payments (Stripe / Razorpay) are stubbed for now — Phase 5 wires real checkout.
@@ -55,6 +95,24 @@ export default function CheckoutPage() {
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 lg:col-span-2">
           <h2 className="font-semibold text-neutral-900">Delivery Address</h2>
+
+          {addresses.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {addresses.map((addr) => (
+                <button
+                  key={addr.id}
+                  type="button"
+                  onClick={() => fillFromSavedAddress(addr.id)}
+                  className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 hover:border-rose-400 hover:text-rose-600"
+                >
+                  Use {addr.label}
+                </button>
+              ))}
+              <Link href="/shop/addresses" className="text-xs text-neutral-400 underline underline-offset-2">
+                Manage addresses
+              </Link>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="fullName">Full name</Label>
@@ -100,7 +158,7 @@ export default function CheckoutPage() {
           </div>
 
           <Button type="submit" variant="retail" size="lg" className="w-full" disabled={isSubmitting}>
-            Place Order &middot; {formatPrice(totalPrice)}
+            Place Order &middot; {formatPrice(finalTotal)}
           </Button>
         </form>
 
@@ -116,9 +174,45 @@ export default function CheckoutPage() {
               </li>
             ))}
           </ul>
+
+          <div className="mt-3 border-t border-neutral-200 pt-3">
+            {appliedPromo ? (
+              <div className="flex items-center justify-between text-sm text-green-700">
+                <span className="flex items-center gap-1">
+                  <Tag className="h-3.5 w-3.5" /> {appliedPromo.code} applied
+                </span>
+                <button type="button" onClick={() => setAppliedPromo(null)} className="text-xs underline">
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Promo code"
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  className="h-9"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={applyPromo}>
+                  Apply
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 flex justify-between text-sm text-neutral-600">
+            <span>Subtotal</span>
+            <span>{formatPrice(totalPrice)}</span>
+          </div>
+          {discount > 0 && (
+            <div className="mt-1 flex justify-between text-sm text-green-700">
+              <span>Discount</span>
+              <span>-{formatPrice(discount)}</span>
+            </div>
+          )}
           <div className="mt-3 flex justify-between border-t border-neutral-200 pt-3 font-semibold text-neutral-900">
             <span>Total ({totalItems} items)</span>
-            <span>{formatPrice(totalPrice)}</span>
+            <span>{formatPrice(finalTotal)}</span>
           </div>
         </div>
       </div>

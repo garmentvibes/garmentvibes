@@ -124,6 +124,9 @@ export function RetailSiteHeader() {
             <Link href="/shop/orders" onClick={() => setMenuOpen(false)}>
               My Orders
             </Link>
+            <Link href="/shop/addresses" onClick={() => setMenuOpen(false)}>
+              My Addresses
+            </Link>
           </nav>
         </div>
       )}
