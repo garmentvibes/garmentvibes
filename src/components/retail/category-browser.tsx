@@ -21,13 +21,31 @@ const SORT_LABELS: Record<SortKey, string> = {
   rating: "Customer Rating",
 };
 
-export function CategoryBrowser({ products }: { products: RetailProduct[] }) {
+export function CategoryBrowser({
+  products,
+  initialSubcategory,
+}: {
+  products: RetailProduct[];
+  initialSubcategory?: string;
+}) {
   const [sort, setSort] = useState<SortKey>("popularity");
   const [priceBucket, setPriceBucket] = useState<number | null>(null);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
+    initialSubcategory ? [initialSubcategory] : []
+  );
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
 
   const allSizes = useMemo(
     () => Array.from(new Set(products.flatMap((p) => p.sizes.map((s) => s.label)))),
+    [products]
+  );
+  const allSubcategories = useMemo(
+    () => Array.from(new Set(products.map((p) => p.subcategory))).sort(),
+    [products]
+  );
+  const allBrands = useMemo(
+    () => Array.from(new Set(products.map((p) => p.brand))).sort(),
     [products]
   );
 
@@ -41,6 +59,14 @@ export function CategoryBrowser({ products }: { products: RetailProduct[] }) {
 
     if (selectedSizes.length > 0) {
       list = list.filter((p) => p.sizes.some((s) => s.inStock && selectedSizes.includes(s.label)));
+    }
+
+    if (selectedSubcategories.length > 0) {
+      list = list.filter((p) => selectedSubcategories.includes(p.subcategory));
+    }
+
+    if (selectedBrands.length > 0) {
+      list = list.filter((p) => selectedBrands.includes(p.brand));
     }
 
     switch (sort) {
@@ -58,15 +84,42 @@ export function CategoryBrowser({ products }: { products: RetailProduct[] }) {
     }
 
     return list;
-  }, [products, sort, priceBucket, selectedSizes]);
+  }, [products, sort, priceBucket, selectedSizes, selectedSubcategories, selectedBrands]);
 
   function toggleSize(size: string) {
     setSelectedSizes((prev) => (prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]));
   }
 
+  function toggleSubcategory(sub: string) {
+    setSelectedSubcategories((prev) => (prev.includes(sub) ? prev.filter((s) => s !== sub) : [...prev, sub]));
+  }
+
+  function toggleBrand(brand: string) {
+    setSelectedBrands((prev) => (prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]));
+  }
+
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
       <aside className="space-y-6 md:col-span-1">
+        {allSubcategories.length > 1 && (
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-neutral-900">Category</h3>
+            <div className="space-y-1.5 text-sm text-neutral-600">
+              {allSubcategories.map((sub) => (
+                <label key={sub} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedSubcategories.includes(sub)}
+                    onChange={() => toggleSubcategory(sub)}
+                    className="accent-rose-600"
+                  />
+                  {sub}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <h3 className="mb-2 text-sm font-semibold text-neutral-900">Price</h3>
           <div className="space-y-1.5 text-sm text-neutral-600">
@@ -84,6 +137,25 @@ export function CategoryBrowser({ products }: { products: RetailProduct[] }) {
             ))}
           </div>
         </div>
+
+        {allBrands.length > 1 && (
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-neutral-900">Brand</h3>
+            <div className="space-y-1.5 text-sm text-neutral-600">
+              {allBrands.map((brand) => (
+                <label key={brand} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedBrands.includes(brand)}
+                    onChange={() => toggleBrand(brand)}
+                    className="accent-rose-600"
+                  />
+                  {brand}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {allSizes.length > 0 && (
           <div>

@@ -8,12 +8,11 @@ import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useWishlistStore } from "@/lib/stores/wishlist-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { MegaMenu } from "@/components/retail/mega-menu";
+import { RETAIL_TAXONOMY, CATEGORY_LABELS } from "@/lib/mock/category-taxonomy";
+import type { RetailCategory } from "@/types/catalog";
 
-const NAV_LINKS = [
-  { href: "/shop/women", label: "Women" },
-  { href: "/shop/men", label: "Men" },
-  { href: "/shop/kids", label: "Kids" },
-];
+const NAV_CATEGORIES: RetailCategory[] = ["women", "men", "kids"];
 
 export function RetailSiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -52,13 +51,7 @@ export function RetailSiteHeader() {
           GarmentVibes
         </Link>
 
-        <nav className="hidden gap-5 text-sm font-medium text-neutral-700 sm:flex">
-          {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="hover:text-rose-600">
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <MegaMenu />
 
         <form onSubmit={handleSearch} className="ml-auto hidden flex-1 max-w-xs sm:flex">
           <div className="flex w-full items-center gap-2 rounded-full border border-neutral-200 px-3 py-1.5 text-sm text-neutral-500 focus-within:border-rose-400">
@@ -117,21 +110,50 @@ export function RetailSiteHeader() {
               className="w-full bg-transparent outline-none placeholder:text-neutral-400"
             />
           </form>
-          <nav className="flex flex-col gap-3 text-sm font-medium text-neutral-700">
-            {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>
-                {link.label}
-              </Link>
+          <nav className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
+            {NAV_CATEGORIES.map((category) => (
+              <details key={category} className="group">
+                <summary className="flex cursor-pointer list-none items-center justify-between py-2">
+                  <Link href={`/shop/${category}`} onClick={() => setMenuOpen(false)}>
+                    {CATEGORY_LABELS[category]}
+                  </Link>
+                  <span className="text-neutral-400 group-open:rotate-180">&#9662;</span>
+                </summary>
+                <div className="grid grid-cols-2 gap-3 py-2 pl-3">
+                  {RETAIL_TAXONOMY[category].map((dept) => (
+                    <div key={dept.label}>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        {dept.label}
+                      </p>
+                      <ul className="mt-1 space-y-1">
+                        {dept.subcategories.map((sub) => (
+                          <li key={sub}>
+                            <Link
+                              href={`/shop/${category}?subcategory=${encodeURIComponent(sub)}`}
+                              onClick={() => setMenuOpen(false)}
+                              className="text-neutral-600"
+                            >
+                              {sub}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </details>
             ))}
-            <Link href="/shop/wishlist" onClick={() => setMenuOpen(false)}>
-              Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
-            </Link>
-            <Link href="/shop/orders" onClick={() => setMenuOpen(false)}>
-              My Orders
-            </Link>
-            <Link href="/shop/addresses" onClick={() => setMenuOpen(false)}>
-              My Addresses
-            </Link>
+            <div className="mt-2 flex flex-col gap-3 border-t border-neutral-100 pt-3">
+              <Link href="/shop/wishlist" onClick={() => setMenuOpen(false)}>
+                Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
+              </Link>
+              <Link href="/shop/orders" onClick={() => setMenuOpen(false)}>
+                My Orders
+              </Link>
+              <Link href="/shop/addresses" onClick={() => setMenuOpen(false)}>
+                My Addresses
+              </Link>
+            </div>
           </nav>
         </div>
       )}

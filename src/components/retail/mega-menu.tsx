@@ -1,0 +1,44 @@
+import Link from "next/link";
+import { RETAIL_TAXONOMY, CATEGORY_LABELS } from "@/lib/mock/category-taxonomy";
+import type { RetailCategory } from "@/types/catalog";
+
+const CATEGORIES: RetailCategory[] = ["women", "men", "kids"];
+
+export function MegaMenu() {
+  return (
+    <nav className="hidden gap-1 text-sm font-medium text-neutral-700 sm:flex">
+      {CATEGORIES.map((category) => (
+        <div key={category} className="group relative">
+          <Link
+            href={`/shop/${category}`}
+            className="block rounded-md px-3 py-2 hover:text-rose-600 group-hover:text-rose-600"
+          >
+            {CATEGORY_LABELS[category]}
+          </Link>
+
+          <div className="invisible absolute left-0 top-full z-50 flex gap-8 rounded-lg border border-neutral-200 bg-white p-6 opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100">
+            {RETAIL_TAXONOMY[category].map((dept) => (
+              <div key={dept.label} className="min-w-36">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                  {dept.label}
+                </p>
+                <ul className="space-y-1.5">
+                  {dept.subcategories.map((sub) => (
+                    <li key={sub}>
+                      <Link
+                        href={`/shop/${category}?subcategory=${encodeURIComponent(sub)}`}
+                        className="whitespace-nowrap text-neutral-600 hover:text-rose-600"
+                      >
+                        {sub}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
