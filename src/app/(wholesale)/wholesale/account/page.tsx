@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ClipboardList, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSessionStore } from "@/lib/stores/session-store";
 
@@ -29,9 +31,31 @@ export default function WholesaleAccountPage() {
         <p className="text-sm text-slate-500">{user.name}</p>
         <p className="text-sm text-slate-500">{user.email}</p>
       </div>
+
+      <div className="mt-4 space-y-2">
+        <Link
+          href="/wholesale/dashboard"
+          className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-medium text-slate-800 hover:border-blue-200"
+        >
+          <ClipboardList className="h-5 w-5 text-slate-400" /> Order &amp; Quote History
+        </Link>
+        <Link
+          href="/wholesale/settings"
+          className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-medium text-slate-800 hover:border-blue-200"
+        >
+          <Settings className="h-5 w-5 text-slate-400" /> Business Settings
+        </Link>
+        <Link
+          href="/wholesale/team"
+          className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-medium text-slate-800 hover:border-blue-200"
+        >
+          <Users className="h-5 w-5 text-slate-400" /> Team Members
+        </Link>
+      </div>
+
       <Button
         variant="outline"
-        className="mt-4"
+        className="mt-4 w-full"
         onClick={() => {
           logout();
           toast.success("Signed out");

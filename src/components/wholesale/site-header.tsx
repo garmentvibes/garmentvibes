@@ -113,6 +113,9 @@ export function WholesaleSiteHeader() {
             <Link href="/wholesale/settings" onClick={() => setMenuOpen(false)}>
               Business Settings
             </Link>
+            <Link href="/wholesale/team" onClick={() => setMenuOpen(false)}>
+              Team Members
+            </Link>
           </nav>
         </div>
       )}
