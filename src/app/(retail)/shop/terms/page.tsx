@@ -1,0 +1,39 @@
+import { ContentPage } from "@/components/shared/content-page";
+
+export const metadata = { title: "Terms of Service" };
+
+export default function TermsPage() {
+  return (
+    <ContentPage title="Terms of Service" subtitle="Last updated: August 2026" accent="text-rose-700">
+      <p>
+        By using GarmentVibes, you agree to the terms below. Please read them carefully before placing
+        an order.
+      </p>
+      <h2>1. Orders &amp; Pricing</h2>
+      <p>
+        All prices are listed in Indian Rupees (INR) and are inclusive of applicable taxes unless
+        stated otherwise. We reserve the right to correct pricing errors and cancel orders placed at
+        an incorrect price.
+      </p>
+      <h2>2. Payments</h2>
+      <p>
+        Payment processing is currently in a simulated mode while our payment integration is being
+        completed. No real charges are made yet.
+      </p>
+      <h2>3. Shipping</h2>
+      <p>
+        Delivery timelines are estimates and may vary due to courier delays, weather, or regional
+        restrictions. See our Shipping Policy for details.
+      </p>
+      <h2>4. Returns &amp; Cancellations</h2>
+      <p>Return and cancellation terms will be published once our returns process is finalized.</p>
+      <h2>5. Account Responsibility</h2>
+      <p>
+        You are responsible for maintaining the confidentiality of your account credentials and for
+        all activity under your account.
+      </p>
+      <h2>6. Changes to These Terms</h2>
+      <p>We may update these terms from time to time. Continued use of the site means you accept the changes.</p>
+    </ContentPage>
+  );
+}

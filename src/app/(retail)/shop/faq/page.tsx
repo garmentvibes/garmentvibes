@@ -1,0 +1,41 @@
+import { ContentPage } from "@/components/shared/content-page";
+
+export const metadata = { title: "FAQ" };
+
+const FAQS = [
+  {
+    q: "How long does delivery take?",
+    a: "Most orders are delivered within 3-7 business days depending on your location. You'll get tracking details by email once your order ships.",
+  },
+  {
+    q: "What is your return policy?",
+    a: "We accept returns within 7 days of delivery for unused items in original packaging. Visit the Returns section in your order details to start a request.",
+  },
+  {
+    q: "Do you offer Cash on Delivery?",
+    a: "Cash on Delivery and online payments will both be supported once payments go live. Right now, checkout is running in a simulated (no real charge) mode.",
+  },
+  {
+    q: "How do I track my order?",
+    a: "Go to My Orders in your account to see the status of every order you've placed.",
+  },
+  {
+    q: "Can I change my delivery address after placing an order?",
+    a: "Contact support as soon as possible — we can update the address if the order hasn't shipped yet.",
+  },
+];
+
+export default function FaqPage() {
+  return (
+    <ContentPage title="Frequently Asked Questions" accent="text-rose-700">
+      <div className="space-y-3">
+        {FAQS.map((item) => (
+          <details key={item.q} className="rounded-lg border border-neutral-200 p-4">
+            <summary className="cursor-pointer font-medium text-neutral-900">{item.q}</summary>
+            <p className="mt-2 text-sm text-neutral-600">{item.a}</p>
+          </details>
+        ))}
+      </div>
+    </ContentPage>
+  );
+}
