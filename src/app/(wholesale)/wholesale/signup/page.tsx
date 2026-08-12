@@ -36,6 +36,9 @@ export default function WholesaleSignupPage() {
       email: data.email,
       role: "wholesale",
       businessName: data.businessName,
+      gstin: data.gstin,
+      approvalStatus: "pending",
+      paymentTerms: "prepay",
     });
     toast.success("Business account created — pending verification");
     router.push("/wholesale/dashboard");

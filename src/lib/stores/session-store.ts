@@ -6,6 +6,9 @@ import { persist } from "zustand/middleware";
 // a server-derived session once wired up — do not treat this as secure.
 export type UserRole = "retail" | "wholesale";
 
+export type WholesaleApprovalStatus = "pending" | "approved";
+export type PaymentTerms = "prepay" | "net30";
+
 export interface MockUser {
   name: string;
   email: string;
@@ -13,6 +16,9 @@ export interface MockUser {
   role: UserRole;
   businessName?: string; // wholesale only
   gstin?: string; // wholesale only
+  approvalStatus?: WholesaleApprovalStatus; // wholesale only — new signups start "pending"
+  paymentTerms?: PaymentTerms; // wholesale only
+  creditTermsRequested?: boolean; // wholesale only
 }
 
 interface SessionState {

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MapPin, Star, Trash2, Plus } from "lucide-react";
+import { MapPin, Star, Trash2, Plus, ShieldCheck, Clock, CreditCard } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +52,11 @@ export default function WholesaleSettingsPage() {
     toast.success("Business profile updated");
   }
 
+  function requestCreditTerms() {
+    updateProfile({ creditTermsRequested: true });
+    toast.success("Request sent — our team will review and follow up");
+  }
+
   function submitAddress(e: React.FormEvent) {
     e.preventDefault();
     if (!form.label || !form.contactName || !form.phone || !form.addressLine1 || !form.city || !form.state || !form.pincode) {
@@ -93,6 +99,49 @@ export default function WholesaleSettingsPage() {
             Save Changes
           </Button>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="mb-4 font-semibold text-slate-900">Account Status &amp; Payment Terms</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          {user.approvalStatus === "approved" ? (
+            <Badge variant="success">
+              <ShieldCheck className="mr-1 h-3 w-3" /> Approved
+            </Badge>
+          ) : (
+            <Badge variant="warning">
+              <Clock className="mr-1 h-3 w-3" /> Pending Verification
+            </Badge>
+          )}
+          <Badge variant="outline">
+            <CreditCard className="mr-1 h-3 w-3" />
+            {user.paymentTerms === "net30" ? "Net 30 Terms" : "Prepay"}
+          </Badge>
+        </div>
+
+        {user.paymentTerms !== "net30" && (
+          <div className="mt-4">
+            {user.creditTermsRequested ? (
+              <p className="text-sm text-slate-500">
+                Net-30 credit terms requested — our team will review and follow up.
+              </p>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={user.approvalStatus !== "approved"}
+                onClick={requestCreditTerms}
+              >
+                Request Net-30 Credit Terms
+              </Button>
+            )}
+            {user.approvalStatus !== "approved" && !user.creditTermsRequested && (
+              <p className="mt-1 text-xs text-slate-400">
+                Available once your account is approved.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">

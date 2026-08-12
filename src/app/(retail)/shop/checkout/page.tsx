@@ -7,13 +7,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Tag } from "lucide-react";
+import { Tag, Truck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
 import { useAddressStore } from "@/lib/stores/address-store";
-import { formatPrice, generateReferenceId } from "@/lib/utils";
+import { useSessionStore } from "@/lib/stores/session-store";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { cn, formatPrice, generateReferenceId } from "@/lib/utils";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Enter your full name"),
@@ -33,6 +35,8 @@ const PROMO_CODES: Record<string, number> = {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const mounted = useHasMounted();
+  const user = useSessionStore((s) => s.user);
   const lines = useCartStore((s) => s.lines);
   const clear = useCartStore((s) => s.clear);
   const addresses = useAddressStore((s) => s.addresses);
@@ -40,6 +44,7 @@ export default function CheckoutPage() {
 
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; percent: number } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
 
   const {
     register,
@@ -74,10 +79,35 @@ export default function CheckoutPage() {
   const finalTotal = totalPrice - discount;
 
   function onSubmit() {
-    // Payments (Stripe / Razorpay) are stubbed for now — Phase 5 wires real checkout.
+    // Real online payment (Razorpay) and COD fulfillment aren't wired up
+    // yet — Phase 5 wires real checkout. This simulates a successful order.
     const orderId = generateReferenceId("GV");
     clear();
-    router.push(`/shop/order-confirmation?order=${orderId}`);
+    router.push(`/shop/order-confirmation?order=${orderId}&method=${paymentMethod}`);
+  }
+
+  // Not signed in yet — require an account before checkout (guest checkout
+  // isn't supported, per product decision).
+  if (!mounted) return null;
+  if (!user || user.role !== "retail") {
+    return (
+      <div className="mx-auto max-w-sm px-4 py-20 text-center sm:px-6">
+        <h1 className="text-xl font-bold text-neutral-900">Sign in to check out</h1>
+        <p className="mt-2 text-neutral-500">
+          Create an account or sign in to save your address and complete your order.
+        </p>
+        <Link href="/shop/login?redirect=/shop/checkout">
+          <Button variant="retail" className="mt-6 w-full">
+            Sign In
+          </Button>
+        </Link>
+        <Link href="/shop/signup?redirect=/shop/checkout">
+          <Button variant="outline" className="mt-2 w-full">
+            Create Account
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   if (lines.length === 0) {
@@ -152,13 +182,46 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          <h2 className="pt-2 font-semibold text-neutral-900">Payment Method</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("online")}
+              className={cn(
+                "flex items-center gap-3 rounded-md border p-3 text-left text-sm",
+                paymentMethod === "online" ? "border-rose-600 bg-rose-50" : "border-neutral-300"
+              )}
+            >
+              <Wallet className="h-5 w-5 text-rose-600" />
+              <div>
+                <p className="font-medium text-neutral-900">Pay Online</p>
+                <p className="text-xs text-neutral-500">UPI, Cards, Netbanking via Razorpay</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("cod")}
+              className={cn(
+                "flex items-center gap-3 rounded-md border p-3 text-left text-sm",
+                paymentMethod === "cod" ? "border-rose-600 bg-rose-50" : "border-neutral-300"
+              )}
+            >
+              <Truck className="h-5 w-5 text-rose-600" />
+              <div>
+                <p className="font-medium text-neutral-900">Cash on Delivery</p>
+                <p className="text-xs text-neutral-500">Pay when your order arrives</p>
+              </div>
+            </button>
+          </div>
+
           <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-500">
-            Payment method: Stripe / Razorpay checkout is coming in a later build phase. Placing an
-            order here simulates a successful payment.
+            {paymentMethod === "online"
+              ? "Razorpay checkout is coming in a later build phase. Placing an order here simulates a successful payment."
+              : "You'll pay in cash to the delivery agent when your order arrives."}
           </div>
 
           <Button type="submit" variant="retail" size="lg" className="w-full" disabled={isSubmitting}>
-            Place Order &middot; {formatPrice(finalTotal)}
+            {paymentMethod === "cod" ? "Place Order (COD)" : "Place Order"} &middot; {formatPrice(finalTotal)}
           </Button>
         </form>
 

@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatPrice, generateReferenceId } from "@/lib/utils";
 import { useWholesaleOrderStore, wholesaleOrderTotals } from "@/lib/stores/wholesale-order-store";
+import { useSessionStore } from "@/lib/stores/session-store";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 
 export default function WholesaleOrderReviewPage() {
+  const mounted = useHasMounted();
   const lines = useWholesaleOrderStore((s) => s.lines);
   const removeLine = useWholesaleOrderStore((s) => s.removeLine);
   const clear = useWholesaleOrderStore((s) => s.clear);
   const { totalUnits, totalPrice } = wholesaleOrderTotals(lines);
+  const user = useSessionStore((s) => s.user);
   const router = useRouter();
 
   if (lines.length === 0) {
@@ -29,7 +33,15 @@ export default function WholesaleOrderReviewPage() {
     );
   }
 
+  const isSignedIn = mounted && user?.role === "wholesale";
+  const isApproved = isSignedIn && user.approvalStatus === "approved";
+
   function handleSubmit(kind: "quote" | "order") {
+    if (!isSignedIn) {
+      toast.error("Sign in to your business account first");
+      router.push("/wholesale/login");
+      return;
+    }
     const quoteId = generateReferenceId("GVQ");
     clear();
     if (kind === "quote") {
@@ -81,15 +93,32 @@ export default function WholesaleOrderReviewPage() {
             <span>Estimated total</span>
             <span>{formatPrice(totalPrice)}</span>
           </div>
+          <div className="mt-1 flex justify-between text-xs text-slate-400">
+            <span>Payment terms</span>
+            <span className="capitalize">
+              {isSignedIn ? (user.paymentTerms === "net30" ? "Net 30" : "Prepay") : "Sign in to view"}
+            </span>
+          </div>
           <p className="mt-2 text-xs text-slate-400">
             Final pricing confirmed on quote. GST and shipping calculated separately.
           </p>
+
           <Button variant="wholesale" size="lg" className="mt-5 w-full" onClick={() => handleSubmit("quote")}>
             Request Quote
           </Button>
-          <Button variant="outline" size="lg" className="mt-2 w-full" onClick={() => handleSubmit("order")}>
-            Place Order Directly
-          </Button>
+
+          {isApproved ? (
+            <Button variant="outline" size="lg" className="mt-2 w-full" onClick={() => handleSubmit("order")}>
+              Place Order Directly
+            </Button>
+          ) : (
+            <div className="mt-2 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-center text-xs text-slate-500">
+              <Lock className="mx-auto mb-1 h-4 w-4 text-slate-400" />
+              {isSignedIn
+                ? "Placing orders directly unlocks once your account is approved — request a quote in the meantime."
+                : "Sign in to a verified business account to place orders directly."}
+            </div>
+          )}
         </div>
       </div>
     </div>

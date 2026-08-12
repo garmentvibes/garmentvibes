@@ -7,7 +7,7 @@ B2B wholesale portal, in one Next.js app, installable as a PWA on phones and tab
 
 - **Framework**: Next.js (App Router) + TypeScript + Tailwind CSS v4
 - **Backend**: Supabase (Postgres, Auth, Storage, RLS)
-- **Payments**: Stripe (international) + Razorpay (India)
+- **Payments**: Razorpay (India, INR-only for now)
 - **Hosting**: Vercel, custom domain via Hostinger DNS
 - **UI**: hand-rolled components (`src/components/ui`) using `class-variance-authority` + Tailwind
 
@@ -39,7 +39,7 @@ data** (`src/lib/mock/`) with a placeholder client-side session
 (`src/lib/stores/session-store.ts`) standing in for Supabase Auth, and a
 stubbed checkout (no real payment charge yet). This lets the whole app run
 and be clicked through with `npm run dev` even before a live Supabase
-project/Stripe/Razorpay are wired up. `src/proxy.ts` degrades gracefully —
+project/Razorpay are wired up. `src/proxy.ts` degrades gracefully —
 if `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` aren't set, it
 passes requests through instead of throwing.
 
@@ -51,7 +51,7 @@ not shared SKUs with dual pricing) — see `src/types/catalog.ts` and
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in Supabase/Stripe/Razorpay keys
+cp .env.example .env.local   # fill in Supabase/Razorpay keys
 npm run dev
 ```
 
