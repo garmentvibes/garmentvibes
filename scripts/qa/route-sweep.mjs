@@ -70,6 +70,22 @@ function fail(msg) {
   console.error(`✗ ${msg}`);
   failures++;
 }
+
+// page.goto() takes a timeout, but page.title() and page.evaluate() do not —
+// they wait forever on a page whose main thread is wedged (an infinite render
+// loop, say). That would turn a bad page into a silent hang rather than a
+// failure. Bound them explicitly so the sweep always terminates and names the
+// route that stalled.
+class StepTimeout extends Error {}
+function withTimeout(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new StepTimeout(`${label} timed out after ${ms}ms`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 function pass(msg) {
   console.log(`✓ ${msg}`);
 }
@@ -114,37 +130,51 @@ for (const route of [...routes].sort()) {
   }
 
   if (status === 200) {
-    const title = await page.title();
-    if (!title || title.trim() === "") fail(`${route} — missing <title>`);
+    try {
+      const title = await withTimeout(page.title(), 15000, "page.title()");
+      if (!title || title.trim() === "") fail(`${route} — missing <title>`);
 
-    const a11y = await page.evaluate(() => {
-      const issues = [];
-      document.querySelectorAll("img").forEach((img) => {
-        if (!img.hasAttribute("alt")) issues.push(`<img src="${img.getAttribute("src")?.slice(0, 40)}"> missing alt`);
-      });
-      document.querySelectorAll("button, a").forEach((el) => {
-        const hasText = el.textContent && el.textContent.trim().length > 0;
-        const hasLabel = el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby");
-        const isIconOnly = !hasText && el.querySelector("svg");
-        if (isIconOnly && !hasLabel) {
-          issues.push(`icon-only <${el.tagName.toLowerCase()}> missing aria-label (class="${el.className.toString().slice(0, 50)}")`);
-        }
-      });
-      document.querySelectorAll("input, textarea, select").forEach((el) => {
-        if (el.type === "hidden" || el.type === "submit" || el.type === "button") return;
-        if (el.getAttribute("aria-hidden") === "true") return; // not exposed to assistive tech
-        const id = el.getAttribute("id");
-        const hasFor = id && document.querySelector(`label[for="${CSS.escape(id)}"]`);
-        const hasWrappingLabel = el.closest("label"); // <label><input/>Text</label> is valid
-        const hasAria = el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby");
-        const hasPlaceholder = el.hasAttribute("placeholder");
-        if (!hasFor && !hasWrappingLabel && !hasAria && !hasPlaceholder) {
-          issues.push(`<${el.tagName.toLowerCase()}> missing an associated label (id="${id}")`);
-        }
-      });
-      return issues;
-    });
-    for (const issue of a11y) fail(`${route} — a11y: ${issue}`);
+      const a11y = await withTimeout(
+        page.evaluate(() => {
+          const issues = [];
+          document.querySelectorAll("img").forEach((img) => {
+            if (!img.hasAttribute("alt")) issues.push(`<img src="${img.getAttribute("src")?.slice(0, 40)}"> missing alt`);
+          });
+          document.querySelectorAll("button, a").forEach((el) => {
+            const hasText = el.textContent && el.textContent.trim().length > 0;
+            const hasLabel = el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby");
+            const isIconOnly = !hasText && el.querySelector("svg");
+            if (isIconOnly && !hasLabel) {
+              issues.push(`icon-only <${el.tagName.toLowerCase()}> missing aria-label (class="${el.className.toString().slice(0, 50)}")`);
+            }
+          });
+          document.querySelectorAll("input, textarea, select").forEach((el) => {
+            if (el.type === "hidden" || el.type === "submit" || el.type === "button") return;
+            if (el.getAttribute("aria-hidden") === "true") return; // not exposed to assistive tech
+            const id = el.getAttribute("id");
+            const hasFor = id && document.querySelector(`label[for="${CSS.escape(id)}"]`);
+            const hasWrappingLabel = el.closest("label"); // <label><input/>Text</label> is valid
+            const hasAria = el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby");
+            const hasPlaceholder = el.hasAttribute("placeholder");
+            if (!hasFor && !hasWrappingLabel && !hasAria && !hasPlaceholder) {
+              issues.push(`<${el.tagName.toLowerCase()}> missing an associated label (id="${id}")`);
+            }
+          });
+          return issues;
+        }),
+        20000,
+        "a11y page.evaluate()"
+      );
+      for (const issue of a11y) fail(`${route} — a11y: ${issue}`);
+    } catch (e) {
+      if (e instanceof StepTimeout) {
+        // The page loaded but its main thread never became responsive —
+        // usually an infinite render loop. Name the route and keep going.
+        fail(`${route} — page became unresponsive: ${e.message}`);
+      } else {
+        throw e;
+      }
+    }
   }
 
   // The 404 route itself logs a "Failed to load resource: 404" browser
