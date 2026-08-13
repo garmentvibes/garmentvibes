@@ -56,7 +56,14 @@ qa:routes` to point at a deployed preview instead of localhost).
   Also covers the admin panel: access gating, the wholesale approval queue,
   retail order and quote status transitions, product creation, and the
   guardrail rejecting a wholesale price tier that costs *more* at higher
-  quantity.
+  quantity. The `seo` flow additionally parses every JSON-LD block on the
+  page and asserts the fields Google actually requires (offer price +
+  currency + availability, aggregateRating, breadcrumb trail, FAQPage), that
+  wholesale uses `AggregateOffer` with `lowPrice <= highPrice`, that
+  `robots.txt`/`sitemap.xml` are served and consistent with each other, and
+  that the generated OG image route returns a real PNG. One check exists
+  purely to catch a 100x error: schema prices must be rupees (`1499.00`),
+  not the paise we store internally.
 - **`qa:pwa`** (`pwa-checks.mjs`) — validates the manifest has everything a
   browser needs to consider the app installable (including a maskable
   icon), asserts `sw.js` is served uncacheable, then actually registers the

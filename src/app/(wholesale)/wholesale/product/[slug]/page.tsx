@@ -10,6 +10,8 @@ import {
   getRelatedWholesaleProducts,
 } from "@/lib/mock/wholesale-products";
 import { WHOLESALE_CATEGORY_LABELS } from "@/lib/mock/wholesale-taxonomy";
+import { JsonLd } from "@/components/shared/json-ld";
+import { breadcrumbSchema, wholesaleProductSchema } from "@/lib/seo";
 
 export function generateStaticParams() {
   return WHOLESALE_PRODUCTS.map((p) => ({ slug: p.slug }));
@@ -23,7 +25,17 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = getWholesaleProductBySlug(slug);
   if (!product) return {};
-  return { title: product.name, description: product.description };
+  return {
+    title: product.name,
+    description: product.description,
+    alternates: { canonical: `/wholesale/product/${product.slug}` },
+    openGraph: {
+      type: "website",
+      title: `${product.name} — Wholesale`,
+      description: product.description,
+      url: `/wholesale/product/${product.slug}`,
+    },
+  };
 }
 
 export default async function WholesaleProductPage({
@@ -39,6 +51,19 @@ export default async function WholesaleProductPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <JsonLd
+        data={[
+          wholesaleProductSchema(product),
+          breadcrumbSchema([
+            { name: "Catalog", path: "/wholesale/catalog" },
+            {
+              name: WHOLESALE_CATEGORY_LABELS[product.category],
+              path: `/wholesale/catalog/${product.category}`,
+            },
+            { name: product.name, path: `/wholesale/product/${product.slug}` },
+          ]),
+        ]}
+      />
       <WholesaleBreadcrumbs
         items={[
           { label: "Catalog", href: "/wholesale/catalog" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,7 @@ import { useAddressStore } from "@/lib/stores/address-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { cn, formatPrice, generateReferenceId } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Enter your full name"),
@@ -41,6 +42,15 @@ export default function CheckoutPage() {
   const clear = useCartStore((s) => s.clear);
   const addresses = useAddressStore((s) => s.addresses);
   const { totalItems, totalPrice } = cartTotals(lines);
+
+  // Fire once the persisted cart has hydrated, so the event carries the real
+  // basket rather than the empty pre-hydration one.
+  const checkoutStarted = useRef(false);
+  useEffect(() => {
+    if (!mounted || checkoutStarted.current || lines.length === 0) return;
+    checkoutStarted.current = true;
+    track({ name: "begin_checkout", itemCount: totalItems, value: totalPrice });
+  }, [mounted, lines.length, totalItems, totalPrice]);
 
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; percent: number } | null>(null);
@@ -82,6 +92,7 @@ export default function CheckoutPage() {
     // Real online payment (Razorpay) and COD fulfillment aren't wired up
     // yet — Phase 5 wires real checkout. This simulates a successful order.
     const orderId = generateReferenceId("GV");
+    track({ name: "purchase", orderId, value: finalTotal, paymentMethod });
     clear();
     router.push(`/shop/order-confirmation?order=${orderId}&method=${paymentMethod}`);
   }

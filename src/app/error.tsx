@@ -2,16 +2,22 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/lib/analytics";
 
-export default function GlobalError({
+// Route-level boundary. Errors thrown by the root layout itself escape this
+// one — global-error.tsx catches those.
+//
+// Next.js 16.2 recommends `unstable_retry` over `reset`: it re-fetches the
+// segment's data before re-rendering, whereas `reset` only re-renders.
+export default function RouteError({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  unstable_retry: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    reportError(error, "route-error-boundary");
   }, [error]);
 
   return (
@@ -22,7 +28,7 @@ export default function GlobalError({
         An unexpected error occurred. You can try again, or head back to the homepage.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-3">
-        <Button variant="default" onClick={() => reset()}>
+        <Button variant="default" onClick={() => unstable_retry()}>
           Try Again
         </Button>
         <Button variant="outline" onClick={() => (window.location.href = "/")}>

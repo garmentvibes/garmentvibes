@@ -15,6 +15,8 @@ import {
   getRelatedRetailProducts,
 } from "@/lib/mock/retail-products";
 import { getRetailReviews } from "@/lib/mock/retail-reviews";
+import { JsonLd } from "@/components/shared/json-ld";
+import { breadcrumbSchema, retailProductSchema } from "@/lib/seo";
 import { formatPrice } from "@/lib/utils";
 
 export function generateStaticParams() {
@@ -32,6 +34,13 @@ export async function generateMetadata({
   return {
     title: product.name,
     description: product.description,
+    alternates: { canonical: `/shop/product/${product.slug}` },
+    openGraph: {
+      type: "website",
+      title: `${product.name} — ${product.brand}`,
+      description: product.description,
+      url: `/shop/product/${product.slug}`,
+    },
   };
 }
 
@@ -46,7 +55,21 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <RecentlyViewedTracker productId={product.id} />
+      <JsonLd
+        data={[
+          retailProductSchema(product),
+          breadcrumbSchema([
+            { name: "Home", path: "/shop" },
+            { name: product.category, path: `/shop/${product.category}` },
+            { name: product.name, path: `/shop/product/${product.slug}` },
+          ]),
+        ]}
+      />
+      <RecentlyViewedTracker
+        productId={product.id}
+        productName={product.name}
+        price={product.price}
+      />
       <Breadcrumbs
         items={[
           { label: product.category, href: `/shop/${product.category}` },

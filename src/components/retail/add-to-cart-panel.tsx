@@ -9,6 +9,7 @@ import { DeliveryEstimator } from "@/components/retail/delivery-estimator";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/lib/stores/cart-store";
 import { useStockStore, getStock, LOW_STOCK_THRESHOLD } from "@/lib/stores/stock-store";
+import { track } from "@/lib/analytics";
 import type { RetailProduct } from "@/types/catalog";
 
 export function AddToCartPanel({ product }: { product: RetailProduct }) {
@@ -42,6 +43,13 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
       size,
       color,
       qty: 1,
+    });
+    track({
+      name: "add_to_cart",
+      productId: product.id,
+      size,
+      qty: 1,
+      price: product.price,
     });
     toast.success(`${product.name} added to bag`);
   }

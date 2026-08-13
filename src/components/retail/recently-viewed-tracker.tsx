@@ -2,14 +2,25 @@
 
 import { useEffect } from "react";
 import { useRecentlyViewedStore } from "@/lib/stores/recently-viewed-store";
+import { track } from "@/lib/analytics";
 
-// Invisible — just records the current product into recently-viewed on mount.
-export function RecentlyViewedTracker({ productId }: { productId: string }) {
+// Invisible — records the current product into recently-viewed on mount and
+// emits the product_viewed analytics event.
+export function RecentlyViewedTracker({
+  productId,
+  productName,
+  price,
+}: {
+  productId: string;
+  productName: string;
+  price: number;
+}) {
   const record = useRecentlyViewedStore((s) => s.record);
 
   useEffect(() => {
     record(productId);
-  }, [productId, record]);
+    track({ name: "product_viewed", productId, productName, price });
+  }, [productId, productName, price, record]);
 
   return null;
 }

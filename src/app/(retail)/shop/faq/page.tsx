@@ -1,4 +1,6 @@
 import { ContentPage } from "@/components/shared/content-page";
+import { JsonLd } from "@/components/shared/json-ld";
+import { faqSchema } from "@/lib/seo";
 
 export const metadata = { title: "FAQ" };
 
@@ -32,6 +34,7 @@ const FAQS = [
 export default function FaqPage() {
   return (
     <ContentPage title="Frequently Asked Questions" accent="text-rose-700">
+      <JsonLd data={faqSchema(FAQS.map((f) => ({ question: f.q, answer: f.a })))} />
       <div className="space-y-3">
         {FAQS.map((item) => (
           <details key={item.q} className="rounded-lg border border-neutral-200 p-4">

@@ -1,13 +1,22 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CategoryBrowser } from "@/components/retail/category-browser";
 import { searchRetailProducts } from "@/lib/mock/retail-products";
+import { track } from "@/lib/analytics";
 
 export function SearchResults() {
   const query = useSearchParams().get("q") ?? "";
   const results = searchRetailProducts(query);
+
+  // Zero-result searches are the most actionable analytics signal a store
+  // has — they name products customers want and we don't list.
+  const resultCount = results.length;
+  useEffect(() => {
+    if (query.trim()) track({ name: "search", query, resultCount });
+  }, [query, resultCount]);
 
   return (
     <>

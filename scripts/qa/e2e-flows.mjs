@@ -372,6 +372,97 @@ allConsoleErrors.push(
   }))
 );
 
+// ---------------------------------------------------------------------------
+// SEO: structured data, social cards, crawler files
+//
+// Rich results are silently lost if the JSON-LD is malformed, so these assert
+// the markup parses and carries the fields Google actually requires.
+// ---------------------------------------------------------------------------
+async function jsonLdBlocks(page) {
+  const raw = await page.locator('script[type="application/ld+json"]').allTextContents();
+  return raw.flatMap((text) => {
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return [{ __invalid: text.slice(0, 120) }];
+    }
+  });
+}
+
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+    const home = await jsonLdBlocks(page);
+    check("seo", "site JSON-LD parses", home.every((b) => !b.__invalid));
+    check("seo", "Organization schema present", home.some((b) => b["@type"] === "Organization"));
+    const website = home.find((b) => b["@type"] === "WebSite");
+    check("seo", "WebSite schema exposes a SearchAction", Boolean(website?.potentialAction));
+
+    // Retail product: the schema that drives price/stock/star rich results.
+    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    const product = (await jsonLdBlocks(page)).find((b) => b["@type"] === "Product");
+    check("seo", "product JSON-LD present", Boolean(product));
+    check("seo", "product offer has a price and currency", Boolean(product?.offers?.price && product?.offers?.priceCurrency));
+    check("seo", "product offer declares availability", String(product?.offers?.availability ?? "").includes("schema.org"));
+    check("seo", "product carries an aggregateRating", Boolean(product?.aggregateRating?.ratingValue));
+    // Price must be a decimal string, not paise — a 100x error here would
+    // publish wrong prices to Google.
+    check("seo", "schema price is in rupees, not paise", /^\d+\.\d{2}$/.test(String(product?.offers?.price ?? "")));
+
+    const breadcrumb = (await jsonLdBlocks(page)).find((b) => b["@type"] === "BreadcrumbList");
+    check("seo", "breadcrumb schema present on product", Boolean(breadcrumb?.itemListElement?.length));
+
+    check(
+      "seo",
+      "product page sets a canonical URL",
+      (await page.locator('link[rel="canonical"]').count()) > 0
+    );
+    check(
+      "seo",
+      "product page sets an OG image",
+      (await page.locator('meta[property="og:image"]').count()) > 0
+    );
+
+    // Wholesale uses AggregateOffer because bulk pricing is a range.
+    await page.goto(`${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`, { waitUntil: "networkidle" });
+    const bulk = (await jsonLdBlocks(page)).find((b) => b["@type"] === "Product");
+    check("seo", "wholesale product uses AggregateOffer", bulk?.offers?.["@type"] === "AggregateOffer");
+    check(
+      "seo",
+      "wholesale price range is ordered low to high",
+      Number(bulk?.offers?.lowPrice) <= Number(bulk?.offers?.highPrice)
+    );
+
+    await page.goto(`${BASE_URL}/shop/faq`, { waitUntil: "networkidle" });
+    const faq = (await jsonLdBlocks(page)).find((b) => b["@type"] === "FAQPage");
+    check("seo", "FAQ page emits FAQPage schema", Boolean(faq?.mainEntity?.length));
+
+    // Crawler files must be reachable and reference each other correctly.
+    const robots = await page.goto(`${BASE_URL}/robots.txt`);
+    const robotsBody = await robots.text();
+    check("seo", "robots.txt served", robots.status() === 200);
+    check("seo", "robots.txt disallows /admin", robotsBody.includes("/admin"));
+    check("seo", "robots.txt points at the sitemap", robotsBody.includes("sitemap.xml"));
+
+    const sitemap = await page.goto(`${BASE_URL}/sitemap.xml`);
+    const sitemapBody = await sitemap.text();
+    check("seo", "sitemap.xml served", sitemap.status() === 200);
+    check("seo", "sitemap lists product URLs", sitemapBody.includes("/shop/product/"));
+    check(
+      "seo",
+      "sitemap excludes admin routes",
+      !sitemapBody.includes("<loc>") || !/\/admin</.test(sitemapBody)
+    );
+
+    // OG images are generated routes — a runtime failure there returns 500
+    // and social previews silently fall back to nothing.
+    const og = await page.goto(`${BASE_URL}/opengraph-image`);
+    check("seo", "generated OG image renders", og.status() === 200);
+    check("seo", "OG image is a PNG", (og.headers()["content-type"] ?? "").includes("image/png"));
+  }))
+);
+
 await browser.close();
 
 const failed = results.filter((r) => !r.pass);

@@ -4,6 +4,7 @@ import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWishlistStore } from "@/lib/stores/wishlist-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { track } from "@/lib/analytics";
 
 export function WishlistButton({
   productId,
@@ -27,6 +28,7 @@ export function WishlistButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (!isSaved) track({ name: "wishlist_add", productId });
         toggle(productId);
       }}
       className={cn(
