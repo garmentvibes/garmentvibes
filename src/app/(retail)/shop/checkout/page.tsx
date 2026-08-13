@@ -17,6 +17,7 @@ import { useSessionStore } from "@/lib/stores/session-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { cn, formatPrice, generateReferenceId } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { notify } from "@/lib/stores/notification-store";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Enter your full name"),
@@ -88,11 +89,19 @@ export default function CheckoutPage() {
   const discount = appliedPromo ? Math.round((totalPrice * appliedPromo.percent) / 100) : 0;
   const finalTotal = totalPrice - discount;
 
-  function onSubmit() {
+  function onSubmit(data: CheckoutForm) {
     // Real online payment (Razorpay) and COD fulfillment aren't wired up
     // yet — Phase 5 wires real checkout. This simulates a successful order.
     const orderId = generateReferenceId("GV");
     track({ name: "purchase", orderId, value: finalTotal, paymentMethod });
+    notify({
+      templateId: "order_placed",
+      recipientName: data.fullName,
+      email: user?.email ?? "",
+      phone: data.phone,
+      relatedTo: orderId,
+      vars: { name: data.fullName, orderId, amount: formatPrice(finalTotal) },
+    });
     clear();
     router.push(`/shop/order-confirmation?order=${orderId}&method=${paymentMethod}`);
   }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { useAdminOrdersStore, useWholesaleQuote } from "@/lib/stores/admin-orders-store";
+import { notify } from "@/lib/stores/notification-store";
 import {
   WHOLESALE_QUOTE_STATUSES,
   WHOLESALE_QUOTE_STATUS_LABELS,
@@ -34,6 +35,27 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
 
   function updateStatus(status: WholesaleQuoteStatus) {
     setQuoteStatus(id, status);
+
+    // "quoted" is the one transition the buyer is actively waiting on.
+    if (status === "quoted" && quote) {
+      const queued = notify({
+        templateId: "quote_ready",
+        recipientName: quote.contactName,
+        email: quote.email,
+        relatedTo: quote.id,
+        vars: {
+          name: quote.contactName,
+          orderId: quote.id,
+          amount: formatPrice(wholesaleQuoteTotal(quote)),
+          businessName: quote.businessName,
+        },
+      });
+      toast.success(
+        `Marked as Quoted — ${queued.length} notification${queued.length === 1 ? "" : "s"} queued`
+      );
+      return;
+    }
+
     toast.success(`Marked as ${WHOLESALE_QUOTE_STATUS_LABELS[status]}`);
   }
 

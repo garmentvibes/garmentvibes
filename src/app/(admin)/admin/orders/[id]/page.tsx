@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { useAdminOrdersStore, useRetailOrder } from "@/lib/stores/admin-orders-store";
+import { notify } from "@/lib/stores/notification-store";
 import { RETAIL_ORDER_STATUSES, retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
+import type { NotificationTemplateId } from "@/types/notifications";
 
 export default function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -26,8 +28,38 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     );
   }
 
+  // Only some transitions are worth interrupting a customer for. Moving an
+  // order to "packed", for instance, is internal and notifies nobody.
+  const CUSTOMER_FACING: Partial<Record<RetailOrderStatus, NotificationTemplateId>> = {
+    shipped: "order_shipped",
+    delivered: "order_delivered",
+    cancelled: "order_cancelled",
+  };
+
   function updateStatus(status: RetailOrderStatus) {
     setRetailStatus(id, status);
+
+    const templateId = CUSTOMER_FACING[status];
+    if (templateId && order) {
+      const queued = notify({
+        templateId,
+        recipientName: order.customerName,
+        email: order.customerEmail,
+        phone: order.phone,
+        relatedTo: order.id,
+        vars: {
+          name: order.customerName,
+          orderId: order.id,
+          amount: formatPrice(retailOrderTotal(order)),
+          reason: status === "cancelled" ? "cancelled by GarmentVibes" : undefined,
+        },
+      });
+      toast.success(
+        `Order marked as ${status} — ${queued.length} notification${queued.length === 1 ? "" : "s"} queued`
+      );
+      return;
+    }
+
     toast.success(`Order marked as ${status}`);
   }
 

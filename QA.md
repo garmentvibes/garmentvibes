@@ -56,7 +56,14 @@ qa:routes` to point at a deployed preview instead of localhost).
   Also covers the admin panel: access gating, the wholesale approval queue,
   retail order and quote status transitions, product creation, and the
   guardrail rejecting a wholesale price tier that costs *more* at higher
-  quantity. The `seo` flow additionally parses every JSON-LD block on the
+  quantity, and the notification outbox (approving an account and shipping an
+  order each queue the right message; channel/status filters and preview
+  work). Checkout asserts against the persisted outbox directly rather than
+  the admin UI, since the two run in separate browser contexts and therefore
+  separate localStorage. One check guards a real delivery constraint: SMS and
+  WhatsApp copy must carry no subject and stay under 320 characters, because
+  DLT-registered senders and Meta-approved templates reject long bodies.
+  The `seo` flow additionally parses every JSON-LD block on the
   page and asserts the fields Google actually requires (offer price +
   currency + availability, aggregateRating, breadcrumb trail, FAQPage), that
   wholesale uses `AggregateOffer` with `lowPrice <= highPrice`, that
@@ -119,8 +126,15 @@ without checking with the user first:
 - No GST/tax calculation
 - No returns/exchange processing
 - No real inventory/stock sync
-- No transactional email/SMS — nothing is actually sent on order placement,
-  status change, or account approval
+- No transactional email/SMS/WhatsApp **delivery** — messages are composed
+  from real templates and queued into the outbox (`/admin/notifications`),
+  where staff can read exactly what a customer would receive, but no
+  provider is connected so nothing leaves the system. Wiring one up means
+  implementing a `send()` against the queued messages; the templates and
+  call sites do not change.
+- No analytics or error-tracking **provider** — `src/lib/analytics.ts`
+  buffers events and error reports and gates delivery on
+  `NEXT_PUBLIC_ANALYTICS_KEY`, which is intentionally unset
 
 ### ⚠️ Admin panel: must not ship publicly as-is
 

@@ -127,6 +127,29 @@ allConsoleErrors.push(
     await page.click('button:has-text("Place Order (COD)")');
     await page.waitForURL("**/shop/order-confirmation**");
     check("retail-checkout", "COD confirmation shows pay-on-delivery note", (await page.locator("text=Pay in cash when your order arrives").count()) > 0);
+
+    // Placing an order must queue the customer's confirmation. The admin
+    // outbox lives in a different browser context, so assert against the
+    // persisted store directly rather than the admin UI.
+    const outbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    const placed = outbox.filter((m) => m.templateId === "order_placed" && m.status === "queued");
+    check("retail-checkout", "placing an order queues a confirmation", placed.length > 0);
+    check(
+      "retail-checkout",
+      "confirmation goes out on email and phone channels",
+      new Set(placed.map((m) => m.channel)).size > 1
+    );
+    // SMS/WhatsApp copy must stay short — DLT and Meta templates reject long
+    // bodies, and only email carries a subject line.
+    const shortChannels = placed.filter((m) => m.channel !== "email");
+    check(
+      "retail-checkout",
+      "short-channel copy has no subject and stays under 320 chars",
+      shortChannels.length > 0 && shortChannels.every((m) => m.subject === "" && m.body.length <= 320)
+    );
   }))
 );
 
@@ -368,6 +391,53 @@ allConsoleErrors.push(
       "admin",
       "rejects a wholesale tier that costs more at higher quantity",
       page.url().includes("/admin/products/wholesale/new")
+    );
+
+    // ---- Notification outbox -------------------------------------------
+    // This flow already approved an account and shipped an order above, so
+    // both should have queued customer messages by now.
+    await page.goto(`${BASE_URL}/admin/notifications`, { waitUntil: "networkidle" });
+    check("admin", "outbox lists seeded message history", (await page.locator("text=Order placed").count()) > 0);
+    check(
+      "admin",
+      "approving an account queued an approval message",
+      (await page.locator("text=Wholesale account approved").count()) > 0
+    );
+    check(
+      "admin",
+      "shipping an order queued a shipment message",
+      (await page.locator("text=Order shipped").count()) > 0
+    );
+
+    // Preview must show the real rendered copy, not a placeholder.
+    await page.click('button:has-text("Preview") >> nth=0');
+    await page.waitForTimeout(200);
+    check(
+      "admin",
+      "preview reveals the rendered message body",
+      (await page.locator("text=/GarmentVibes/").count()) > 0
+    );
+
+    // Filters
+    const allCount = await page.locator("ul > li").count();
+    await page.click('button:has-text("WhatsApp")');
+    await page.waitForTimeout(200);
+    const waCount = await page.locator("ul > li").count();
+    check("admin", "channel filter narrows the outbox", waCount < allCount);
+
+    await page.click('button:has-text("All channels")');
+    await page.click('button:has-text("queued")');
+    await page.waitForTimeout(200);
+    const queuedCount = await page.locator("ul > li").count();
+    check("admin", "status filter narrows the outbox", queuedCount > 0 && queuedCount < allCount);
+
+    // Marking sent removes it from the queued filter.
+    await page.click('button:has-text("Mark sent") >> nth=0');
+    await page.waitForTimeout(300);
+    check(
+      "admin",
+      "marking a message sent clears it from the queued filter",
+      (await page.locator("ul > li").count()) < queuedCount
     );
   }))
 );

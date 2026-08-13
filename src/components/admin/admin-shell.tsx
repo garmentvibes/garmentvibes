@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   FileText,
   Building2,
+  Bell,
   LogOut,
   Menu,
   X,
@@ -24,6 +25,7 @@ const NAV = [
   { href: "/admin/orders", label: "Retail Orders", icon: ShoppingCart },
   { href: "/admin/quotes", label: "Quotes & Bulk Orders", icon: FileText },
   { href: "/admin/accounts", label: "Wholesale Accounts", icon: Building2 },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

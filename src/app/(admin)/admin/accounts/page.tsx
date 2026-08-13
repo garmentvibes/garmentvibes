@@ -6,6 +6,7 @@ import { Check, X, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAdminAccountsStore, useWholesaleAccounts } from "@/lib/stores/admin-accounts-store";
+import { notify } from "@/lib/stores/notification-store";
 import type { WholesaleAccount } from "@/types/admin";
 
 type Filter = "all" | "pending" | "approved" | "rejected";
@@ -27,16 +28,39 @@ export default function AdminAccountsPage() {
 
   function approve(account: WholesaleAccount) {
     setStatus(account.id, "approved");
+    notify({
+      templateId: "wholesale_account_approved",
+      recipientName: account.contactName,
+      email: account.email,
+      phone: account.phone,
+      relatedTo: account.id,
+      vars: { name: account.contactName, businessName: account.businessName },
+    });
     toast.success(`${account.businessName} approved — they can now place orders directly`);
   }
 
   function reject(account: WholesaleAccount) {
     setStatus(account.id, "rejected");
+    notify({
+      templateId: "wholesale_account_rejected",
+      recipientName: account.contactName,
+      email: account.email,
+      phone: account.phone,
+      relatedTo: account.id,
+      vars: { name: account.contactName, businessName: account.businessName },
+    });
     toast.success(`${account.businessName} rejected`);
   }
 
   function grantNet30(account: WholesaleAccount) {
     setPaymentTerms(account.id, "net30");
+    notify({
+      templateId: "credit_terms_approved",
+      recipientName: account.contactName,
+      email: account.email,
+      relatedTo: account.id,
+      vars: { name: account.contactName, businessName: account.businessName },
+    });
     toast.success(`Net-30 terms granted to ${account.businessName}`);
   }
 

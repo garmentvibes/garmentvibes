@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import { useAdminOrdersStore, useRetailOrder } from "@/lib/stores/admin-orders-store";
+import { notify } from "@/lib/stores/notification-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
 
@@ -59,6 +60,18 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
 
   function cancelOrder() {
     setRetailStatus(id, "cancelled");
+    notify({
+      templateId: "order_cancelled",
+      recipientName: order!.customerName,
+      email: order!.customerEmail,
+      phone: order!.phone,
+      relatedTo: order!.id,
+      vars: {
+        name: order!.customerName,
+        orderId: order!.id,
+        reason: "cancelled by customer",
+      },
+    });
     setConfirmingCancel(false);
     toast.success("Order cancelled — any payment will be refunded per our refund policy");
   }
