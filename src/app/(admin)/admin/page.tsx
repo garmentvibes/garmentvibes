@@ -10,6 +10,7 @@ import {
   useAdminRetailProducts,
   useAdminWholesaleProducts,
 } from "@/lib/stores/admin-catalog-store";
+import { useStockStore, getTotalStock, LOW_STOCK_THRESHOLD } from "@/lib/stores/stock-store";
 import { retailOrderTotal, wholesaleQuoteTotal } from "@/types/admin";
 
 export default function AdminDashboardPage() {
@@ -18,6 +19,12 @@ export default function AdminDashboardPage() {
   const orders = useRetailOrders();
   const quotes = useWholesaleQuotes();
   const accounts = useWholesaleAccounts();
+
+  const stockOverrides = useStockStore((s) => s.overrides);
+  const lowStock = retailProducts
+    .map((p) => ({ product: p, total: getTotalStock(stockOverrides, p) }))
+    .filter((x) => x.total <= LOW_STOCK_THRESHOLD)
+    .sort((a, b) => a.total - b.total);
 
   const openOrders = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
   const openQuotes = quotes.filter((q) => ["requested", "quoted"].includes(q.status));
@@ -106,6 +113,33 @@ export default function AdminDashboardPage() {
           >
             Review approvals
           </Link>
+        </section>
+      )}
+
+      {lowStock.length > 0 && (
+        <section className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5">
+          <h2 className="font-semibold text-red-900">
+            {lowStock.length} product{lowStock.length === 1 ? "" : "s"} low or out of stock
+          </h2>
+          <ul className="mt-2 space-y-1 text-sm text-red-900">
+            {lowStock.slice(0, 5).map(({ product, total }) => (
+              <li key={product.id}>
+                &middot;{" "}
+                <Link
+                  href={`/admin/products/retail/${product.id}`}
+                  className="underline underline-offset-4"
+                >
+                  {product.name}
+                </Link>{" "}
+                — {total === 0 ? "out of stock" : `${total} left across all sizes`}
+              </li>
+            ))}
+          </ul>
+          {lowStock.length > 5 && (
+            <p className="mt-2 text-xs text-red-800">
+              and {lowStock.length - 5} more — see Products
+            </p>
+          )}
         </section>
       )}
 

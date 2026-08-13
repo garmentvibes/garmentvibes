@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminCatalogStore } from "@/lib/stores/admin-catalog-store";
+import { useStockStore, getStock } from "@/lib/stores/stock-store";
 import { placeholderImage } from "@/lib/mock/placeholder-image";
 import { RETAIL_TAXONOMY, CATEGORY_LABELS } from "@/lib/mock/category-taxonomy";
 import type { RetailCategory, RetailProduct } from "@/types/catalog";
@@ -24,6 +25,8 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
   const router = useRouter();
   const updateRetail = useAdminCatalogStore((s) => s.updateRetail);
   const addRetail = useAdminCatalogStore((s) => s.addRetail);
+  const stockOverrides = useStockStore((s) => s.overrides);
+  const setStock = useStockStore((s) => s.setStock);
   const isEdit = Boolean(product);
 
   const [form, setForm] = useState({
@@ -194,6 +197,33 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
           <Label htmlFor="sizes">Sizes (comma separated)</Label>
           <Input id="sizes" value={form.sizes} onChange={(e) => set("sizes", e.target.value)} />
         </div>
+
+        {product && (
+          <div>
+            <Label>Stock by size</Label>
+            <div className="mt-1 flex flex-wrap gap-3">
+              {product.sizes.map((s) => {
+                const stock = getStock(stockOverrides, product, s.label);
+                return (
+                  <div key={s.label} className="flex items-center gap-1.5">
+                    <span className="w-12 text-sm text-neutral-600">{s.label}</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={stock}
+                      aria-label={`Stock for size ${s.label}`}
+                      onChange={(e) => setStock(product.id, s.label, Number(e.target.value) || 0)}
+                      className="h-9 w-20"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-xs text-neutral-400">
+              Stock saves immediately. A size at 0 shows as sold out and can&apos;t be added to a bag.
+            </p>
+          </div>
+        )}
 
         <div className="flex gap-2 pt-2">
           <Button type="submit" variant="retail">

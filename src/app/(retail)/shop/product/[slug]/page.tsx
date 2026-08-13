@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/retail/breadcrumbs";
 import { ProductGallery } from "@/components/retail/product-gallery";
 import { AddToCartPanel } from "@/components/retail/add-to-cart-panel";
-import { ProductReviews } from "@/components/retail/product-reviews";
+import { ReviewSection } from "@/components/retail/review-section";
 import { ProductCard } from "@/components/retail/product-card";
 import { RecentlyViewedTracker } from "@/components/retail/recently-viewed-tracker";
 import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
@@ -91,12 +91,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
       </div>
 
-      <section className="mt-14 max-w-3xl">
-        <h2 className="mb-4 text-xl font-bold text-neutral-900">
-          Ratings &amp; Reviews ({reviews.length})
-        </h2>
-        <ProductReviews reviews={reviews} />
-      </section>
+      <ReviewSection
+        productId={product.id}
+        productName={product.name}
+        seededReviews={reviews}
+      />
 
       {related.length > 0 && (
         <section className="mt-14">

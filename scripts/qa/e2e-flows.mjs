@@ -104,6 +104,54 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Retail: stock levels, delivery estimate, review submission
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+
+    // XL is seeded out of stock in the mock catalog, so its size button must
+    // be disabled rather than merely styled as unavailable.
+    const xl = page.locator('button:text-is("XL")').first();
+    check("retail-product", "out-of-stock size is disabled", await xl.isDisabled());
+
+    // Pincode estimate: metro lane should be faster than the fallback lane.
+    await page.fill('input[aria-label="Delivery PIN code"]', "560001");
+    await page.click('button:has-text("Check")');
+    await page.waitForTimeout(300);
+    check("retail-product", "metro pincode returns a fast estimate", (await page.locator("text=Bengaluru").count()) > 0);
+
+    await page.fill('input[aria-label="Delivery PIN code"]', "190001");
+    await page.click('button:has-text("Check")');
+    await page.waitForTimeout(300);
+    check("retail-product", "remote pincode flags COD unavailable", (await page.locator("text=/Cash on Delivery isn/").count()) > 0);
+
+    await page.fill('input[aria-label="Delivery PIN code"]', "123");
+    await page.click('button:has-text("Check")');
+    await page.waitForTimeout(300);
+    check("retail-product", "invalid pincode is rejected", (await page.locator("text=/valid 6-digit/").count()) > 0);
+
+    // Reviews require sign-in.
+    check("retail-product", "review prompts sign-in when signed out", (await page.locator('a:has-text("Sign in to review")').count()) > 0);
+
+    await page.goto(`${BASE_URL}/shop/login`, { waitUntil: "networkidle" });
+    await page.fill("#email", "reviewer@example.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/shop");
+
+    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    await page.click('button:has-text("Write a review")');
+    await page.click('button[aria-label="5 stars"]');
+    await page.fill("#review-title", "QA review title");
+    await page.fill("#review-body", "Tested via the automated QA suite.");
+    await page.click('button:has-text("Submit review")');
+    await page.waitForTimeout(400);
+    check("retail-product", "submitted review appears on the product", (await page.locator("text=QA review title").count()) > 0);
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Retail: order detail, timeline, invoice, self-service cancellation
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
