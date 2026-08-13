@@ -4,7 +4,7 @@ import { persist } from "zustand/middleware";
 // Placeholder client-side session, standing in for real Supabase Auth until
 // the GarmentVibes Supabase project exists (see Phase 1). Swap this out for
 // a server-derived session once wired up — do not treat this as secure.
-export type UserRole = "retail" | "wholesale";
+export type UserRole = "retail" | "wholesale" | "admin";
 
 export type WholesaleApprovalStatus = "pending" | "approved";
 export type PaymentTerms = "prepay" | "net30";

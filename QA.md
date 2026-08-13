@@ -53,6 +53,10 @@ qa:routes` to point at a deployed preview instead of localhost).
   signup starting "pending" (quote allowed, direct order locked), returning
   wholesale login being "approved" (direct order + Net-30 request unlocked),
   team invites, dashboard reorder, CSV bulk upload / pricing calculator.
+  Also covers the admin panel: access gating, the wholesale approval queue,
+  retail order and quote status transitions, product creation, and the
+  guardrail rejecting a wholesale price tier that costs *more* at higher
+  quantity.
 - **`qa:pwa`** (`pwa-checks.mjs`) — validates the manifest has everything a
   browser needs to consider the app installable (including a maskable
   icon), asserts `sw.js` is served uncacheable, then actually registers the
@@ -108,6 +112,25 @@ without checking with the user first:
 - No GST/tax calculation
 - No returns/exchange processing
 - No real inventory/stock sync
+- No transactional email/SMS — nothing is actually sent on order placement,
+  status change, or account approval
+
+### ⚠️ Admin panel: must not ship publicly as-is
+
+`/admin` is gated **in the browser only**, against the same mock session
+store as the storefront — any visitor could set the role client-side. It is
+safe while the app is a local/preview build with no real data behind it, and
+it is excluded from `robots.txt` and the sitemap, but before anything is
+deployed publicly the admin routes need:
+
+1. Real Supabase Auth with a server-checked staff role
+2. Enforcement in `src/proxy.ts` (server-side) rather than in a component
+3. RLS policies so the database refuses non-staff writes even if the UI is
+   bypassed
+
+Admin catalog edits are also client-side only right now, so they don't
+appear on the storefront — the panel says so in a banner. That resolves
+itself when the same reads/writes move to the database.
 
 ## Lessons from the first QA pass (2026-08)
 

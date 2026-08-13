@@ -188,6 +188,82 @@ allConsoleErrors.push(
   }))
 );
 
+// ---------------------------------------------------------------------------
+// Admin: access gating, approvals, order/quote status, product CRUD
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    // Gating: admin routes are unusable without an admin session.
+    await page.goto(`${BASE_URL}/admin`, { waitUntil: "networkidle" });
+    check("admin", "admin gated when signed out", (await page.locator("text=Admin access required").count()) > 0);
+
+    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await page.fill("#email", "staff@garmentvibes.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/admin");
+    check("admin", "admin login reaches dashboard", (await page.locator("text=Dashboard").count()) > 0);
+
+    // The approval queue is the counterpart to the storefront's pending state.
+    await page.goto(`${BASE_URL}/admin/accounts`, { waitUntil: "networkidle" });
+    const pendingBefore = await page.locator('button:has-text("Approve")').count();
+    check("admin", "pending accounts awaiting approval are listed", pendingBefore > 0);
+    await page.click('button:has-text("Approve") >> nth=0');
+    await page.waitForTimeout(300);
+    const pendingAfter = await page.locator('button:has-text("Approve")').count();
+    check("admin", "approving an account removes it from the pending queue", pendingAfter < pendingBefore);
+
+    // Retail order status transition persists to the list view.
+    await page.goto(`${BASE_URL}/admin/orders`, { waitUntil: "networkidle" });
+    await page.click('a[href^="/admin/orders/"] >> nth=0');
+    await page.waitForURL("**/admin/orders/**");
+    await page.click('button:has-text("shipped")');
+    await page.waitForTimeout(300);
+    await page.goto(`${BASE_URL}/admin/orders`, { waitUntil: "networkidle" });
+    check("admin", "retail order status change persists", (await page.locator("text=shipped").count()) > 0);
+
+    // Wholesale quote status transition.
+    await page.goto(`${BASE_URL}/admin/quotes`, { waitUntil: "networkidle" });
+    await page.click('a[href^="/admin/quotes/"] >> nth=0');
+    await page.waitForURL("**/admin/quotes/**");
+    await page.click('button:has-text("Confirmed")');
+    await page.waitForTimeout(300);
+    check("admin", "quote status change applies", (await page.locator("text=Confirmed").count()) > 0);
+
+    // Product creation shows up in the catalog list.
+    await page.goto(`${BASE_URL}/admin/products/retail/new`, { waitUntil: "networkidle" });
+    await page.fill("#name", "QA Test Kurta");
+    await page.fill("#brand", "QA Brand");
+    await page.selectOption("#subcategory", "Kurtas");
+    await page.fill("#price", "999");
+    await page.fill("#mrp", "1499");
+    await page.click('button:has-text("Create product")');
+    await page.waitForURL("**/admin/products");
+    await page.waitForTimeout(300);
+    check("admin", "new retail product appears in the catalog list", (await page.locator("text=QA Test Kurta").count()) > 0);
+
+    // Guardrail: wholesale tiers must not get more expensive at higher volume.
+    await page.goto(`${BASE_URL}/admin/products/wholesale/new`, { waitUntil: "networkidle" });
+    await page.fill("#name", "QA Bulk Tee");
+    await page.fill("#sku", "GV-QA-001");
+    await page.selectOption("#subcategory", "Basics");
+    await page.fill("#moq", "100");
+    await page.fill("#packSize", "10");
+    await page.fill('input[aria-label="Tier 1 minimum quantity"]', "100");
+    await page.fill('input[aria-label="Tier 1 price per unit"]', "200");
+    await page.click('button:has-text("Add tier")');
+    await page.fill('input[aria-label="Tier 2 minimum quantity"]', "500");
+    await page.fill('input[aria-label="Tier 2 price per unit"]', "300"); // invalid: pricier at volume
+    await page.click('button:has-text("Create product")');
+    await page.waitForTimeout(400);
+    check(
+      "admin",
+      "rejects a wholesale tier that costs more at higher quantity",
+      page.url().includes("/admin/products/wholesale/new")
+    );
+  }))
+);
+
 await browser.close();
 
 const failed = results.filter((r) => !r.pass);
