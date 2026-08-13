@@ -104,6 +104,39 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Retail: order detail, timeline, invoice, self-service cancellation
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/shop/orders`, { waitUntil: "networkidle" });
+    check("retail-orders", "order list renders", (await page.locator('a[href^="/shop/orders/"]').count()) > 0);
+
+    // A delivered order can't be cancelled; a pending one can. Pick the
+    // pending one explicitly so the assertion isn't order-dependent.
+    await page.goto(`${BASE_URL}/shop/orders/GV83997211`, { waitUntil: "networkidle" });
+    check("retail-orders", "order detail shows status timeline", (await page.locator("text=Order placed").count()) > 0);
+    check("retail-orders", "pending order offers cancellation", (await page.locator('button:has-text("Cancel order")').count()) > 0);
+
+    // Invoice renders with the operating entity and GSTIN on it.
+    await page.goto(`${BASE_URL}/shop/orders/GV83997211/invoice`, { waitUntil: "networkidle" });
+    check("retail-orders", "invoice shows INVOICE heading", (await page.locator("text=INVOICE").count()) > 0);
+    check("retail-orders", "invoice carries GSTIN", (await page.locator("text=/GSTIN/").count()) > 0);
+
+    // Cancel, and confirm it sticks and removes the cancel affordance.
+    await page.goto(`${BASE_URL}/shop/orders/GV83997211`, { waitUntil: "networkidle" });
+    await page.click('button:has-text("Cancel order")');
+    await page.click('button:has-text("Yes, cancel order")');
+    await page.waitForTimeout(400);
+    check("retail-orders", "cancelled order shows cancelled state", (await page.locator("text=Order cancelled").count()) > 0);
+    check("retail-orders", "cancelled order no longer offers cancellation", (await page.locator('button:has-text("Cancel order")').count()) === 0);
+
+    // A delivered order should never offer cancellation.
+    await page.goto(`${BASE_URL}/shop/orders/GV84098771`, { waitUntil: "networkidle" });
+    check("retail-orders", "delivered order cannot be cancelled", (await page.locator('button:has-text("Cancel order")').count()) === 0);
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Wholesale: new signup starts pending -> quote allowed, direct order locked
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
