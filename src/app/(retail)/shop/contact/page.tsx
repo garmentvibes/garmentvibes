@@ -28,17 +28,17 @@ export default function ContactPage() {
         <div className="space-y-4 text-sm text-neutral-600">
           <div className="flex items-center gap-3">
             <Mail className="h-5 w-5 text-rose-500" />
-            support@garmentvibes.com
+            {BUSINESS_INFO.supportEmail}
           </div>
           <div className="flex items-center gap-3">
             <Phone className="h-5 w-5 text-rose-500" />
-            +91 98765 43210
+            {BUSINESS_INFO.supportPhone}
           </div>
           <div className="flex items-start gap-3">
             <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
             {BUSINESS_INFO.address}
           </div>
-          <p className="text-xs text-neutral-400">Support hours: Mon–Sat, 9am–7pm IST</p>
+          <p className="text-xs text-neutral-400">Support hours: {BUSINESS_INFO.supportHours}</p>
         </div>
 
         {submitted ? (

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ContentPage } from "@/components/shared/content-page";
 import { BUSINESS_INFO } from "@/lib/business-info";
 
@@ -31,13 +32,30 @@ export default function TermsPage() {
         restrictions. See our Shipping Policy for details.
       </p>
       <h2>4. Returns &amp; Cancellations</h2>
-      <p>Return and cancellation terms will be published once our returns process is finalized.</p>
+      <p>
+        Orders can be cancelled before shipping, and eligible items returned within 7 days of
+        delivery. Full details, including refund timelines, are in our{" "}
+        <Link href="/shop/refund-policy" className="text-rose-600 underline">
+          Refund &amp; Cancellation Policy
+        </Link>
+        .
+      </p>
+
       <h2>5. Account Responsibility</h2>
       <p>
         You are responsible for maintaining the confidentiality of your account credentials and for
         all activity under your account.
       </p>
-      <h2>6. Changes to These Terms</h2>
+      <h2>6. Grievance Redressal</h2>
+      <p>
+        For complaints that support cannot resolve, contact details for our Grievance Officer are
+        published on the{" "}
+        <Link href="/shop/grievance" className="text-rose-600 underline">
+          Grievance Redressal
+        </Link>{" "}
+        page, as required under the Consumer Protection (E-Commerce) Rules, 2020.
+      </p>
+      <h2>7. Changes to These Terms</h2>
       <p>We may update these terms from time to time. Continued use of the site means you accept the changes.</p>
     </ContentPage>
   );

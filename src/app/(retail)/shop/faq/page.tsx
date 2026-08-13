@@ -9,7 +9,11 @@ const FAQS = [
   },
   {
     q: "What is your return policy?",
-    a: "We accept returns within 7 days of delivery for unused items in original packaging. Visit the Returns section in your order details to start a request.",
+    a: "We accept returns within 7 days of delivery for unused items with original tags and packaging. See the Refund & Cancellation Policy for full details, including refund timelines.",
+  },
+  {
+    q: "Can I cancel an order?",
+    a: "Yes — you can cancel from My Orders at any time before the order ships, at no charge. Once shipped, you can refuse delivery or raise a return instead.",
   },
   {
     q: "Do you offer Cash on Delivery?",

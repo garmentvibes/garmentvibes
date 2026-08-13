@@ -1,12 +1,15 @@
 import Link from "next/link";
+import { BUSINESS_INFO } from "@/lib/business-info";
 
 const FOOTER_LINKS = [
   { href: "/shop/about", label: "About Us" },
   { href: "/shop/contact", label: "Contact" },
   { href: "/shop/faq", label: "FAQ" },
   { href: "/shop/shipping-policy", label: "Shipping Policy" },
+  { href: "/shop/refund-policy", label: "Refund & Cancellation" },
   { href: "/shop/terms", label: "Terms of Service" },
   { href: "/shop/privacy", label: "Privacy Policy" },
+  { href: "/shop/grievance", label: "Grievance Redressal" },
 ];
 
 export function RetailSiteFooter() {
@@ -25,7 +28,13 @@ export function RetailSiteFooter() {
             Sell wholesale on GarmentVibes &rarr;
           </Link>
         </div>
-        <p>&copy; {new Date().getFullYear()} GarmentVibes. All rights reserved.</p>
+        <div className="border-t border-neutral-100 pt-4 text-xs text-neutral-400">
+          <p>
+            &copy; {new Date().getFullYear()} GarmentVibes — operated by {BUSINESS_INFO.legalName}.
+            All rights reserved.
+          </p>
+          <p className="mt-1">GSTIN {BUSINESS_INFO.gstin}</p>
+        </div>
       </div>
     </footer>
   );

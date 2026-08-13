@@ -28,17 +28,17 @@ export default function WholesaleContactPage() {
         <div className="space-y-4 text-sm text-slate-600">
           <div className="flex items-center gap-3">
             <Mail className="h-5 w-5 text-blue-700" />
-            wholesale@garmentvibes.com
+            {BUSINESS_INFO.wholesaleEmail}
           </div>
           <div className="flex items-center gap-3">
             <Phone className="h-5 w-5 text-blue-700" />
-            +91 98765 12340
+            {BUSINESS_INFO.supportPhone}
           </div>
           <div className="flex items-start gap-3">
             <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
             {BUSINESS_INFO.address}
           </div>
-          <p className="text-xs text-slate-400">Business hours: Mon–Sat, 9am–7pm IST</p>
+          <p className="text-xs text-slate-400">Business hours: {BUSINESS_INFO.supportHours}</p>
         </div>
 
         {submitted ? (
