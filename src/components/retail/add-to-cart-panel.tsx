@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SizeGuideModal } from "@/components/retail/size-guide-modal";
 import { DeliveryEstimator } from "@/components/retail/delivery-estimator";
+import { BackInStockNotify } from "@/components/retail/back-in-stock-notify";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/lib/stores/cart-store";
 import { useStockStore, getStock, LOW_STOCK_THRESHOLD } from "@/lib/stores/stock-store";
@@ -121,6 +122,8 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
           </p>
         )}
       </div>
+
+      <BackInStockNotify product={product} />
 
       <DeliveryEstimator />
 

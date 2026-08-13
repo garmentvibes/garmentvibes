@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { SEED_RETAIL_ORDERS, SEED_WHOLESALE_QUOTES } from "@/lib/mock/admin-data";
-import type { RetailOrderStatus, WholesaleQuoteStatus } from "@/types/admin";
+import type { RetailOrder, RetailOrderStatus, WholesaleQuoteStatus } from "@/types/admin";
 
 // Layers admin status changes on top of the seed orders/quotes. Once Supabase
 // is connected these become real table updates; the component API stays the
@@ -9,8 +9,10 @@ import type { RetailOrderStatus, WholesaleQuoteStatus } from "@/types/admin";
 interface AdminOrdersState {
   retailStatusOverrides: Record<string, RetailOrderStatus>;
   deliveredAtOverrides: Record<string, string>;
+  shipmentOverrides: Record<string, RetailOrder["shipment"]>;
   quoteStatusOverrides: Record<string, WholesaleQuoteStatus>;
   setRetailStatus: (orderId: string, status: RetailOrderStatus) => void;
+  setShipment: (orderId: string, courierId: string, awb: string) => void;
   setQuoteStatus: (quoteId: string, status: WholesaleQuoteStatus) => void;
 }
 
@@ -19,7 +21,15 @@ export const useAdminOrdersStore = create<AdminOrdersState>()(
     (set) => ({
       retailStatusOverrides: {},
       deliveredAtOverrides: {},
+      shipmentOverrides: {},
       quoteStatusOverrides: {},
+      setShipment: (orderId, courierId, awb) =>
+        set((s) => ({
+          shipmentOverrides: {
+            ...s.shipmentOverrides,
+            [orderId]: { courierId, awb, shippedAt: new Date().toISOString().slice(0, 10) },
+          },
+        })),
       setRetailStatus: (orderId, status) =>
         set((s) => ({
           retailStatusOverrides: { ...s.retailStatusOverrides, [orderId]: status },
@@ -44,10 +54,12 @@ export const useAdminOrdersStore = create<AdminOrdersState>()(
 export function useRetailOrders() {
   const overrides = useAdminOrdersStore((s) => s.retailStatusOverrides);
   const deliveredAt = useAdminOrdersStore((s) => s.deliveredAtOverrides);
+  const shipments = useAdminOrdersStore((s) => s.shipmentOverrides);
   return SEED_RETAIL_ORDERS.map((o) => ({
     ...o,
     status: overrides[o.id] ?? o.status,
     deliveredAt: o.deliveredAt ?? deliveredAt[o.id],
+    shipment: shipments[o.id] ?? o.shipment,
   }));
 }
 

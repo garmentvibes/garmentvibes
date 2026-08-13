@@ -58,7 +58,11 @@ qa:routes` to point at a deployed preview instead of localhost).
   guardrail rejecting a wholesale price tier that costs *more* at higher
   quantity, the returns flow (eligibility gating by delivery date and by an
   already-open request, quantity capped at what was ordered, and the full
-  admin chain of approve → picked up → refunded), and the notification outbox (approving an account and shipping an
+  admin chain of approve → picked up → refunded), exchanges (replacement size
+  picker excluding the size being sent back, and the divergent Ship-exchange
+  branch), shipment tracking end to end, promo code management including the
+  built-in-undeletable rule, back-in-stock registration and firing, and the
+  notification outbox (approving an account and shipping an
   order each queue the right message; channel/status filters and preview
   work). Checkout asserts against the persisted outbox directly rather than
   the admin UI, since the two run in separate browser contexts and therefore
@@ -147,10 +151,25 @@ without checking with the user first:
   are engineering placeholders. **A chartered accountant must confirm both
   before a real invoice is issued** — a wrong rate or HSN on a tax invoice is
   a compliance problem, not a display bug.
-- No exchange processing — returns and refunds are handled, but swapping an
-  item for a different size/colour is not
-- No real inventory/stock sync — an approved return does not put the unit
-  back into sellable stock
+- ⚠️ **Wholesale prices are treated as GST-EXCLUSIVE** (tax added on top),
+  the opposite of retail. That is standard B2B practice, but which convention
+  your actual price list uses is a business decision — confirm it, because
+  getting it backwards either overcharges the buyer or eats the tax out of
+  margin. The buyer's GSTIN on a wholesale invoice is resolved from their
+  account; a production system should snapshot it onto the order at the time
+  of supply, since a business can re-register later.
+- **Admin-created promo codes are browser-side only.** The built-in codes in
+  `lib/pricing.ts` are compiled into the server's validation list, which is
+  what `/api/razorpay/order` checks; codes created in `/admin/promos` work in
+  the checkout UI, but the payment route will not honour them until promos
+  live in the database. Built-ins can be deactivated but not deleted, so the
+  two lists can never contradict each other.
+- Exchanges cover a size swap on the same product; swapping to a *different*
+  product, or a price-difference top-up, is not supported
+- No warehouse inventory sync — stock is the local store, though returns and
+  exchanges now move it correctly. Returns restock only for reasons where the
+  unit is actually sellable: damaged and poor-quality returns are deliberately
+  **not** put back on the shelf.
 - No transactional email/SMS/WhatsApp **delivery** — messages are composed
   from real templates and queued into the outbox (`/admin/notifications`),
   where staff can read exactly what a customer would receive, but no

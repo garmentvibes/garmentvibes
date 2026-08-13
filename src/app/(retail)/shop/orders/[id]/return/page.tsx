@@ -14,7 +14,8 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
 import { returnEligibility, INELIGIBLE_MESSAGES, RETURN_WINDOW_DAYS } from "@/lib/returns";
-import { RETURN_REASONS, type ReturnReason } from "@/types/returns";
+import { getRetailProductById } from "@/lib/mock/retail-products";
+import { RETURN_REASONS, type ReturnReason, type ResolutionType } from "@/types/returns";
 
 export default function ReturnRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -27,6 +28,8 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
   const now = useNow();
 
   const [selected, setSelected] = useState<Record<number, number>>({});
+  const [exchangeSizes, setExchangeSizes] = useState<Record<number, string>>({});
+  const [resolution, setResolution] = useState<ResolutionType>("refund");
   const [reason, setReason] = useState<ReturnReason>(RETURN_REASONS[0]);
   const [comments, setComments] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -72,19 +75,28 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
   }
 
   const chosen = order.items
-    .map((item, i) => ({ item, qty: selected[i] ?? 0 }))
+    .map((item, i) => ({ item, qty: selected[i] ?? 0, index: i }))
     .filter((x) => x.qty > 0);
   const refundTotal = chosen.reduce((sum, x) => sum + x.qty * x.item.price, 0);
 
   function submit() {
     if (chosen.length === 0) {
-      toast.error("Select at least one item to return");
+      toast.error(`Select at least one item to ${resolution === "exchange" ? "exchange" : "return"}`);
       return;
+    }
+    // An exchange with no replacement size chosen has nothing to send back.
+    if (resolution === "exchange") {
+      const missing = chosen.find(({ index }) => !exchangeSizes[index]);
+      if (missing) {
+        toast.error("Pick the size you'd like instead");
+        return;
+      }
     }
     setSubmitting(true);
 
     const request = createReturn({
       orderId: order!.id,
+      resolution,
       customerName: order!.customerName,
       customerEmail: order!.customerEmail,
       phone: order!.phone,
@@ -95,6 +107,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
         color: x.item.color,
         qty: x.qty,
         price: x.item.price,
+        exchangeForSize: resolution === "exchange" ? exchangeSizes[x.index] : undefined,
       })),
       reason,
       comments: comments.trim() || undefined,
@@ -109,7 +122,11 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
       vars: { name: order!.customerName, orderId: order!.id, reason },
     });
 
-    toast.success("Return request submitted — we'll review it within 2 business days");
+    toast.success(
+      resolution === "exchange"
+        ? "Exchange request submitted — we'll review it within 2 business days"
+        : "Return request submitted — we'll review it within 2 business days"
+    );
     router.push(`/shop/orders/${order!.id}`);
   }
 
@@ -122,12 +139,39 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
         <ArrowLeft className="h-4 w-4" /> Back to order
       </Link>
 
-      <h1 className="mt-3 text-xl font-bold text-neutral-900">Request a return</h1>
+      <h1 className="mt-3 text-xl font-bold text-neutral-900">Return or exchange</h1>
       <p className="mt-1 text-sm text-neutral-500">
         Order <span className="font-mono">{order.id}</span> &middot; {eligibility.daysLeft}{" "}
         {eligibility.daysLeft === 1 ? "day" : "days"} left in your {RETURN_WINDOW_DAYS}-day window
         {eligibility.closesOn ? ` (closes ${eligibility.closesOn})` : ""}
       </p>
+
+      <section className="mt-6">
+        <h2 className="text-sm font-semibold text-neutral-900">What would you like?</h2>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(
+            [
+              { value: "refund", title: "Refund", blurb: "Money back to your original payment method" },
+              { value: "exchange", title: "Exchange", blurb: "Swap for a different size of the same item" },
+            ] as Array<{ value: ResolutionType; title: string; blurb: string }>
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setResolution(option.value)}
+              aria-pressed={resolution === option.value}
+              className={`rounded-lg border p-3 text-left ${
+                resolution === option.value
+                  ? "border-rose-600 bg-rose-50"
+                  : "border-neutral-300 hover:border-neutral-400"
+              }`}
+            >
+              <p className="text-sm font-medium text-neutral-900">{option.title}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">{option.blurb}</p>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="mt-6">
         <h2 className="text-sm font-semibold text-neutral-900">Which items?</h2>
@@ -162,6 +206,33 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                     </option>
                   ))}
                 </select>
+
+                {resolution === "exchange" && (selected[i] ?? 0) > 0 && (
+                  <>
+                    <Label htmlFor={`swap-${i}`} className="text-xs text-neutral-500">
+                      Swap for
+                    </Label>
+                    <select
+                      id={`swap-${i}`}
+                      value={exchangeSizes[i] ?? ""}
+                      onChange={(e) =>
+                        setExchangeSizes((prev) => ({ ...prev, [i]: e.target.value }))
+                      }
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-rose-400 focus:outline-none"
+                    >
+                      <option value="">Size…</option>
+                      {/* Only sizes we can actually send, and never the one
+                          being sent back. */}
+                      {(getRetailProductById(item.productId)?.sizes ?? [])
+                        .filter((s) => s.label !== item.size && s.inStock)
+                        .map((s) => (
+                          <option key={s.label} value={s.label}>
+                            {s.label}
+                          </option>
+                        ))}
+                    </select>
+                  </>
+                )}
               </div>
             </li>
           ))}
@@ -198,18 +269,22 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
 
       <div className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-neutral-600">Estimated refund</span>
+          <span className="text-neutral-600">
+            {resolution === "exchange" ? "Value being exchanged" : "Estimated refund"}
+          </span>
           <span className="font-semibold text-neutral-900">{formatPrice(refundTotal)}</span>
         </div>
         <p className="mt-2 flex items-start gap-1.5 text-xs text-neutral-500">
           <PackageCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Items must be unused with original tags and packaging. Pickup is free. The refund is
-          issued once the item reaches us and passes a quick check.
+          Items must be unused with original tags and packaging. Pickup is free.{" "}
+          {resolution === "exchange"
+            ? "The replacement ships once the original reaches us and passes a quick check. An exchange is a like-for-like swap, so there's nothing more to pay."
+            : "The refund is issued once the item reaches us and passes a quick check."}
         </p>
       </div>
 
       <Button className="mt-4 w-full" onClick={submit} disabled={submitting}>
-        Submit return request
+        Submit {resolution === "exchange" ? "exchange" : "return"} request
       </Button>
     </div>
   );

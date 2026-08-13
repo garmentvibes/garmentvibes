@@ -174,32 +174,51 @@ export interface GstSummary {
   byRate: Array<{ ratePercent: number; taxableValue: number; taxAmount: number }>;
 }
 
-export function computeGst(
+/**
+ * GST for a B2B supply, where prices are quoted EXCLUSIVE of tax.
+ *
+ * This is the opposite convention to retail: a wholesale buyer is quoted a
+ * per-unit rate ex-GST and the tax is added on top, because they reclaim it
+ * as input credit. Retail prices are inclusive because a consumer cannot.
+ * Mixing the two up either overcharges the buyer or leaves us paying the tax
+ * out of margin, so the two functions are kept deliberately separate rather
+ * than sharing a flag.
+ *
+ * ⚠️ Which convention your wholesale price list actually uses is a business
+ * decision — confirm it before invoicing.
+ */
+export function computeGstExclusive(
   items: TaxableLine[],
   deliveryStateOrAddress: string
 ): GstSummary {
   const placeOfSupplyCode = resolveStateCode(deliveryStateOrAddress);
-  // An unrecognised address is treated as intra-state: that splits the same
-  // total into CGST+SGST rather than inventing an inter-state supply, and
-  // the amount the customer pays is identical either way.
   const isInterState =
     placeOfSupplyCode !== null && placeOfSupplyCode !== SELLER_STATE_CODE;
 
   const lines = items.map<LineTax>((item) => {
     const ratePercent = gstRatePercent(item.price);
-    const gross = item.qty * item.price;
-    const { taxableValue, taxAmount } = splitTaxInclusive(gross, ratePercent);
+    const taxableValue = item.qty * item.price;
+    const taxAmount = Math.round((taxableValue * ratePercent) / 100);
     return {
       name: item.name,
       qty: item.qty,
       hsn: hsnFor(item.subcategory),
       ratePercent,
-      gross,
+      gross: taxableValue + taxAmount,
       taxableValue,
       taxAmount,
     };
   });
 
+  return summarise(lines, isInterState, placeOfSupplyCode);
+}
+
+/** Shared tail of both conventions: totals, per-slab grouping, CGST/SGST split. */
+function summarise(
+  lines: LineTax[],
+  isInterState: boolean,
+  placeOfSupplyCode: string | null
+): GstSummary {
   const taxableValue = lines.reduce((sum, l) => sum + l.taxableValue, 0);
   const totalTax = lines.reduce((sum, l) => sum + l.taxAmount, 0);
   const grandTotal = lines.reduce((sum, l) => sum + l.gross, 0);
@@ -233,4 +252,33 @@ export function computeGst(
     igst,
     byRate,
   };
+}
+
+export function computeGst(
+  items: TaxableLine[],
+  deliveryStateOrAddress: string
+): GstSummary {
+  const placeOfSupplyCode = resolveStateCode(deliveryStateOrAddress);
+  // An unrecognised address is treated as intra-state: that splits the same
+  // total into CGST+SGST rather than inventing an inter-state supply, and
+  // the amount the customer pays is identical either way.
+  const isInterState =
+    placeOfSupplyCode !== null && placeOfSupplyCode !== SELLER_STATE_CODE;
+
+  const lines = items.map<LineTax>((item) => {
+    const ratePercent = gstRatePercent(item.price);
+    const gross = item.qty * item.price;
+    const { taxableValue, taxAmount } = splitTaxInclusive(gross, ratePercent);
+    return {
+      name: item.name,
+      qty: item.qty,
+      hsn: hsnFor(item.subcategory),
+      ratePercent,
+      gross,
+      taxableValue,
+      taxAmount,
+    };
+  });
+
+  return summarise(lines, isInterState, placeOfSupplyCode);
 }

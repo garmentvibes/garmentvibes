@@ -16,6 +16,8 @@ import { useAdminOrdersStore } from "@/lib/stores/admin-orders-store";
 import { useAdminAccountsStore } from "@/lib/stores/admin-accounts-store";
 import { useNotificationStore } from "@/lib/stores/notification-store";
 import { useReturnsStore } from "@/lib/stores/returns-store";
+import { usePromoStore } from "@/lib/stores/promo-store";
+import { useStockAlertsStore } from "@/lib/stores/stock-alerts-store";
 
 // All persisted stores use `skipHydration: true` so the first client render
 // matches the server-rendered HTML (both show default/empty state) — then we
@@ -40,6 +42,8 @@ export function StoreHydrator() {
     useAdminAccountsStore.persist.rehydrate();
     useNotificationStore.persist.rehydrate();
     useReturnsStore.persist.rehydrate();
+    usePromoStore.persist.rehydrate();
+    useStockAlertsStore.persist.rehydrate();
   }, []);
 
   return null;

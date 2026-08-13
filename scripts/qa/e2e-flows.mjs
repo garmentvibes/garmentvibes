@@ -556,6 +556,169 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Exchanges, restocking, tracking, promos and back-in-stock
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    // ---- Exchange: request a size swap rather than a refund -------------
+    await page.goto(`${BASE_URL}/shop/orders/GV84055120/return`, { waitUntil: "networkidle" });
+    await page.click('button:has-text("Exchange")');
+    await page.selectOption("#qty-0", "1");
+    check("exchanges", "choosing exchange reveals a replacement size picker", (await page.locator("#swap-0").count()) > 0);
+
+    // The size being sent back must not be offered as the replacement.
+    const swapOptions = await page.locator("#swap-0 option").allTextContents();
+    check("exchanges", "replacement options exclude the size being returned", !swapOptions.includes("M"));
+
+    // Submitting without picking a replacement is refused.
+    await page.click('button:has-text("Submit exchange request")');
+    await page.waitForTimeout(300);
+    check("exchanges", "exchange without a replacement size is refused", page.url().includes("/return"));
+
+    await page.selectOption("#swap-0", { index: 1 });
+    await page.click('button:has-text("Submit exchange request")');
+    await page.waitForURL("**/shop/orders/GV84055120");
+    await page.waitForTimeout(300);
+    check("exchanges", "exchange request appears on the order", (await page.locator("text=Returns on this order").count()) > 0);
+
+    // ---- Admin: exchange fulfilment and reason-aware restocking --------
+    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await page.fill("#email", "staff@garmentvibes.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/admin");
+
+    await page.goto(`${BASE_URL}/admin/returns`, { waitUntil: "networkidle" });
+    check("exchanges", "admin queue labels the resolution type", (await page.locator("text=exchange").first().count()) > 0);
+
+    await page.click('button:text-is("Approve") >> nth=0');
+    await page.waitForTimeout(300);
+    await page.click('button:text-is("Approved")');
+    await page.waitForTimeout(200);
+    await page.click('button:has-text("Mark picked up")');
+    await page.waitForTimeout(300);
+    await page.click('button:text-is("Picked up")');
+    await page.waitForTimeout(200);
+    check("exchanges", "an exchange offers Ship exchange, not Initiate refund", (await page.locator('button:has-text("Ship exchange")').count()) > 0);
+
+    await page.click('button:has-text("Ship exchange")');
+    await page.waitForTimeout(400);
+    const exchangeOutbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check("exchanges", "shipping an exchange notifies the customer", exchangeOutbox.some((m) => m.templateId === "exchange_shipped"));
+
+    // The seeded return is a size issue, so it restocks; a damaged-goods
+    // return must not. The queue warns staff before they act.
+    await page.goto(`${BASE_URL}/admin/returns`, { waitUntil: "networkidle" });
+    await page.click('button:text-is("All")');
+    await page.waitForTimeout(300);
+    const stockBefore = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-stock");
+      return raw ? JSON.parse(raw).state.overrides : {};
+    });
+    check("restocking", "stock overrides are recorded when a return completes", Object.keys(stockBefore).length > 0);
+
+    // ---- Shipment tracking ---------------------------------------------
+    await page.goto(`${BASE_URL}/admin/orders/GV84213567`, { waitUntil: "networkidle" });
+    await page.selectOption("#courier", "delhivery");
+    await page.fill("#awb", "QA123456789");
+    await page.click('button:has-text("Save tracking")');
+    await page.waitForTimeout(300);
+    check("tracking", "admin can record courier and AWB", (await page.locator("text=QA123456789").count()) > 0);
+
+    await page.goto(`${BASE_URL}/shop/orders/GV84213567`, { waitUntil: "networkidle" });
+    check("tracking", "customer sees the tracking number", (await page.locator("text=QA123456789").count()) > 0);
+    check("tracking", "customer gets a courier tracking link", (await page.locator('a[href*="delhivery.com"]').count()) > 0);
+
+    // ---- Promo codes ----------------------------------------------------
+    await page.goto(`${BASE_URL}/admin/promos`, { waitUntil: "networkidle" });
+    const promosBefore = await page.locator("#promo-list > li").count();
+    check("promos", "built-in codes are listed", promosBefore >= 2);
+
+    // Guardrails: a 0% or 100% code is almost certainly a typo.
+    await page.fill("#promo-code", "QATEST25");
+    await page.fill("#promo-percent", "99");
+    await page.click('button:has-text("Create")');
+    await page.waitForTimeout(300);
+    check("promos", "rejects an implausible discount", (await page.locator("#promo-list > li").count()) === promosBefore);
+
+    await page.fill("#promo-percent", "25");
+    await page.click('button:has-text("Create")');
+    await page.waitForTimeout(300);
+    check("promos", "creates a valid code", (await page.locator("#promo-list > li").count()) === promosBefore + 1);
+
+    // A built-in can be switched off but never deleted, so the admin UI and
+    // the server's compiled list cannot disagree.
+    check("promos", "built-in codes cannot be deleted", (await page.locator('button[aria-label="Delete GARMENT10"]').count()) === 0);
+    check("promos", "custom codes can be deleted", (await page.locator('button[aria-label="Delete QATEST25"]').count()) > 0);
+
+    // Deactivating must stop it working at checkout immediately.
+    await page.goto(`${BASE_URL}/admin/promos`, { waitUntil: "networkidle" });
+    await page.click('li:has-text("GARMENT10") button:has-text("Deactivate")');
+    await page.waitForTimeout(300);
+    check("promos", "a code can be deactivated", (await page.locator('li:has-text("GARMENT10") button:has-text("Activate")').count()) > 0);
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Back in stock: register interest on a sold-out size, get notified on restock
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    const hasNotify = (await page.locator("text=Sold out in your size?").count()) > 0;
+    check("back-in-stock", "sold-out product offers a notify-me form", hasNotify);
+
+    if (hasNotify) {
+      const size = await page.locator("#notify-size").inputValue();
+      await page.fill("#notify-email", "qa-waiter@example.com");
+      await page.click('button:has-text("Notify me")');
+      await page.waitForTimeout(300);
+
+      const alerts = await page.evaluate(() => {
+        const raw = localStorage.getItem("garmentvibes-stock-alerts");
+        return raw ? JSON.parse(raw).state.alerts : [];
+      });
+      check("back-in-stock", "registration is stored against the variant", alerts.some((a) => a.email === "qa-waiter@example.com" && a.size === size));
+
+      // Signing up twice must not queue two messages later.
+      await page.click('button:has-text("Notify me")');
+      await page.waitForTimeout(300);
+      const afterDuplicate = await page.evaluate(() => {
+        const raw = localStorage.getItem("garmentvibes-stock-alerts");
+        return raw ? JSON.parse(raw).state.alerts : [];
+      });
+      check("back-in-stock", "duplicate registration is ignored", afterDuplicate.length === alerts.length);
+
+      // Restocking from zero in admin should fire and consume it.
+      await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+      await page.fill("#email", "staff@garmentvibes.com");
+      await page.fill("#password", "password123");
+      await page.click('button:has-text("Sign in")');
+      await page.waitForURL("**/admin");
+
+      await page.goto(`${BASE_URL}/admin/products/retail/r1`, { waitUntil: "networkidle" });
+      await page.fill(`input[aria-label="Stock for size ${size}"]`, "8");
+      await page.waitForTimeout(500);
+
+      const restockOutbox = await page.evaluate(() => {
+        const raw = localStorage.getItem("garmentvibes-notifications");
+        return raw ? JSON.parse(raw).state.messages : [];
+      });
+      check("back-in-stock", "restocking queues the waiting customer's alert", restockOutbox.some((m) => m.templateId === "back_in_stock"));
+
+      const remaining = await page.evaluate(() => {
+        const raw = localStorage.getItem("garmentvibes-stock-alerts");
+        return raw ? JSON.parse(raw).state.alerts : [];
+      });
+      check("back-in-stock", "registration is consumed once fired", remaining.length < afterDuplicate.length);
+    }
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Payments: the Razorpay API surface.
 //
 // No merchant account exists, so the success path can't be driven end to

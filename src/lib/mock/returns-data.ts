@@ -8,6 +8,7 @@ export const SEED_RETURNS: ReturnRequest[] = [
   {
     id: "RET100001",
     orderId: "GV84098771",
+    resolution: "refund",
     customerName: "Karan Mehta",
     customerEmail: "karan.mehta@example.com",
     phone: "+91 90000 12345",

@@ -23,6 +23,7 @@ import { useReturnsForOrder } from "@/lib/stores/returns-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { returnEligibility } from "@/lib/returns";
+import { courierById, trackingUrlFor } from "@/lib/couriers";
 import { RETURN_STATUS_LABELS } from "@/types/returns";
 import { retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
 
@@ -297,6 +298,32 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 : "Paid online"}
             </p>
           </div>
+
+          {order.shipment && (
+            <div className="rounded-lg border border-neutral-200 bg-white p-5">
+              <h2 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                <Truck className="h-4 w-4 text-neutral-400" />
+                Tracking
+              </h2>
+              <p className="text-sm text-neutral-600">
+                {courierById(order.shipment.courierId)?.name ?? "Courier"} &middot;{" "}
+                <span className="font-mono text-xs">{order.shipment.awb}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-400">
+                Shipped on {order.shipment.shippedAt}
+              </p>
+              {trackingUrlFor(order.shipment.courierId, order.shipment.awb) && (
+                <a
+                  href={trackingUrlFor(order.shipment.courierId, order.shipment.awb)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-sm text-rose-600 underline"
+                >
+                  Track on the courier&apos;s site
+                </a>
+              )}
+            </div>
+          )}
 
           <div className="rounded-lg border border-neutral-200 bg-white p-5 text-sm">
             <h2 className="mb-2 font-semibold text-neutral-900">Need help?</h2>

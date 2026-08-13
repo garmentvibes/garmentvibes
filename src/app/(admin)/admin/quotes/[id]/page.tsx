@@ -3,7 +3,7 @@
 import { use } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Building2 } from "lucide-react";
+import { ArrowLeft, Building2, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
@@ -75,7 +75,14 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
             {quote.kind === "quote" ? "Quote request" : "Direct order"} &middot; {quote.requestedAt}
           </p>
         </div>
-        <Badge variant="outline">{WHOLESALE_QUOTE_STATUS_LABELS[quote.status]}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">{WHOLESALE_QUOTE_STATUS_LABELS[quote.status]}</Badge>
+          <Link href={`/admin/quotes/${quote.id}/invoice`}>
+            <Button variant="outline" size="sm">
+              <FileText className="mr-1.5 h-4 w-4" /> Tax invoice
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">

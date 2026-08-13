@@ -23,6 +23,8 @@ export type NotificationTemplateId =
   | "return_requested"
   | "return_approved"
   | "return_rejected"
+  | "exchange_shipped"
+  | "back_in_stock"
   | "refund_initiated"
   | "wholesale_account_approved"
   | "wholesale_account_rejected"

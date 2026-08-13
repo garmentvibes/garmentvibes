@@ -18,7 +18,8 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { cn, formatPrice, generateReferenceId } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { notify } from "@/lib/stores/notification-store";
-import { PROMO_CODES } from "@/lib/pricing";
+import { usePromoStore, promoPercentFromStore } from "@/lib/stores/promo-store";
+import { useNow } from "@/lib/hooks/use-now";
 import { computeGst } from "@/lib/gst";
 import { getRetailProductById } from "@/lib/mock/retail-products";
 import { reportError } from "@/lib/analytics";
@@ -50,6 +51,8 @@ export default function CheckoutPage() {
   const lines = useCartStore((s) => s.lines);
   const clear = useCartStore((s) => s.clear);
   const addresses = useAddressStore((s) => s.addresses);
+  const promoCodes = usePromoStore((s) => s.codes);
+  const now = useNow();
   const { totalItems, totalPrice } = cartTotals(lines);
 
   // Fire once the persisted cart has hydrated, so the event carries the real
@@ -74,9 +77,11 @@ export default function CheckoutPage() {
 
   function applyPromo() {
     const code = promoInput.trim().toUpperCase();
-    const percent = PROMO_CODES[code];
+    // Reads the managed list, so a code deactivated or expired in admin stops
+    // working immediately rather than at the next deploy.
+    const percent = promoPercentFromStore(promoCodes, code, now ?? 0);
     if (!percent) {
-      toast.error("Invalid promo code");
+      toast.error("Invalid or expired promo code");
       return;
     }
     setAppliedPromo({ code, percent });

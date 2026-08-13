@@ -3,15 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Check, X, IndianRupee, Truck } from "lucide-react";
+import { Check, X, IndianRupee, Truck, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import { useReturnsStore } from "@/lib/stores/returns-store";
+import { useStockStore, stockForProductId } from "@/lib/stores/stock-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { notify } from "@/lib/stores/notification-store";
+import { notifyRestocked } from "@/lib/notify-restock";
 import {
   RETURN_STATUS_LABELS,
+  isRestockable,
   returnRefundTotal,
   type ReturnRequest,
   type ReturnStatus,
@@ -25,12 +28,15 @@ const STATUS_VARIANT: Record<ReturnStatus, "warning" | "success" | "destructive"
   picked_up: "warning",
   rejected: "destructive",
   refunded: "success",
+  exchange_shipped: "success",
 };
 
 export default function AdminReturnsPage() {
   const mounted = useHasMounted();
   const requests = useReturnsStore((s) => s.requests);
   const setStatus = useReturnsStore((s) => s.setStatus);
+  const increment = useStockStore((s) => s.increment);
+  const decrement = useStockStore((s) => s.decrement);
   const [filter, setFilter] = useState<Filter>("requested");
 
   if (!mounted) return null;
@@ -68,12 +74,70 @@ export default function AdminReturnsPage() {
     toast.success(`Return ${request.id} rejected — customer notified`);
   }
 
+  /**
+   * Puts the returned units back on the shelf, but only when the reason
+   * means they are actually sellable — a damaged or poor-quality item must
+   * not be quietly re-sold to the next customer.
+   *
+   * Called once, on the transition that means we physically have the goods
+   * back and have accepted them.
+   */
+  function restockIfSellable(request: ReturnRequest) {
+    if (!isRestockable(request.reason)) return 0;
+    let restocked = 0;
+    for (const item of request.items) {
+      const before = stockForProductId(item.productId, item.size);
+      increment(item.productId, item.size, item.qty, before);
+      restocked += item.qty;
+      // Going from zero to available is exactly what people registered for.
+      if (before === 0) {
+        notifyRestocked(item.productId, item.size, item.name);
+      }
+    }
+    return restocked;
+  }
+
   function markPickedUp(request: ReturnRequest) {
     setStatus(request.id, "picked_up");
     toast.success(`Return ${request.id} marked as picked up`);
   }
 
+  function shipExchange(request: ReturnRequest) {
+    // The replacement leaves stock; the original comes back into it if it is
+    // still sellable. Both movements belong to this single transition.
+    for (const item of request.items) {
+      if (!item.exchangeForSize) continue;
+      decrement(
+        item.productId,
+        item.exchangeForSize,
+        item.qty,
+        stockForProductId(item.productId, item.exchangeForSize)
+      );
+    }
+    const restocked = restockIfSellable(request);
+
+    setStatus(request.id, "exchange_shipped");
+    notify({
+      templateId: "exchange_shipped",
+      recipientName: request.customerName,
+      email: request.customerEmail,
+      phone: request.phone,
+      relatedTo: request.id,
+      vars: {
+        name: request.customerName,
+        orderId: request.orderId,
+        replacementSize: request.items.find((i) => i.exchangeForSize)?.exchangeForSize,
+      },
+    });
+    toast.success(
+      restocked > 0
+        ? `Exchange shipped — ${restocked} unit${restocked === 1 ? "" : "s"} back in stock`
+        : "Exchange shipped — returned items not restocked (not sellable)"
+    );
+  }
+
   function refund(request: ReturnRequest) {
+    const restocked = restockIfSellable(request);
     setStatus(request.id, "refunded");
     notify({
       templateId: "refund_initiated",
@@ -87,7 +151,11 @@ export default function AdminReturnsPage() {
         amount: formatPrice(returnRefundTotal(request)),
       },
     });
-    toast.success(`Refund of ${formatPrice(returnRefundTotal(request))} initiated`);
+    toast.success(
+      restocked > 0
+        ? `Refund of ${formatPrice(returnRefundTotal(request))} initiated — ${restocked} unit${restocked === 1 ? "" : "s"} back in stock`
+        : `Refund of ${formatPrice(returnRefundTotal(request))} initiated — not restocked (not sellable)`
+    );
   }
 
   return (
@@ -99,7 +167,17 @@ export default function AdminReturnsPage() {
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {(["requested", "approved", "picked_up", "refunded", "rejected", "all"] as Filter[]).map(
+        {(
+          [
+            "requested",
+            "approved",
+            "picked_up",
+            "refunded",
+            "exchange_shipped",
+            "rejected",
+            "all",
+          ] as Filter[]
+        ).map(
           (f) => (
             <button
               key={f}
@@ -144,17 +222,28 @@ export default function AdminReturnsPage() {
                   </div>
 
                   <p className="mt-1 text-sm text-neutral-700">
+                    <span className="font-medium capitalize">{request.resolution}</span> &middot;{" "}
                     {request.customerName} &middot; {request.reason}
                   </p>
 
                   <ul className="mt-2 space-y-0.5 text-xs text-neutral-500">
                     {request.items.map((item, i) => (
                       <li key={`${item.productId}-${i}`}>
-                        {item.qty} &times; {item.name} (Size {item.size}, {item.color}) —{" "}
+                        {item.qty} &times; {item.name} (Size {item.size}, {item.color})
+                        {item.exchangeForSize ? ` → size ${item.exchangeForSize}` : ""} —{" "}
                         {formatPrice(item.qty * item.price)}
                       </li>
                     ))}
                   </ul>
+
+                  {/* Staff need to know before acting whether these units
+                      will come back into sellable stock. */}
+                  {!isRestockable(request.reason) && (
+                    <p className="mt-1.5 text-xs text-amber-700">
+                      Not restocked on completion — {request.reason.toLowerCase()} means the unit
+                      isn&apos;t resellable.
+                    </p>
+                  )}
 
                   {request.comments && (
                     <p className="mt-2 rounded bg-neutral-50 p-2 text-xs italic text-neutral-600">
@@ -185,11 +274,16 @@ export default function AdminReturnsPage() {
                         <Truck className="mr-1 h-3.5 w-3.5" /> Mark picked up
                       </Button>
                     )}
-                    {request.status === "picked_up" && (
-                      <Button size="sm" onClick={() => refund(request)}>
-                        <IndianRupee className="mr-1 h-3.5 w-3.5" /> Initiate refund
-                      </Button>
-                    )}
+                    {request.status === "picked_up" &&
+                      (request.resolution === "exchange" ? (
+                        <Button size="sm" onClick={() => shipExchange(request)}>
+                          <Repeat className="mr-1 h-3.5 w-3.5" /> Ship exchange
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => refund(request)}>
+                          <IndianRupee className="mr-1 h-3.5 w-3.5" /> Initiate refund
+                        </Button>
+                      ))}
                   </div>
                 </div>
               </div>

@@ -28,6 +28,9 @@ export interface TemplateVars {
   businessName?: string;
   reason?: string;
   refundWindow?: string;
+  /** Exchange: the size going out. Back-in-stock: the size that returned. */
+  replacementSize?: string;
+  productName?: string;
 }
 
 interface TemplateDefinition {
@@ -105,6 +108,25 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateId, TemplateDefi
     email: (v) =>
       `Hi ${v.name},\n\nWe've reviewed your return request for order ${v.orderId} and aren't able to approve it${v.reason ? ` — ${v.reason}` : ""}.\n\nIf you think this is a mistake, reply to this email and we'll take another look. You can also raise the matter with our Grievance Officer, whose details are on the website.\n\n${SIGNOFF}`,
     short: (v) => `GarmentVibes: We couldn't approve the return for order ${v.orderId}. Check your email for details.`,
+  },
+
+  exchange_shipped: {
+    label: "Exchange shipped",
+    channels: ["email", "sms", "whatsapp"],
+    subject: (v) => `Your exchange for order ${v.orderId} is on its way`,
+    email: (v) =>
+      `Hi ${v.name},\n\nThe replacement for order ${v.orderId} has shipped${v.replacementSize ? ` in size ${v.replacementSize}` : ""}.\n\nTrack it here: ${v.trackingUrl ?? "My Orders in your account"}\n\n${SIGNOFF}`,
+    short: (v) =>
+      `GarmentVibes: Your exchange for order ${v.orderId} has shipped${v.replacementSize ? ` (size ${v.replacementSize})` : ""}.`,
+  },
+
+  back_in_stock: {
+    label: "Back in stock",
+    channels: ["email"],
+    subject: (v) => `${v.productName ?? "An item you saved"} is back in stock`,
+    email: (v) =>
+      `Hi ${v.name},\n\n${v.productName ?? "An item on your wishlist"}${v.replacementSize ? ` in size ${v.replacementSize}` : ""} is available again.\n\nPopular sizes go quickly, so it's worth ordering soon if you still want it.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: ${v.productName ?? "An item you saved"} is back in stock.`,
   },
 
   refund_initiated: {

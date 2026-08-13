@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminCatalogStore } from "@/lib/stores/admin-catalog-store";
 import { useStockStore, getStock } from "@/lib/stores/stock-store";
+import { notifyRestocked } from "@/lib/notify-restock";
 import { placeholderImage } from "@/lib/mock/placeholder-image";
 import { RETAIL_TAXONOMY, CATEGORY_LABELS } from "@/lib/mock/category-taxonomy";
 import type { RetailCategory, RetailProduct } from "@/types/catalog";
@@ -212,7 +213,20 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
                       min={0}
                       value={stock}
                       aria-label={`Stock for size ${s.label}`}
-                      onChange={(e) => setStock(product.id, s.label, Number(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const next = Number(e.target.value) || 0;
+                        setStock(product.id, s.label, next);
+                        // Restocking from zero is what people asked to hear
+                        // about, so the alert fires from the edit itself.
+                        if (stock === 0 && next > 0) {
+                          const sent = notifyRestocked(product.id, s.label, product.name);
+                          if (sent > 0) {
+                            toast.success(
+                              `${sent} back-in-stock ${sent === 1 ? "alert" : "alerts"} queued for size ${s.label}`
+                            );
+                          }
+                        }
+                      }}
                       className="h-9 w-20"
                     />
                   </div>

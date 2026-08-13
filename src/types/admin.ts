@@ -38,6 +38,8 @@ export interface RetailOrder {
    * date, not from placedAt — a slow delivery must not eat into it.
    */
   deliveredAt?: string; // ISO date
+  /** Set when the order ships. Courier id matches lib/couriers.ts. */
+  shipment?: { courierId: string; awb: string; shippedAt: string };
   customerName: string;
   customerEmail: string;
   phone: string;

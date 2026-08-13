@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getRetailProductById } from "@/lib/mock/retail-products";
 import type { RetailProduct } from "@/types/catalog";
 
 // Per-variant stock levels.
@@ -36,6 +37,12 @@ interface StockState {
    * to decrement from, so the caller supplies the seeded value.
    */
   decrement: (productId: string, sizeLabel: string, qty: number, currentStock: number) => void;
+  /**
+   * Put units back on the shelf — a returned item that is still sellable, or
+   * the original size when an exchange goes the other way. Same
+   * `currentStock` contract as decrement.
+   */
+  increment: (productId: string, sizeLabel: string, qty: number, currentStock: number) => void;
   resetAll: () => void;
 }
 
@@ -52,6 +59,12 @@ export const useStockStore = create<StockState>()(
           const key = variantKey(productId, sizeLabel);
           const base = s.overrides[key] ?? currentStock;
           return { overrides: { ...s.overrides, [key]: Math.max(0, base - qty) } };
+        }),
+      increment: (productId, sizeLabel, qty, currentStock) =>
+        set((s) => {
+          const key = variantKey(productId, sizeLabel);
+          const base = s.overrides[key] ?? currentStock;
+          return { overrides: { ...s.overrides, [key]: base + qty } };
         }),
       resetAll: () => set({ overrides: {} }),
     }),
@@ -77,6 +90,19 @@ export function getTotalStock(
   product: Pick<RetailProduct, "id" | "sizes">
 ) {
   return product.sizes.reduce((sum, s) => sum + getStock(overrides, product, s.label), 0);
+}
+
+/**
+ * Stock for a variant identified by product *id*, read imperatively.
+ *
+ * Event handlers (approving a return, shipping an exchange) need the current
+ * level without subscribing to the store, and only have the product id to go
+ * on. Returns 0 for an unknown product rather than guessing a level.
+ */
+export function stockForProductId(productId: string, sizeLabel: string) {
+  const product = getRetailProductById(productId);
+  if (!product) return 0;
+  return getStock(useStockStore.getState().overrides, product, sizeLabel);
 }
 
 export function useVariantStock(product: Pick<RetailProduct, "id" | "sizes">, sizeLabel: string) {
