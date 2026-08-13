@@ -26,16 +26,25 @@ const SORT_LABELS: Record<SortKey, string> = {
 export function CatalogBrowser({
   products,
   showCategoryFilter = true,
+  initialSubcategory,
 }: {
   products: WholesaleProduct[];
   showCategoryFilter?: boolean;
+  initialSubcategory?: string;
 }) {
   const [sort, setSort] = useState<SortKey>("popularity");
   const [categories, setCategories] = useState<string[]>([]);
   const [maxMoq, setMaxMoq] = useState<number | null>(null);
+  const [subcategories, setSubcategories] = useState<string[]>(
+    initialSubcategory ? [initialSubcategory] : []
+  );
 
   const allCategories = useMemo(
     () => Array.from(new Set(products.map((p) => p.category))),
+    [products]
+  );
+  const allSubcategories = useMemo(
+    () => Array.from(new Set(products.map((p) => p.subcategory))).sort(),
     [products]
   );
 
@@ -44,6 +53,9 @@ export function CatalogBrowser({
 
     if (categories.length > 0) {
       list = list.filter((p) => categories.includes(p.category));
+    }
+    if (subcategories.length > 0) {
+      list = list.filter((p) => subcategories.includes(p.subcategory));
     }
     if (maxMoq !== null) {
       list = list.filter((p) => p.moq <= maxMoq);
@@ -69,10 +81,14 @@ export function CatalogBrowser({
     }
 
     return list;
-  }, [products, sort, categories, maxMoq]);
+  }, [products, sort, categories, subcategories, maxMoq]);
 
   function toggleCategory(cat: string) {
     setCategories((prev) => (prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]));
+  }
+
+  function toggleSubcategory(sub: string) {
+    setSubcategories((prev) => (prev.includes(sub) ? prev.filter((s) => s !== sub) : [...prev, sub]));
   }
 
   return (
@@ -91,6 +107,25 @@ export function CatalogBrowser({
                     className="accent-blue-700"
                   />
                   {CATEGORY_LABELS[cat as WholesaleCategory]}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allSubcategories.length > 1 && (
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-900">Product Type</h3>
+            <div className="space-y-1.5 text-sm text-slate-600">
+              {allSubcategories.map((sub) => (
+                <label key={sub} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={subcategories.includes(sub)}
+                    onChange={() => toggleSubcategory(sub)}
+                    className="accent-blue-700"
+                  />
+                  {sub}
                 </label>
               ))}
             </div>

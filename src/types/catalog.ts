@@ -50,6 +50,7 @@ export interface WholesaleProduct {
   slug: string;
   name: string;
   category: WholesaleCategory;
+  subcategory: string; // e.g. "T-Shirts & Polos", "Denim & Trousers"
   description: string;
   images: string[];
   currency: Currency;

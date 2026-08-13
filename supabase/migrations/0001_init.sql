@@ -95,6 +95,7 @@ create table wholesale_products (
   slug text not null unique,
   name text not null,
   category wholesale_category not null,
+  subcategory text not null,
   description text not null default '',
   images text[] not null default '{}',
   currency text not null default 'INR',

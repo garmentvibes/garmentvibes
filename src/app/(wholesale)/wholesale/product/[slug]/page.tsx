@@ -1,10 +1,29 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
+import { WholesaleBreadcrumbs } from "@/components/wholesale/breadcrumbs";
 import { AddToOrderPanel } from "@/components/wholesale/add-to-order-panel";
-import { WHOLESALE_PRODUCTS, getWholesaleProductBySlug } from "@/lib/mock/wholesale-products";
+import { WholesaleProductCard } from "@/components/wholesale/product-card";
+import {
+  WHOLESALE_PRODUCTS,
+  getWholesaleProductBySlug,
+  getRelatedWholesaleProducts,
+} from "@/lib/mock/wholesale-products";
+import { WHOLESALE_CATEGORY_LABELS } from "@/lib/mock/wholesale-taxonomy";
 
 export function generateStaticParams() {
   return WHOLESALE_PRODUCTS.map((p) => ({ slug: p.slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const product = getWholesaleProductBySlug(slug);
+  if (!product) return {};
+  return { title: product.name, description: product.description };
 }
 
 export default async function WholesaleProductPage({
@@ -16,9 +35,22 @@ export default async function WholesaleProductPage({
   const product = getWholesaleProductBySlug(slug);
   if (!product) notFound();
 
+  const related = getRelatedWholesaleProducts(product);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+      <WholesaleBreadcrumbs
+        items={[
+          { label: "Catalog", href: "/wholesale/catalog" },
+          {
+            label: WHOLESALE_CATEGORY_LABELS[product.category],
+            href: `/wholesale/catalog/${product.category}`,
+          },
+          { label: product.name },
+        ]}
+      />
+
+      <div className="mt-3 grid grid-cols-1 gap-10 md:grid-cols-2">
         <div className="aspect-[3/4] overflow-hidden rounded-lg bg-slate-100">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
@@ -34,6 +66,7 @@ export default async function WholesaleProductPage({
                 {tag}
               </Badge>
             ))}
+            <Badge variant="outline">{product.subcategory}</Badge>
             <Badge variant="outline">Lead time: {product.leadTimeDays} days</Badge>
           </div>
 
@@ -63,6 +96,17 @@ export default async function WholesaleProductPage({
           </div>
         </div>
       </div>
+
+      {related.length > 0 && (
+        <section className="mt-14">
+          <h2 className="mb-4 text-xl font-bold text-slate-900">Related Products</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {related.map((p) => (
+              <WholesaleProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

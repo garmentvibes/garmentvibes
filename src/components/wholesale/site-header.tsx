@@ -7,13 +7,18 @@ import { ClipboardList, User, Search, Menu, X } from "lucide-react";
 import { useWholesaleOrderStore, wholesaleOrderTotals } from "@/lib/stores/wholesale-order-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { WholesaleMegaMenu } from "@/components/wholesale/mega-menu";
+import { WHOLESALE_TAXONOMY, WHOLESALE_CATEGORY_LABELS } from "@/lib/mock/wholesale-taxonomy";
+import type { WholesaleCategory } from "@/types/catalog";
 
+// "Catalog" is rendered by <WholesaleMegaMenu /> instead of a plain link.
 const NAV_LINKS = [
-  { href: "/wholesale/catalog", label: "Catalog" },
   { href: "/wholesale/quick-order", label: "Quick Order" },
   { href: "/wholesale/pricing-calculator", label: "Pricing Calculator" },
   { href: "/wholesale/dashboard", label: "Dashboard" },
 ];
+
+const NAV_CATEGORIES: WholesaleCategory[] = ["women", "men", "kids", "unisex", "fabric"];
 
 export function WholesaleSiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,9 +55,10 @@ export function WholesaleSiteHeader() {
           GarmentVibes <span className="text-blue-400">B2B</span>
         </Link>
 
-        <nav className="hidden gap-5 text-sm font-medium text-slate-300 lg:flex">
+        <nav className="hidden items-center gap-2 text-sm font-medium text-slate-300 lg:flex">
+          <WholesaleMegaMenu />
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="hover:text-white">
+            <Link key={link.href} href={link.href} className="rounded-md px-3 py-2 hover:text-white">
               {link.label}
             </Link>
           ))}
@@ -112,18 +118,45 @@ export function WholesaleSiteHeader() {
               className="w-full bg-transparent text-white outline-none placeholder:text-slate-400"
             />
           </form>
-          <nav className="flex flex-col gap-3 text-sm font-medium text-slate-300">
-            {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>
-                {link.label}
-              </Link>
+          <nav className="flex flex-col gap-1 text-sm font-medium text-slate-300">
+            {NAV_CATEGORIES.map((category) => (
+              <details key={category} className="group">
+                <summary className="flex cursor-pointer list-none items-center justify-between py-2">
+                  <Link href={`/wholesale/catalog/${category}`} onClick={() => setMenuOpen(false)}>
+                    {WHOLESALE_CATEGORY_LABELS[category]}
+                  </Link>
+                  <span className="text-slate-500 group-open:rotate-180">&#9662;</span>
+                </summary>
+                <ul className="space-y-1 py-1 pl-3">
+                  {WHOLESALE_TAXONOMY[category].flatMap((dept) =>
+                    dept.subcategories.map((sub) => (
+                      <li key={sub}>
+                        <Link
+                          href={`/wholesale/catalog/${category}?subcategory=${encodeURIComponent(sub)}`}
+                          onClick={() => setMenuOpen(false)}
+                          className="text-slate-400"
+                        >
+                          {sub}
+                        </Link>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </details>
             ))}
-            <Link href="/wholesale/settings" onClick={() => setMenuOpen(false)}>
-              Business Settings
-            </Link>
-            <Link href="/wholesale/team" onClick={() => setMenuOpen(false)}>
-              Team Members
-            </Link>
+            <div className="mt-2 flex flex-col gap-3 border-t border-slate-800 pt-3">
+              {NAV_LINKS.map((link) => (
+                <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>
+                  {link.label}
+                </Link>
+              ))}
+              <Link href="/wholesale/settings" onClick={() => setMenuOpen(false)}>
+                Business Settings
+              </Link>
+              <Link href="/wholesale/team" onClick={() => setMenuOpen(false)}>
+                Team Members
+              </Link>
+            </div>
           </nav>
         </div>
       )}
