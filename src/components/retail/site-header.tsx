@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ShoppingBag, User, Search, Heart, Menu, X } from "lucide-react";
+import { ShoppingBag, User, Heart, Menu, X } from "lucide-react";
 import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useWishlistStore } from "@/lib/stores/wishlist-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { MegaMenu } from "@/components/retail/mega-menu";
+import { SearchBox } from "@/components/retail/search-box";
 import { RETAIL_TAXONOMY, CATEGORY_LABELS } from "@/lib/mock/category-taxonomy";
 import type { RetailCategory } from "@/types/catalog";
 
@@ -16,8 +16,6 @@ const NAV_CATEGORIES: RetailCategory[] = ["women", "men", "kids"];
 
 export function RetailSiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const router = useRouter();
 
   const mounted = useHasMounted();
   const lines = useCartStore((s) => s.lines);
@@ -27,13 +25,6 @@ export function RetailSiteHeader() {
   const wishlistCount = mounted ? wishlistCountRaw : 0;
   const userRaw = useSessionStore((s) => s.user);
   const user = mounted ? userRaw : null;
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setMenuOpen(false);
-    router.push(`/shop/search?q=${encodeURIComponent(query.trim())}`);
-  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur">
@@ -53,18 +44,7 @@ export function RetailSiteHeader() {
 
         <MegaMenu />
 
-        <form onSubmit={handleSearch} className="ml-auto hidden flex-1 max-w-xs sm:flex">
-          <div className="flex w-full items-center gap-2 rounded-full border border-neutral-200 px-3 py-1.5 text-sm text-neutral-500 focus-within:border-rose-400">
-            <Search className="h-4 w-4 shrink-0" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search products"
-              className="w-full bg-transparent text-neutral-800 outline-none placeholder:text-neutral-400"
-            />
-          </div>
-        </form>
+        <SearchBox className="ml-auto hidden max-w-xs flex-1 sm:block" />
 
         <div className="ml-auto flex items-center gap-4 sm:ml-0">
           <Link
@@ -105,16 +85,7 @@ export function RetailSiteHeader() {
 
       {menuOpen && (
         <div className="border-t border-neutral-200 bg-white px-4 py-4 sm:hidden">
-          <form onSubmit={handleSearch} className="mb-4 flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-1.5 text-sm">
-            <Search className="h-4 w-4 shrink-0 text-neutral-400" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search products"
-              className="w-full bg-transparent outline-none placeholder:text-neutral-400"
-            />
-          </form>
+          <SearchBox className="mb-4" onNavigate={() => setMenuOpen(false)} />
           <nav className="flex flex-col gap-1 text-sm font-medium text-neutral-700">
             {NAV_CATEGORIES.map((category) => (
               <details key={category} className="group">

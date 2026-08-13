@@ -1,5 +1,6 @@
 import type { RetailProduct } from "@/types/catalog";
 import { placeholderImage } from "./placeholder-image";
+import { fuzzySearch } from "@/lib/search";
 
 const sizesSML = [
   { label: "S", inStock: true },
@@ -645,12 +646,18 @@ export function getRetailProductsByCategory(category: string) {
   return RETAIL_PRODUCTS.filter((p) => p.category === category);
 }
 
-export function searchRetailProducts(query: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return RETAIL_PRODUCTS.filter((p) =>
-    [p.name, p.brand, p.category, p.subcategory].some((field) => field.toLowerCase().includes(q))
-  );
+// Fields are ordered by weight — a name match outranks a category match.
+const retailSearchFields = (p: RetailProduct) => [
+  p.name,
+  p.brand,
+  p.subcategory,
+  p.category,
+  p.colors.join(" "),
+];
+
+export function searchRetailProducts(query: string, limit?: number) {
+  if (!query.trim()) return [];
+  return fuzzySearch(query, RETAIL_PRODUCTS, retailSearchFields, limit);
 }
 
 export function getRelatedRetailProducts(product: RetailProduct, limit = 4) {

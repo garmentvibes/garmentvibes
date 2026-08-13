@@ -1,5 +1,6 @@
 import type { WholesaleProduct } from "@/types/catalog";
 import { placeholderImage } from "./placeholder-image";
+import { fuzzySearch } from "@/lib/search";
 
 export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
   // --- Unisex / Basics ---
@@ -606,14 +607,18 @@ export function getWholesaleProductBySku(sku: string) {
   return WHOLESALE_PRODUCTS.find((p) => p.sku.toLowerCase() === sku.trim().toLowerCase());
 }
 
-export function searchWholesaleProducts(query: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return WHOLESALE_PRODUCTS.filter((p) =>
-    [p.name, p.sku, p.category, p.subcategory, p.fabric].some((field) =>
-      field.toLowerCase().includes(q)
-    )
-  );
+// Fields are ordered by weight — SKU and name outrank fabric/category.
+const wholesaleSearchFields = (p: WholesaleProduct) => [
+  p.sku,
+  p.name,
+  p.subcategory,
+  p.category,
+  p.fabric,
+];
+
+export function searchWholesaleProducts(query: string, limit?: number) {
+  if (!query.trim()) return [];
+  return fuzzySearch(query, WHOLESALE_PRODUCTS, wholesaleSearchFields, limit);
 }
 
 export function getRelatedWholesaleProducts(product: WholesaleProduct, limit = 4) {

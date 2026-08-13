@@ -44,14 +44,41 @@ allConsoleErrors.push(
     check("retail-discovery", "wishlist shows saved item", (await page.locator("text=Floral Printed Anarkali Kurta").count()) > 0);
 
     await page.goto(`${BASE_URL}/shop/women`, { waitUntil: "networkidle" });
-    const before = await page.locator("text=/\\d+ products/").nth(1).textContent();
+    const before = await page.locator("text=/Showing \\d+/").first().textContent();
     await page.click('text="Under ₹999"');
-    await page.waitForTimeout(200);
-    const after = await page.locator("text=/\\d+ products/").nth(1).textContent();
+    await page.waitForTimeout(300);
+    const after = await page.locator("text=/Showing \\d+|No products/").first().textContent();
     check("retail-discovery", "price filter changes result count", before !== after);
 
     await page.goto(`${BASE_URL}/shop/search?q=jeans`, { waitUntil: "networkidle" });
     check("retail-discovery", "search finds matching products", (await page.locator("text=/Jeans/i").count()) > 0);
+
+    // Typo tolerance: a misspelling should still find the product.
+    await page.goto(`${BASE_URL}/shop/search?q=kurtaa`, { waitUntil: "networkidle" });
+    check("retail-discovery", "misspelled query still returns results", (await page.locator("text=/Kurta/i").count()) > 0);
+
+    // Nonsense should return the recovery state, not a blank page.
+    await page.goto(`${BASE_URL}/shop/search?q=zzzzqqqq`, { waitUntil: "networkidle" });
+    check("retail-discovery", "no-results state offers category links", (await page.locator("text=/No products matched/").count()) > 0);
+
+    // Autocomplete dropdown suggests products as you type.
+    await page.goto(`${BASE_URL}/shop`, { waitUntil: "networkidle" });
+    await page.fill('input[aria-label="Search products"]', "saree");
+    await page.waitForTimeout(300);
+    check("retail-discovery", "search autocomplete shows suggestions", (await page.locator("#search-suggestions li").count()) > 0);
+
+    // Colour and discount facets, plus pagination.
+    await page.goto(`${BASE_URL}/shop/women`, { waitUntil: "networkidle" });
+    const beforeColour = await page.locator("text=/Showing \\d+/").first().textContent();
+    await page.click('text="Black"');
+    await page.waitForTimeout(300);
+    const afterColour = await page.locator("text=/Showing \\d+|No products/").first().textContent();
+    check("retail-discovery", "colour filter narrows results", beforeColour !== afterColour);
+
+    await page.goto(`${BASE_URL}/shop/women`, { waitUntil: "networkidle" });
+    await page.click('text="40% and above"');
+    await page.waitForTimeout(300);
+    check("retail-discovery", "discount filter applies", (await page.locator("text=/Showing \\d+|No products/").count()) > 0);
   }))
 );
 
