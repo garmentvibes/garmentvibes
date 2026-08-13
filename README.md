@@ -57,6 +57,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## QA
+
+See [`QA.md`](./QA.md) for the full checklist — automated link/route/a11y/
+E2E scripts under `scripts/qa/` (`npm run qa`, `npm run qa:routes`,
+`npm run qa:e2e`) plus a manual checklist for what isn't automated yet.
+
 ## Deployment
 
 Deployed via Vercel, connected to this GitHub repo. The `garmentvibes.com` domain

@@ -82,7 +82,11 @@ export function WholesaleSiteHeader() {
             </span>
           </Link>
 
-          <Link href="/wholesale/order" className="relative flex items-center text-slate-300 hover:text-white">
+          <Link
+            href="/wholesale/order"
+            aria-label="Current order"
+            className="relative flex items-center text-slate-300 hover:text-white"
+          >
             <ClipboardList className="h-5 w-5" />
             {totalUnits > 0 && (
               <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">

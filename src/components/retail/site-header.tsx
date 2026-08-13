@@ -69,6 +69,7 @@ export function RetailSiteHeader() {
         <div className="ml-auto flex items-center gap-4 sm:ml-0">
           <Link
             href="/shop/wishlist"
+            aria-label="Wishlist"
             className="relative hidden items-center text-neutral-700 hover:text-rose-600 sm:flex"
           >
             <Heart className="h-5 w-5" />
@@ -87,7 +88,11 @@ export function RetailSiteHeader() {
             <span className="hidden sm:inline">{user?.role === "retail" ? user.name.split(" ")[0] : "Sign in"}</span>
           </Link>
 
-          <Link href="/shop/cart" className="relative flex items-center text-neutral-700 hover:text-rose-600">
+          <Link
+            href="/shop/cart"
+            aria-label="Cart"
+            className="relative flex items-center text-neutral-700 hover:text-rose-600"
+          >
             <ShoppingBag className="h-5 w-5" />
             {totalItems > 0 && (
               <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white">

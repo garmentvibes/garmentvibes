@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "qa:static": "node scripts/qa/static-checks.mjs",
+    "qa:routes": "node scripts/qa/route-sweep.mjs",
+    "qa:e2e": "node scripts/qa/e2e-flows.mjs",
+    "qa": "npm run lint && npm run build && npm run qa:static"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -32,6 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "playwright-core": "^1.62.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

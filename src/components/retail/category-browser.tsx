@@ -185,6 +185,7 @@ export function CategoryBrowser({
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-neutral-500">{filtered.length} products</p>
           <select
+            aria-label="Sort products by"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-700 focus:border-rose-400 focus:outline-none"

@@ -112,6 +112,8 @@ export default function QuickOrderPage() {
             ref={fileInputRef}
             type="file"
             accept=".csv,text/csv"
+            aria-hidden="true"
+            tabIndex={-1}
             className="hidden"
             onChange={handleCsvUpload}
           />
@@ -153,6 +155,7 @@ export default function QuickOrderPage() {
                       step={product.packSize}
                       value={qty || ""}
                       placeholder="0"
+                      aria-label={`Quantity for ${product.name} (${product.sku})`}
                       onChange={(e) =>
                         setQtyBySku((prev) => ({
                           ...prev,

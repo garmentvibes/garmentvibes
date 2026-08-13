@@ -1,0 +1,209 @@
+// End-to-end business-flow QA — drives the actual UI through every flow that
+// encodes a real product/business decision, so a future change that breaks
+// one is caught immediately rather than discovered by a human later.
+//
+// Requires a running server — start `npm run dev` first, then:
+//   node scripts/qa/e2e-flows.mjs
+// Each run uses a fresh browser context (empty localStorage), so flows that
+// depend on earlier state (e.g. checkout needing an item in cart) chain
+// within a single flow function rather than across functions.
+
+import { launchBrowser } from "./_launch-browser.mjs";
+
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+
+const results = [];
+function check(flow, name, cond) {
+  results.push({ flow, name, pass: !!cond });
+}
+
+async function withPage(browser, fn) {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("console", (msg) => {
+    if (msg.type() === "error") errors.push(msg.text());
+  });
+  await fn(page);
+  await page.close();
+  return errors;
+}
+
+const browser = await launchBrowser();
+let allConsoleErrors = [];
+
+// ---------------------------------------------------------------------------
+// Retail: browse, wishlist, filter, search
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    await page.click('button[aria-label="Add to wishlist"]');
+    await page.waitForTimeout(200);
+    await page.goto(`${BASE_URL}/shop/wishlist`, { waitUntil: "networkidle" });
+    check("retail-discovery", "wishlist shows saved item", (await page.locator("text=Floral Printed Anarkali Kurta").count()) > 0);
+
+    await page.goto(`${BASE_URL}/shop/women`, { waitUntil: "networkidle" });
+    const before = await page.locator("text=/\\d+ products/").nth(1).textContent();
+    await page.click('text="Under ₹999"');
+    await page.waitForTimeout(200);
+    const after = await page.locator("text=/\\d+ products/").nth(1).textContent();
+    check("retail-discovery", "price filter changes result count", before !== after);
+
+    await page.goto(`${BASE_URL}/shop/search?q=jeans`, { waitUntil: "networkidle" });
+    check("retail-discovery", "search finds matching products", (await page.locator("text=/Jeans/i").count()) > 0);
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Retail: address book -> gated checkout -> redirect-back -> COD order
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/shop/addresses`, { waitUntil: "networkidle" });
+    await page.click("text=Add Address");
+    await page.fill("#label", "Home");
+    await page.fill("#fullName", "QA Buyer");
+    await page.fill("#phone", "9999999999");
+    await page.fill("#addressLine1", "1 QA Lane");
+    await page.fill("#city", "Mumbai");
+    await page.fill("#state", "Maharashtra");
+    await page.fill("#pincode", "400001");
+    await page.click('button:has-text("Save Address")');
+    await page.waitForTimeout(200);
+    check("retail-checkout", "address saved and listed", (await page.locator("text=QA Buyer").count()) > 0);
+
+    await page.goto(`${BASE_URL}/shop/product/classic-crew-neck-tee`, { waitUntil: "networkidle" });
+    await page.click("text=Add to Bag");
+    await page.waitForTimeout(200);
+    await page.goto(`${BASE_URL}/shop/checkout`, { waitUntil: "networkidle" });
+    check("retail-checkout", "checkout gated when signed out", (await page.locator("text=Sign in to check out").count()) > 0);
+
+    await page.getByRole("link", { name: "Sign In", exact: true }).click();
+    await page.waitForURL("**/shop/login**");
+    check("retail-checkout", "login URL carries redirect param", page.url().includes("redirect=") && page.url().includes("checkout"));
+    await page.fill("#email", "qa-shopper@example.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/shop/checkout");
+    await page.waitForTimeout(300);
+    check("retail-checkout", "cart preserved across login redirect", (await page.locator("text=Classic Crew Neck").count()) > 0);
+
+    await page.click('button:has-text("Use Home")');
+    check("retail-checkout", "quick-fill from saved address", (await page.inputValue("#fullName")) === "QA Buyer");
+    await page.fill('input[placeholder="Promo code"]', "GARMENT10");
+    await page.click('button:has-text("Apply")');
+    await page.waitForTimeout(200);
+    check("retail-checkout", "promo code applied", (await page.locator("text=GARMENT10 applied").count()) > 0);
+
+    await page.click("text=Cash on Delivery");
+    await page.click('button:has-text("Place Order (COD)")');
+    await page.waitForURL("**/shop/order-confirmation**");
+    check("retail-checkout", "COD confirmation shows pay-on-delivery note", (await page.locator("text=Pay in cash when your order arrives").count()) > 0);
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Wholesale: new signup starts pending -> quote allowed, direct order locked
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`, { waitUntil: "networkidle" });
+    await page.click("text=Add to Order");
+    await page.waitForTimeout(200);
+
+    await page.goto(`${BASE_URL}/wholesale/signup`, { waitUntil: "networkidle" });
+    await page.fill("#businessName", "QA Traders");
+    await page.fill("#contactName", "QA Contact");
+    await page.fill("#email", "qa@traders.example");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Create business account")');
+    await page.waitForURL("**/wholesale/dashboard");
+
+    await page.goto(`${BASE_URL}/wholesale/order`, { waitUntil: "networkidle" });
+    check("wholesale-pending", "pending account sees lock message", (await page.locator("text=Placing orders directly unlocks once your account is approved").count()) > 0);
+    check("wholesale-pending", "Place Order Directly hidden while pending", (await page.locator('button:has-text("Place Order Directly")').count()) === 0);
+    await page.click('button:has-text("Request Quote")');
+    await page.waitForURL("**/wholesale/quote-confirmation**");
+    check("wholesale-pending", "pending account can still request a quote", (await page.locator("text=Request received").count()) > 0);
+
+    await page.goto(`${BASE_URL}/wholesale/settings`, { waitUntil: "networkidle" });
+    check("wholesale-pending", "settings shows Pending Verification badge", (await page.locator("text=Pending Verification").count()) > 0);
+    check("wholesale-pending", "credit terms button disabled while pending", await page.locator('button:has-text("Request Net-30 Credit Terms")').isDisabled());
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Wholesale: returning login is approved -> direct order + credit terms
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/wholesale/login`, { waitUntil: "networkidle" });
+    await page.fill("#email", "qa-buyer@example.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/wholesale/dashboard");
+
+    await page.goto(`${BASE_URL}/wholesale/product/denim-jeans-bulk`, { waitUntil: "networkidle" });
+    await page.click("text=Add to Order");
+    await page.waitForTimeout(200);
+    await page.goto(`${BASE_URL}/wholesale/order`, { waitUntil: "networkidle" });
+    check("wholesale-approved", "approved account sees Place Order Directly", (await page.locator('button:has-text("Place Order Directly")').count()) > 0);
+
+    await page.goto(`${BASE_URL}/wholesale/settings`, { waitUntil: "networkidle" });
+    check("wholesale-approved", "settings shows Approved badge", (await page.locator("text=Approved").count()) > 0);
+    await page.click('button:has-text("Request Net-30 Credit Terms")');
+    await page.waitForTimeout(200);
+    check("wholesale-approved", "credit terms request confirmed", (await page.locator("text=Net-30 credit terms requested").count()) > 0);
+
+    await page.goto(`${BASE_URL}/wholesale/team`, { waitUntil: "networkidle" });
+    await page.fill("#name", "QA Team Member");
+    await page.fill("#email", "member@qa.example");
+    await page.click('button:has-text("Invite")');
+    await page.waitForTimeout(200);
+    check("wholesale-approved", "team member invited and listed", (await page.locator("text=QA Team Member").count()) > 0);
+
+    await page.goto(`${BASE_URL}/wholesale/dashboard`, { waitUntil: "networkidle" });
+    await page.click('button:has-text("Reorder") >> nth=0');
+    await page.waitForTimeout(200);
+    await page.goto(`${BASE_URL}/wholesale/order`, { waitUntil: "networkidle" });
+    check("wholesale-approved", "reorder added items to order review", (await page.locator("text=/units/").count()) > 0);
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Wholesale: pricing calculator + CSV bulk upload on Quick Order
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/wholesale/pricing-calculator`, { waitUntil: "networkidle" });
+    const priceBefore = await page.locator("text=PRICE PER UNIT").locator("..").textContent();
+    await page.fill("#calc-qty", "700");
+    await page.waitForTimeout(200);
+    const priceAfter = await page.locator("text=PRICE PER UNIT").locator("..").textContent();
+    check("wholesale-tools", "pricing calculator updates with quantity", priceBefore !== priceAfter);
+
+    await page.goto(`${BASE_URL}/wholesale/quick-order`, { waitUntil: "networkidle" });
+    check("wholesale-tools", "quick order page loads with product table", (await page.locator("table").count()) > 0);
+  }))
+);
+
+await browser.close();
+
+const failed = results.filter((r) => !r.pass);
+const flows = [...new Set(results.map((r) => r.flow))];
+for (const flow of flows) {
+  const flowResults = results.filter((r) => r.flow === flow);
+  const flowFailed = flowResults.filter((r) => !r.pass);
+  console.log(`\n${flow} (${flowResults.length - flowFailed.length}/${flowResults.length})`);
+  for (const r of flowResults) console.log(`  ${r.pass ? "✓" : "✗"} ${r.name}`);
+}
+
+if (allConsoleErrors.length > 0) {
+  console.log(`\n✗ ${allConsoleErrors.length} console error(s) during flows:`);
+  for (const e of allConsoleErrors) console.log(`  - ${e.slice(0, 200)}`);
+}
+
+const totalIssues = failed.length + allConsoleErrors.length;
+console.log(`\n${totalIssues === 0 ? "PASS" : "FAIL"}: ${failed.length} check failure(s), ${allConsoleErrors.length} console error(s)`);
+process.exit(totalIssues === 0 ? 0 : 1);

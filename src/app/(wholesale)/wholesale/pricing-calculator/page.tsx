@@ -29,8 +29,11 @@ export default function PricingCalculatorPage() {
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Product</label>
+            <label htmlFor="calc-product" className="mb-1 block text-sm font-medium text-slate-700">
+              Product
+            </label>
             <select
+              id="calc-product"
               value={productId}
               onChange={(e) => {
                 const next = WHOLESALE_PRODUCTS.find((p) => p.id === e.target.value);
@@ -48,10 +51,11 @@ export default function PricingCalculatorPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="calc-qty" className="mb-1 block text-sm font-medium text-slate-700">
               Quantity <span className="text-slate-400">(MOQ {product.moq})</span>
             </label>
             <input
+              id="calc-qty"
               type="number"
               min={product.moq}
               step={product.packSize}

@@ -120,6 +120,7 @@ export function CatalogBrowser({
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-slate-500">{filtered.length} products</p>
           <select
+            aria-label="Sort products by"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:border-blue-600 focus:outline-none"
