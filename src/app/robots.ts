@@ -7,6 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       disallow: [
+        "/offline", // service-worker fallback only, not real content
         "/shop/cart",
         "/shop/checkout",
         "/shop/account",

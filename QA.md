@@ -14,6 +14,7 @@ npm run qa           # lint + build + static checks — no server needed, safe t
 npm run qa:static    # link integrity + placeholder/debug leftovers, no server needed
 npm run qa:routes    # visits every route: HTTP status, console errors, <title>, basic a11y
 npm run qa:e2e       # drives real user flows end-to-end through the browser
+npm run qa:pwa       # manifest validity, SW registration, real offline fallback test
 ```
 
 `qa:routes` and `qa:e2e` need the app already running in a separate
@@ -52,6 +53,13 @@ qa:routes` to point at a deployed preview instead of localhost).
   signup starting "pending" (quote allowed, direct order locked), returning
   wholesale login being "approved" (direct order + Net-30 request unlocked),
   team invites, dashboard reorder, CSV bulk upload / pricing calculator.
+- **`qa:pwa`** (`pwa-checks.mjs`) — validates the manifest has everything a
+  browser needs to consider the app installable (including a maskable
+  icon), asserts `sw.js` is served uncacheable, then actually registers the
+  service worker and — with the browser context forced offline — confirms a
+  navigation renders the `/offline` fallback instead of the browser's error
+  page. Best run against a production build, since the SW caches
+  `/_next/static` paths.
 
 When one of these fails, treat it exactly like a failing test — read the
 failure, find the cause, fix it, re-run. Don't relax an assertion to make
@@ -71,8 +79,12 @@ Not everything below is automated yet — these need a human (or an agent
 explicitly asked to look) periodically, especially before a real deploy:
 
 - [ ] **Cross-browser spot check** — Safari and Firefox, not just Chromium
-- [ ] **Real mobile device** — not just a resized viewport; check tap targets,
-      the mega-menu's mobile accordion, and PWA install prompt behavior
+- [ ] **Real mobile device** — not just a resized viewport; check tap targets
+      and the mega-menu's mobile accordion
+- [ ] **Real install flow** — `qa:pwa` covers manifest validity and the
+      offline fallback, but actually installing to a home screen (and the
+      iOS Safari "Add to Home Screen" path, which never fires
+      `beforeinstallprompt`) still needs a human on a real device
 - [ ] **Design consistency** — spacing/type scale holds across all ~90 routes,
       not just the ones touched most recently
 - [ ] **Copy proofread** — tone, typos, and that placeholder content (fake

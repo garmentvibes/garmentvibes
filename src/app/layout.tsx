@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { StoreHydrator } from "@/components/shared/store-hydrator";
+import { ServiceWorkerRegistrar } from "@/components/shared/service-worker-registrar";
+import { InstallPrompt } from "@/components/shared/install-prompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -51,7 +53,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <StoreHydrator />
+        <ServiceWorkerRegistrar />
         {children}
+        <InstallPrompt />
         <Toaster richColors position="top-center" />
       </body>
     </html>
