@@ -41,6 +41,12 @@ jobs:
       - run: npx playwright-core install --with-deps chromium
       - run: npm run build
       - name: Start production server in background
+        # A dummy webhook secret so the payment signature checks can run.
+        # Deliberately NOT NEXT_PUBLIC_RAZORPAY_KEY_ID: that is inlined at
+        # build time and would switch the storefront to the real gateway,
+        # breaking the simulated checkout flow the rest of the suite drives.
+        env:
+          RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
         run: nohup npm run start > server.log 2>&1 &
       - name: Wait for server to respond
         run: |
@@ -54,6 +60,8 @@ jobs:
           echo "Server did not start in time"; cat server.log; exit 1
       - run: npm run qa:routes
       - run: npm run qa:e2e
+        env:
+          RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
       - run: npm run qa:pwa
       - name: Server log (on failure)
         if: failure()

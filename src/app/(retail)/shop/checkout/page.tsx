@@ -18,8 +18,19 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { cn, formatPrice, generateReferenceId } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { notify } from "@/lib/stores/notification-store";
+import { PROMO_CODES } from "@/lib/pricing";
 import { computeGst } from "@/lib/gst";
 import { getRetailProductById } from "@/lib/mock/retail-products";
+import { reportError } from "@/lib/analytics";
+import {
+  createPaymentOrder,
+  loadRazorpayScript,
+  openRazorpayCheckout,
+} from "@/lib/razorpay/checkout-client";
+
+// Public key id. Safe in the bundle — it identifies the merchant and cannot
+// authorise anything on its own. The secret stays server-side.
+const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Enter your full name"),
@@ -31,11 +42,6 @@ const checkoutSchema = z.object({
 });
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
-
-const PROMO_CODES: Record<string, number> = {
-  GARMENT10: 10,
-  WELCOME5: 5,
-};
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -111,10 +117,8 @@ export default function CheckoutPage() {
           ""
         ).totalTax;
 
-  function onSubmit(data: CheckoutForm) {
-    // Real online payment (Razorpay) and COD fulfillment aren't wired up
-    // yet — Phase 5 wires real checkout. This simulates a successful order.
-    const orderId = generateReferenceId("GV");
+  /** Shared tail of every successful order, however it was paid for. */
+  function completeOrder(data: CheckoutForm, orderId: string) {
     track({ name: "purchase", orderId, value: finalTotal, paymentMethod });
     notify({
       templateId: "order_placed",
@@ -126,6 +130,61 @@ export default function CheckoutPage() {
     });
     clear();
     router.push(`/shop/order-confirmation?order=${orderId}&method=${paymentMethod}`);
+  }
+
+  async function onSubmit(data: CheckoutForm) {
+    // Cash on Delivery takes no payment now, so it never touches the gateway.
+    if (paymentMethod === "cod") {
+      completeOrder(data, generateReferenceId("GV"));
+      return;
+    }
+
+    // Online payment. The server prices the order and creates the Razorpay
+    // order; a 503 means no keys are configured on this deployment, which is
+    // the current state, so we fall back to the simulated flow rather than
+    // dead-ending the customer.
+    let handoff;
+    try {
+      handoff = await createPaymentOrder({
+        items: lines.map((line) => ({ productId: line.productId, qty: line.qty })),
+        promoCode: appliedPromo?.code,
+      });
+    } catch (error) {
+      reportError(error, "razorpay-create-order");
+      toast.error(error instanceof Error ? error.message : "Could not start the payment");
+      return;
+    }
+
+    if (!handoff) {
+      completeOrder(data, generateReferenceId("GV"));
+      return;
+    }
+
+    const scriptReady = await loadRazorpayScript();
+    if (!scriptReady) {
+      toast.error("Could not reach the payment provider. Check your connection and try again.");
+      return;
+    }
+
+    try {
+      const result = await openRazorpayCheckout({
+        keyId: RAZORPAY_KEY_ID,
+        handoff,
+        customer: { name: data.fullName, email: user?.email ?? "", contact: data.phone },
+      });
+
+      if (!result.paid) {
+        // Covers both a dismissed modal and a payment the server would not
+        // verify. Nothing is cleared, so the cart survives a retry.
+        toast.error("Payment was not completed. Your bag is still here.");
+        return;
+      }
+
+      completeOrder(data, handoff.receipt);
+    } catch (error) {
+      reportError(error, "razorpay-checkout");
+      toast.error("Something went wrong during payment. You have not been charged twice.");
+    }
   }
 
   // Not signed in yet — require an account before checkout (guest checkout
@@ -258,7 +317,9 @@ export default function CheckoutPage() {
 
           <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-500">
             {paymentMethod === "online"
-              ? "Razorpay checkout is coming in a later build phase. Placing an order here simulates a successful payment."
+              ? RAZORPAY_KEY_ID
+                ? "You'll be taken to Razorpay to complete payment securely. Cards, UPI, net banking and wallets are supported."
+                : "Razorpay is integrated but no merchant keys are configured on this deployment, so placing an order here simulates a successful payment."
               : "You'll pay in cash to the delivery agent when your order arrives."}
           </div>
 

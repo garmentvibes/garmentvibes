@@ -556,6 +556,120 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Payments: the Razorpay API surface.
+//
+// No merchant account exists, so the success path can't be driven end to
+// end. What IS testable is everything that protects money: the server
+// pricing the order itself rather than trusting the browser, and the webhook
+// refusing anything that isn't signed by Razorpay. These run over plain
+// fetch — no browser needed.
+//
+// The webhook checks need RAZORPAY_WEBHOOK_SECRET set on the server process;
+// see the CI workflow. They're skipped (and say so) when it isn't.
+// ---------------------------------------------------------------------------
+{
+  const post = (path, body, headers = {}) =>
+    fetch(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body,
+    });
+
+  // Order pricing must reject anything it can't price from the catalog.
+  const unknownProduct = await post(
+    "/api/razorpay/order",
+    JSON.stringify({ items: [{ productId: "does-not-exist", qty: 1 }] })
+  );
+  check("payments", "order route rejects an unknown product", unknownProduct.status === 400);
+
+  const zeroQty = await post(
+    "/api/razorpay/order",
+    JSON.stringify({ items: [{ productId: "r1", qty: 0 }] })
+  );
+  check("payments", "order route rejects a zero quantity", zeroQty.status === 400);
+
+  const absurdQty = await post(
+    "/api/razorpay/order",
+    JSON.stringify({ items: [{ productId: "r1", qty: 9999 }] })
+  );
+  check("payments", "order route caps quantity", absurdQty.status === 400);
+
+  const emptyOrder = await post("/api/razorpay/order", JSON.stringify({ items: [] }));
+  check("payments", "order route rejects an empty order", emptyOrder.status === 400);
+
+  const badJson = await post("/api/razorpay/order", "not json at all");
+  check("payments", "order route rejects malformed JSON", badJson.status === 400);
+
+  // A client-supplied amount must be ignored entirely. With no keys set the
+  // route stops at 503 — the point is that it got past pricing without
+  // honouring the injected total, and never 200s on it.
+  const injectedAmount = await post(
+    "/api/razorpay/order",
+    JSON.stringify({ items: [{ productId: "r1", qty: 1 }], amount: 100, total: 100 })
+  );
+  check(
+    "payments",
+    "order route ignores a client-supplied amount",
+    injectedAmount.status === 503
+  );
+
+  const validOrder = await post(
+    "/api/razorpay/order",
+    JSON.stringify({ items: [{ productId: "r1", qty: 1 }] })
+  );
+  const validBody = await validOrder.json().catch(() => ({}));
+  check(
+    "payments",
+    "unconfigured deployment degrades to 503, not a crash",
+    validOrder.status === 503 && validBody.error === "not_configured"
+  );
+
+  // ---- Webhook signature verification --------------------------------
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.log(
+      "\n! payments: webhook signature checks skipped — set RAZORPAY_WEBHOOK_SECRET on the server and this runner to enable them"
+    );
+  } else {
+    const { createHmac } = await import("node:crypto");
+    const sign = (body) => createHmac("sha256", webhookSecret).update(body).digest("hex");
+    const payload = JSON.stringify({
+      event: "payment.captured",
+      payload: { payment: { entity: { id: "pay_test123", amount: 129900 } } },
+    });
+
+    const unsigned = await post("/api/razorpay/webhook", payload);
+    check("payments", "webhook rejects an unsigned request", unsigned.status === 400);
+
+    const wrongSig = await post("/api/razorpay/webhook", payload, {
+      "x-razorpay-signature": "00".repeat(32),
+    });
+    check("payments", "webhook rejects a wrong signature", wrongSig.status === 400);
+
+    const signed = await post("/api/razorpay/webhook", payload, {
+      "x-razorpay-signature": sign(payload),
+    });
+    check("payments", "webhook accepts a correctly signed event", signed.status === 200);
+
+    // The signature must bind to the exact bytes: replaying a valid
+    // signature against an altered body has to fail, or an attacker could
+    // change the amount on a legitimate event.
+    const tampered = payload.replace("129900", "1");
+    const replayed = await post("/api/razorpay/webhook", tampered, {
+      "x-razorpay-signature": sign(payload),
+    });
+    check("payments", "webhook rejects a tampered body with a valid signature", replayed.status === 400);
+
+    // A signature of the right shape but from the wrong secret must fail.
+    const foreignSig = createHmac("sha256", "not-the-real-secret").update(payload).digest("hex");
+    const foreign = await post("/api/razorpay/webhook", payload, {
+      "x-razorpay-signature": foreignSig,
+    });
+    check("payments", "webhook rejects a signature from another secret", foreign.status === 400);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // SEO: structured data, social cards, crawler files
 //
 // Rich results are silently lost if the JSON-LD is malformed, so these assert

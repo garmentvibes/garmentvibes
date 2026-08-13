@@ -124,7 +124,23 @@ without checking with the user first:
 
 - No live Supabase — auth/session is a mock `zustand` store
   (`src/lib/stores/session-store.ts`)
-- No real payment charge — Razorpay/COD selection is UI-only
+- No real payment charge — the Razorpay integration is written (order
+  creation, checkout handoff, signature verification, webhook receiver) but
+  no merchant account exists, so `NEXT_PUBLIC_RAZORPAY_KEY_ID` /
+  `RAZORPAY_KEY_SECRET` are unset and `/api/razorpay/order` answers 503.
+  Checkout sees that and falls back to the simulated flow. Setting the keys
+  is the only step needed to switch it on; the webhook additionally needs
+  `RAZORPAY_WEBHOOK_SECRET` and a dashboard subscription pointed at
+  `POST /api/razorpay/webhook`.
+  - The success path cannot be exercised without real keys. What *is*
+    covered: the server pricing every order from the catalog rather than
+    trusting the browser, and the webhook rejecting unsigned, wrongly
+    signed, foreign-secret and tampered-body requests. Those checks need
+    `RAZORPAY_WEBHOOK_SECRET` set on both the server process and the test
+    runner — CI sets a dummy one; locally the checks skip with a notice if
+    it's absent.
+  - Fulfilment on `payment.captured` is still a no-op: there is no
+    server-side order store to update until Supabase lands.
 - ⚠️ **GST rates and HSN codes are unverified defaults.** `src/lib/gst.ts`
   computes the split correctly (tax-inclusive back-out, CGST/SGST vs IGST by
   place of supply), but the slab thresholds and the subcategory→HSN mapping
