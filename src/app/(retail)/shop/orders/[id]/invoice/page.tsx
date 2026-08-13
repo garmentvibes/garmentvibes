@@ -8,7 +8,8 @@ import { formatPrice } from "@/lib/utils";
 import { BUSINESS_INFO } from "@/lib/business-info";
 import { useRetailOrder } from "@/lib/stores/admin-orders-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
-import { retailOrderTotal } from "@/types/admin";
+import { getRetailProductById } from "@/lib/mock/retail-products";
+import { computeGst, SELLER_STATE_CODE } from "@/lib/gst";
 
 export default function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -28,7 +29,17 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
     );
   }
 
-  const total = retailOrderTotal(order);
+  // Prices are GST-inclusive, so this splits the amount already charged —
+  // it never adds anything to what the customer paid.
+  const gst = computeGst(
+    order.items.map((item) => ({
+      name: item.name,
+      qty: item.qty,
+      price: item.price,
+      subcategory: getRetailProductById(item.productId)?.subcategory,
+    })),
+    order.shippingAddress
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
@@ -85,50 +96,126 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
           </div>
         </section>
 
-        <table className="mt-6 w-full text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400">
-              <th className="pb-2">Item</th>
-              <th className="pb-2 text-center">Qty</th>
-              <th className="pb-2 text-right">Rate</th>
-              <th className="pb-2 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
-            {order.items.map((item, i) => (
-              <tr key={`${item.productId}-${i}`}>
-                <td className="py-3">
-                  <p className="text-neutral-800">{item.name}</p>
-                  <p className="text-xs text-neutral-400">
-                    Size {item.size} &middot; {item.color}
-                  </p>
-                </td>
-                <td className="py-3 text-center text-neutral-600">{item.qty}</td>
-                <td className="py-3 text-right text-neutral-600">{formatPrice(item.price)}</td>
-                <td className="py-3 text-right font-medium text-neutral-900">
-                  {formatPrice(item.qty * item.price)}
-                </td>
+        {/* Wide on paper, but scrollable on a phone rather than forcing the
+            whole page sideways. */}
+        <div className="mt-6 overflow-x-auto print:overflow-x-visible">
+          <table className="w-full min-w-[36rem] text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400">
+                <th className="pb-2">Item</th>
+                <th className="pb-2 text-right">HSN</th>
+                <th className="pb-2 text-center">Qty</th>
+                <th className="pb-2 text-right">Taxable</th>
+                <th className="pb-2 text-right">GST</th>
+                <th className="pb-2 text-right">Amount</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {gst.lines.map((line, i) => (
+                <tr key={`${order.items[i].productId}-${i}`}>
+                  <td className="py-3">
+                    <p className="text-neutral-800">{line.name}</p>
+                    <p className="text-xs text-neutral-400">
+                      Size {order.items[i].size} &middot; {order.items[i].color}
+                    </p>
+                  </td>
+                  <td className="py-3 text-right font-mono text-xs text-neutral-500">{line.hsn}</td>
+                  <td className="py-3 text-center text-neutral-600">{line.qty}</td>
+                  <td className="py-3 text-right text-neutral-600">
+                    {formatPrice(line.taxableValue)}
+                  </td>
+                  <td className="py-3 text-right text-neutral-600">
+                    {formatPrice(line.taxAmount)}
+                    <span className="ml-1 text-xs text-neutral-400">@{line.ratePercent}%</span>
+                  </td>
+                  <td className="py-3 text-right font-medium text-neutral-900">
+                    {formatPrice(line.gross)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div className="mt-4 flex justify-end">
           <dl className="w-full max-w-xs space-y-1.5 text-sm">
             <div className="flex justify-between text-neutral-600">
-              <dt>Subtotal</dt>
-              <dd>{formatPrice(total)}</dd>
+              <dt>Taxable value</dt>
+              <dd>{formatPrice(gst.taxableValue)}</dd>
             </div>
+
+            {gst.isInterState ? (
+              <div className="flex justify-between text-neutral-600">
+                <dt>IGST</dt>
+                <dd>{formatPrice(gst.igst)}</dd>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between text-neutral-600">
+                  <dt>CGST</dt>
+                  <dd>{formatPrice(gst.cgst)}</dd>
+                </div>
+                <div className="flex justify-between text-neutral-600">
+                  <dt>SGST</dt>
+                  <dd>{formatPrice(gst.sgst)}</dd>
+                </div>
+              </>
+            )}
+
             <div className="flex justify-between text-neutral-600">
               <dt>Delivery</dt>
               <dd className="text-green-700">Free</dd>
             </div>
             <div className="flex justify-between border-t border-neutral-200 pt-1.5 text-base font-bold text-neutral-900">
               <dt>Total</dt>
-              <dd>{formatPrice(total)}</dd>
+              <dd>{formatPrice(gst.grandTotal)}</dd>
             </div>
           </dl>
         </div>
+
+        {/* A GST invoice must show tax grouped by slab, not just one total. */}
+        <div className="mt-6 overflow-x-auto print:overflow-x-visible">
+          <table className="w-full min-w-[24rem] text-xs">
+            <caption className="pb-2 text-left font-semibold uppercase tracking-wide text-neutral-400">
+              Tax summary
+            </caption>
+            <thead>
+              <tr className="border-b border-neutral-200 text-left text-neutral-400">
+                <th className="pb-1.5">Rate</th>
+                <th className="pb-1.5 text-right">Taxable value</th>
+                <th className="pb-1.5 text-right">
+                  {gst.isInterState ? "IGST" : "CGST"}
+                </th>
+                {!gst.isInterState && <th className="pb-1.5 text-right">SGST</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100 text-neutral-600">
+              {gst.byRate.map((row) => {
+                const half = Math.floor(row.taxAmount / 2);
+                return (
+                  <tr key={row.ratePercent}>
+                    <td className="py-1.5">{row.ratePercent}%</td>
+                    <td className="py-1.5 text-right">{formatPrice(row.taxableValue)}</td>
+                    <td className="py-1.5 text-right">
+                      {formatPrice(gst.isInterState ? row.taxAmount : half)}
+                    </td>
+                    {!gst.isInterState && (
+                      <td className="py-1.5 text-right">
+                        {formatPrice(row.taxAmount - half)}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-3 text-xs text-neutral-400">
+          Place of supply: {gst.placeOfSupplyCode ?? "—"} &middot; Seller state:{" "}
+          {SELLER_STATE_CODE} &middot;{" "}
+          {gst.isInterState ? "Inter-state supply (IGST)" : "Intra-state supply (CGST + SGST)"}
+        </p>
 
         <footer className="mt-8 border-t border-neutral-200 pt-4 text-xs leading-relaxed text-neutral-400">
           <p>
@@ -139,8 +226,9 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             Questions? {BUSINESS_INFO.supportEmail} &middot; {BUSINESS_INFO.supportPhone}
           </p>
           <p className="mt-2 text-amber-600 print:hidden">
-            Note: this is a preview invoice generated from sample data. A GST-compliant tax invoice
-            with HSN codes and a tax breakdown will be issued once tax calculation is configured.
+            Note: this is a preview invoice generated from sample data. The GST rates and HSN codes
+            shown are defaults that must be confirmed with a chartered accountant before invoicing
+            a real customer.
           </p>
         </footer>
       </article>

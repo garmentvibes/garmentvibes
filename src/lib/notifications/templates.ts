@@ -80,6 +80,33 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateId, TemplateDefi
     short: (v) => `GarmentVibes: Order ${v.orderId} cancelled. Any online payment will be refunded.`,
   },
 
+  return_requested: {
+    label: "Return requested",
+    channels: ["email", "sms"],
+    subject: (v) => `Return request received for order ${v.orderId}`,
+    email: (v) =>
+      `Hi ${v.name},\n\nWe've received your return request for order ${v.orderId}${v.reason ? ` (${v.reason})` : ""}.\n\nOur team will review it within 2 business days. If it's approved we'll arrange a pickup at no cost to you, and the refund follows once the item reaches us.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: Return request received for order ${v.orderId}. We'll review it within 2 business days.`,
+  },
+
+  return_approved: {
+    label: "Return approved",
+    channels: ["email", "sms", "whatsapp"],
+    subject: (v) => `Return approved for order ${v.orderId}`,
+    email: (v) =>
+      `Hi ${v.name},\n\nYour return for order ${v.orderId} has been approved. We'll arrange a pickup from your delivery address — please keep the item unused, with its original tags and packaging.\n\nOnce it reaches us and passes a quick check, we'll refund ${v.amount ?? "the item value"} to your original payment method within ${v.refundWindow ?? "5-7 business days"}.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: Return approved for order ${v.orderId}. We'll arrange a pickup shortly.`,
+  },
+
+  return_rejected: {
+    label: "Return rejected",
+    channels: ["email"],
+    subject: (v) => `About your return request for order ${v.orderId}`,
+    email: (v) =>
+      `Hi ${v.name},\n\nWe've reviewed your return request for order ${v.orderId} and aren't able to approve it${v.reason ? ` — ${v.reason}` : ""}.\n\nIf you think this is a mistake, reply to this email and we'll take another look. You can also raise the matter with our Grievance Officer, whose details are on the website.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: We couldn't approve the return for order ${v.orderId}. Check your email for details.`,
+  },
+
   refund_initiated: {
     label: "Refund initiated",
     channels: ["email", "sms"],

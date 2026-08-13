@@ -9,6 +9,7 @@ import {
   Circle,
   FileText,
   MapPin,
+  PackageCheck,
   Truck,
   Wallet,
   XCircle,
@@ -18,7 +19,11 @@ import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import { useAdminOrdersStore, useRetailOrder } from "@/lib/stores/admin-orders-store";
 import { notify } from "@/lib/stores/notification-store";
+import { useReturnsForOrder } from "@/lib/stores/returns-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { useNow } from "@/lib/hooks/use-now";
+import { returnEligibility } from "@/lib/returns";
+import { RETURN_STATUS_LABELS } from "@/types/returns";
 import { retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
 
 // The customer-visible journey. "packed" is folded into Processing, and
@@ -39,7 +44,9 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const mounted = useHasMounted();
   const order = useRetailOrder(id);
   const setRetailStatus = useAdminOrdersStore((s) => s.setRetailStatus);
+  const returns = useReturnsForOrder(id);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const now = useNow();
 
   if (!mounted) return null;
 
@@ -56,6 +63,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
 
   const isCancelled = order.status === "cancelled";
   const canCancel = CANCELLABLE.includes(order.status);
+  const returnEligible =
+    now !== null && returnEligibility(order, returns, now).eligible;
   const currentStep = TIMELINE.findIndex((s) => s.status === order.status);
 
   function cancelOrder() {
@@ -101,6 +110,13 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               Cancel order
             </Button>
           )}
+          {returnEligible && (
+            <Link href={`/shop/orders/${order.id}/return`}>
+              <Button variant="outline" size="sm">
+                <PackageCheck className="mr-1.5 h-4 w-4" /> Return items
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -122,6 +138,43 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               Keep order
             </Button>
           </div>
+        </div>
+      )}
+
+      {returns.length > 0 && (
+        <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-neutral-900">Returns on this order</h2>
+          <ul className="mt-2 space-y-2">
+            {returns.map((request) => (
+              <li
+                key={request.id}
+                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+              >
+                <div className="min-w-0">
+                  <span className="font-mono text-xs text-neutral-500">{request.id}</span>
+                  <span className="ml-2 text-neutral-700">
+                    {request.items.reduce((n, i) => n + i.qty, 0)} item
+                    {request.items.reduce((n, i) => n + i.qty, 0) === 1 ? "" : "s"} &middot;{" "}
+                    {request.reason}
+                  </span>
+                  {request.decisionNote && (
+                    <p className="mt-0.5 text-xs text-neutral-500">{request.decisionNote}</p>
+                  )}
+                </div>
+                <Badge
+                  variant={
+                    request.status === "rejected"
+                      ? "destructive"
+                      : request.status === "refunded"
+                        ? "success"
+                        : "warning"
+                  }
+                >
+                  {RETURN_STATUS_LABELS[request.status]}
+                </Badge>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

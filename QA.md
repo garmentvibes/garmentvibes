@@ -56,7 +56,9 @@ qa:routes` to point at a deployed preview instead of localhost).
   Also covers the admin panel: access gating, the wholesale approval queue,
   retail order and quote status transitions, product creation, and the
   guardrail rejecting a wholesale price tier that costs *more* at higher
-  quantity, and the notification outbox (approving an account and shipping an
+  quantity, the returns flow (eligibility gating by delivery date and by an
+  already-open request, quantity capped at what was ordered, and the full
+  admin chain of approve → picked up → refunded), and the notification outbox (approving an account and shipping an
   order each queue the right message; channel/status filters and preview
   work). Checkout asserts against the persisted outbox directly rather than
   the admin UI, since the two run in separate browser contexts and therefore
@@ -123,9 +125,16 @@ without checking with the user first:
 - No live Supabase — auth/session is a mock `zustand` store
   (`src/lib/stores/session-store.ts`)
 - No real payment charge — Razorpay/COD selection is UI-only
-- No GST/tax calculation
-- No returns/exchange processing
-- No real inventory/stock sync
+- ⚠️ **GST rates and HSN codes are unverified defaults.** `src/lib/gst.ts`
+  computes the split correctly (tax-inclusive back-out, CGST/SGST vs IGST by
+  place of supply), but the slab thresholds and the subcategory→HSN mapping
+  are engineering placeholders. **A chartered accountant must confirm both
+  before a real invoice is issued** — a wrong rate or HSN on a tax invoice is
+  a compliance problem, not a display bug.
+- No exchange processing — returns and refunds are handled, but swapping an
+  item for a different size/colour is not
+- No real inventory/stock sync — an approved return does not put the unit
+  back into sellable stock
 - No transactional email/SMS/WhatsApp **delivery** — messages are composed
   from real templates and queued into the outbox (`/admin/notifications`),
   where staff can read exactly what a customer would receive, but no
@@ -172,6 +181,17 @@ had real bugs before it was trustworthy:
 - A route intentionally returning 404 will itself log a browser-level
   "Failed to load resource: 404" console message — expected noise for that
   one probe, not a real console error.
+- Playwright's `:has-text()` is a *substring* match, so
+  `button:has-text("Approve")` also matches a button reading "Approved".
+  Combined with `>> nth=0` that silently clicks the wrong control and the
+  failure surfaces much later as an unrelated timeout. Use `:text-is()` for
+  exact matches whenever one label is a prefix of another.
+- Counting list rows with `ul > li` also matches nested lists inside each
+  row. Give the outer list an id (e.g. `#returns-list > li`) rather than
+  trusting the tag alone.
+- Seed data with hard-coded dates silently expires: a fixed `deliveredAt`
+  drifts out of the 7-day return window and makes that whole flow
+  unreachable a week later. Derive demo dates relative to today.
 
 This first pass also caught one genuine app bug this way (not this
 session's find, but worth remembering the pattern): every persisted

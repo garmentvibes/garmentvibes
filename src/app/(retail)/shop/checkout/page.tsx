@@ -18,6 +18,8 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { cn, formatPrice, generateReferenceId } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { notify } from "@/lib/stores/notification-store";
+import { computeGst } from "@/lib/gst";
+import { getRetailProductById } from "@/lib/mock/retail-products";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Enter your full name"),
@@ -88,6 +90,26 @@ export default function CheckoutPage() {
 
   const discount = appliedPromo ? Math.round((totalPrice * appliedPromo.percent) / 100) : 0;
   const finalTotal = totalPrice - discount;
+
+  // Prices already include GST, so this is the tax contained in what the
+  // customer pays — shown for transparency, never added on top. A promo
+  // reduces the amount charged, so it reduces the tax within it; each line
+  // is scaled by the same ratio before the split, since rates differ by
+  // per-piece price and a single blended rate would be wrong.
+  const includedGst =
+    totalPrice === 0
+      ? 0
+      : computeGst(
+          lines.map((line) => ({
+            name: line.name,
+            qty: line.qty,
+            price: Math.round((line.price * finalTotal) / totalPrice),
+            subcategory: getRetailProductById(line.productId)?.subcategory,
+          })),
+          // Place of supply only decides CGST+SGST vs IGST; the total tax is
+          // the same either way, and that total is all this line shows.
+          ""
+        ).totalTax;
 
   function onSubmit(data: CheckoutForm) {
     // Real online payment (Razorpay) and COD fulfillment aren't wired up
@@ -297,6 +319,9 @@ export default function CheckoutPage() {
             <span>Total ({totalItems} items)</span>
             <span>{formatPrice(finalTotal)}</span>
           </div>
+          <p className="mt-1 text-xs text-neutral-400">
+            Inclusive of GST {formatPrice(includedGst)}
+          </p>
         </div>
       </div>
     </div>

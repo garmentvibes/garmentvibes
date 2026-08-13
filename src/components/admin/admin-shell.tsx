@@ -10,6 +10,7 @@ import {
   FileText,
   Building2,
   Bell,
+  Undo2,
   LogOut,
   Menu,
   X,
@@ -24,6 +25,7 @@ const NAV = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/orders", label: "Retail Orders", icon: ShoppingCart },
   { href: "/admin/quotes", label: "Quotes & Bulk Orders", icon: FileText },
+  { href: "/admin/returns", label: "Returns", icon: Undo2 },
   { href: "/admin/accounts", label: "Wholesale Accounts", icon: Building2 },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ];

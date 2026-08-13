@@ -642,6 +642,10 @@ export function getRetailProductBySlug(slug: string) {
   return RETAIL_PRODUCTS.find((p) => p.slug === slug);
 }
 
+export function getRetailProductById(id: string) {
+  return RETAIL_PRODUCTS.find((p) => p.id === id);
+}
+
 export function getRetailProductsByCategory(category: string) {
   return RETAIL_PRODUCTS.filter((p) => p.category === category);
 }

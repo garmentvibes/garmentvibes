@@ -4,6 +4,13 @@ import type { RetailOrder, WholesaleAccount, WholesaleQuote } from "@/types/admi
 // GarmentVibes Supabase project exists — the admin stores layer live edits on
 // top of these, exactly like the product override store does for the catalogs.
 
+// Delivery dates are relative to today on purpose. A fixed date would drift
+// out of the 7-day return window and silently make the returns flow (and its
+// QA checks) unreachable a week after it was written.
+function daysAgo(n: number) {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 export const SEED_RETAIL_ORDERS: RetailOrder[] = [
   {
     id: "GV84213567",
@@ -48,6 +55,7 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
   {
     id: "GV84098771",
     placedAt: "2026-08-05",
+    deliveredAt: daysAgo(2),
     customerName: "Karan Mehta",
     customerEmail: "karan.mehta@example.com",
     phone: "+91 90000 12345",
@@ -57,6 +65,22 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
     items: [
       { productId: "r11", name: "Quilted Bomber Jacket", size: "M", color: "Olive", qty: 1, price: 219900 },
       { productId: "r23", name: "Classic Crew Neck T-Shirt", size: "M", color: "Navy", qty: 2, price: 49900 },
+    ],
+  },
+  {
+    // Delivered with no return raised yet — the one that exercises the
+    // customer-side return request flow.
+    id: "GV84055120",
+    placedAt: "2026-08-03",
+    deliveredAt: daysAgo(3),
+    customerName: "Divya Rao",
+    customerEmail: "divya.rao@example.com",
+    phone: "+91 99887 76655",
+    shippingAddress: "44 Jubilee Hills Road No. 10, Hyderabad, Telangana - 500033",
+    paymentMethod: "online",
+    status: "delivered",
+    items: [
+      { productId: "r4", name: "Graphic Print Oversized T-Shirt", size: "M", color: "Black", qty: 2, price: 69900 },
     ],
   },
   {

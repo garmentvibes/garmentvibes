@@ -33,6 +33,11 @@ export interface RetailOrderItem {
 export interface RetailOrder {
   id: string;
   placedAt: string; // ISO date
+  /**
+   * Set when the order reaches "delivered". The return window runs from this
+   * date, not from placedAt — a slow delivery must not eat into it.
+   */
+  deliveredAt?: string; // ISO date
   customerName: string;
   customerEmail: string;
   phone: string;

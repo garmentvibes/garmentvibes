@@ -220,6 +220,26 @@ allConsoleErrors.push(
     check("retail-orders", "invoice shows INVOICE heading", (await page.locator("text=INVOICE").count()) > 0);
     check("retail-orders", "invoice carries GSTIN", (await page.locator("text=/GSTIN/").count()) > 0);
 
+    // GST breakdown. Prices are tax-inclusive, so the split must never change
+    // the total the customer already agreed to.
+    check("retail-orders", "invoice shows HSN codes", (await page.locator("text=/HSN/").count()) > 0);
+    check("retail-orders", "invoice shows taxable value", (await page.locator("text=/Taxable value/").count()) > 0);
+    check("retail-orders", "invoice shows a per-slab tax summary", (await page.locator("text=/Tax summary/").count()) > 0);
+
+    // Shipping to Maharashtra from a Telangana-registered seller is an
+    // inter-state supply, so IGST — not CGST/SGST.
+    check("retail-orders", "out-of-state order is taxed as IGST", (await page.locator("text=/Inter-state supply/").count()) > 0);
+    check("retail-orders", "IGST invoice shows no CGST line", (await page.locator("dt:has-text('CGST')").count()) === 0);
+
+    // Same seller state (Telangana) must split into CGST + SGST instead.
+    await page.goto(`${BASE_URL}/shop/orders/GV84055120/invoice`, { waitUntil: "networkidle" });
+    check("retail-orders", "in-state order is taxed as CGST + SGST", (await page.locator("text=/Intra-state supply/").count()) > 0);
+    check("retail-orders", "in-state invoice shows both CGST and SGST", (await page.locator("dt:has-text('CGST')").count()) > 0 && (await page.locator("dt:has-text('SGST')").count()) > 0);
+
+    // The tax must be contained in the total, not added to it: this order is
+    // 2 x ₹699 = ₹1,398 and the invoice total must still say exactly that.
+    check("retail-orders", "GST is inclusive — total is unchanged", (await page.locator("text=/₹1,398/").count()) > 0);
+
     // Cancel, and confirm it sticks and removes the cancel affordance.
     await page.goto(`${BASE_URL}/shop/orders/GV83997211`, { waitUntil: "networkidle" });
     await page.click('button:has-text("Cancel order")');
@@ -439,6 +459,99 @@ allConsoleErrors.push(
       "marking a message sent clears it from the queued filter",
       (await page.locator("ul > li").count()) < queuedCount
     );
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Returns: the 7-day post-delivery window, the request flow, and the admin
+// queue that decides it. The window is measured from delivery, so the seed
+// delivery dates are relative — see the note in mock/admin-data.ts.
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    // Eligibility gating: only delivered orders, and only inside the window.
+    await page.goto(`${BASE_URL}/shop/orders/GV84213102`, { waitUntil: "networkidle" });
+    check("returns", "undelivered order offers no return", (await page.locator('a:has-text("Return items")').count()) === 0);
+
+    await page.goto(`${BASE_URL}/shop/orders/GV84213102/return`, { waitUntil: "networkidle" });
+    check("returns", "return page refuses an undelivered order", (await page.locator("text=Return not available").count()) > 0);
+
+    // An order that already has a return open can't raise a second one.
+    await page.goto(`${BASE_URL}/shop/orders/GV84098771/return`, { waitUntil: "networkidle" });
+    check("returns", "order with an open return can't raise another", (await page.locator("text=/already been raised/").count()) > 0);
+
+    // The happy path: a delivered order with no return yet.
+    await page.goto(`${BASE_URL}/shop/orders/GV84055120`, { waitUntil: "networkidle" });
+    check("returns", "delivered order offers a return", (await page.locator('a:has-text("Return items")').count()) > 0);
+
+    await page.click('a:has-text("Return items")');
+    await page.waitForURL("**/return");
+    check("returns", "return form shows days left in the window", (await page.locator("text=/days left in your 7-day window/").count()) > 0);
+
+    // Submitting nothing must be refused rather than creating an empty return.
+    await page.click('button:has-text("Submit return request")');
+    await page.waitForTimeout(300);
+    check("returns", "submitting with no items selected is refused", page.url().includes("/return"));
+
+    // Quantity is capped at what was actually bought (2 of this item).
+    const qtyOptions = await page.locator("#qty-0 option").count();
+    check("returns", "return quantity is capped at the quantity ordered", qtyOptions === 3);
+
+    await page.selectOption("#qty-0", "1");
+    await page.selectOption("#reason", "Item damaged or defective");
+    await page.fill("#comments", "Seam came apart after one wash.");
+    check("returns", "estimated refund reflects the selected quantity", (await page.locator("text=/₹699/").count()) > 0);
+
+    await page.click('button:has-text("Submit return request")');
+    await page.waitForURL("**/shop/orders/GV84055120");
+    await page.waitForTimeout(300);
+    check("returns", "submitted return appears on the order", (await page.locator("text=Returns on this order").count()) > 0);
+    check("returns", "new return starts as Requested", (await page.locator("text=Requested").count()) > 0);
+    check("returns", "return button is gone once one is open", (await page.locator('a:has-text("Return items")').count()) === 0);
+
+    // The request must have queued the customer's acknowledgement.
+    const outbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check("returns", "raising a return queues a confirmation", outbox.some((m) => m.templateId === "return_requested"));
+
+    // Admin side: review and approve.
+    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await page.fill("#email", "staff@garmentvibes.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/admin");
+
+    await page.goto(`${BASE_URL}/admin/returns`, { waitUntil: "networkidle" });
+    const queuedBefore = await page.locator("#returns-list > li").count();
+    check("returns", "admin queue lists pending returns", queuedBefore > 0);
+
+    await page.click('button:text-is("Approve") >> nth=0');
+    await page.waitForTimeout(300);
+    check("returns", "approving removes it from the pending filter", (await page.locator("#returns-list > li").count()) < queuedBefore);
+
+    // Approved -> picked up -> refunded, the full fulfilment chain.
+    await page.click('button:text-is("Approved")');
+    await page.waitForTimeout(200);
+    check("returns", "approved return moves to the Approved filter", (await page.locator("#returns-list > li").count()) > 0);
+
+    await page.click('button:has-text("Mark picked up")');
+    await page.waitForTimeout(300);
+    await page.click('button:text-is("Picked up")');
+    await page.waitForTimeout(200);
+    await page.click('button:has-text("Initiate refund")');
+    await page.waitForTimeout(300);
+    await page.click('button:text-is("Refunded")');
+    await page.waitForTimeout(200);
+    check("returns", "refunded return lands in the Refunded filter", (await page.locator("#returns-list > li").count()) > 0);
+
+    const adminOutbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check("returns", "approval queues a customer notification", adminOutbox.some((m) => m.templateId === "return_approved"));
+    check("returns", "refund queues a customer notification", adminOutbox.some((m) => m.templateId === "refund_initiated"));
   }))
 );
 
