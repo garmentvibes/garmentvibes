@@ -42,7 +42,14 @@ jobs:
       # playwright-core doesn't bundle a browser (kept out of node_modules on
       # purpose) — install just Chromium + its OS deps for this run.
       - run: npx playwright-core install --with-deps chromium
+      # NEXT_PUBLIC_* is inlined at BUILD time, so this has to be set here
+      # rather than when starting the server. Without it the build looks
+      # like an unconfigured deployment and robots.txt correctly returns a
+      # blanket Disallow — which is right in production and would make the
+      # SEO checks below assert nothing useful.
       - run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://ci.garmentvibes.test
       - name: Start production server in background
         # A dummy webhook secret so the payment signature checks can run.
         # Deliberately NOT NEXT_PUBLIC_RAZORPAY_KEY_ID: that is inlined at

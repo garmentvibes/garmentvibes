@@ -5,7 +5,7 @@ import { StoreHydrator } from "@/components/shared/store-hydrator";
 import { ServiceWorkerRegistrar } from "@/components/shared/service-worker-registrar";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { JsonLd } from "@/components/shared/json-ld";
-import { organizationSchema, websiteSchema } from "@/lib/seo";
+import { organizationSchema, siteUrl, websiteSchema } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,7 +24,7 @@ const SITE_DESCRIPTION =
 export const metadata: Metadata = {
   // Required so relative OG/Twitter image paths resolve to absolute URLs —
   // social crawlers reject relative ones.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "GarmentVibes — Fashion Retail & Wholesale",
     template: "%s | GarmentVibes",

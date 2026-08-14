@@ -262,6 +262,11 @@ had real bugs before it was trustworthy:
 - The very first couple of routes hit against `next dev` can time out on
   cold-start compilation — that's Turbopack, not a bug; warm up with one
   throwaway navigation before asserting anything.
+- `NEXT_PUBLIC_*` variables are inlined at **build** time, not read at
+  runtime. Setting `NEXT_PUBLIC_SITE_URL` when starting the server has no
+  effect whatsoever — the value baked in at `next build` is what ships. CI
+  therefore sets it on the build step, and a deployment platform must set it
+  as a build environment variable.
 - Playwright's `waitUntil: "networkidle"` is a trap for a Next.js app. Once
   Next prefetches linked routes in the background, the mega-menu alone keeps
   RSC requests open and the network is never idle, so every navigation times

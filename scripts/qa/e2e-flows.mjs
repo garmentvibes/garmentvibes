@@ -1098,6 +1098,14 @@ allConsoleErrors.push(
     const sitemapBody = await sitemap.text();
     check("seo", "sitemap.xml served", sitemap.status() === 200);
     check("seo", "sitemap lists product URLs", sitemapBody.includes("/shop/product/"));
+    // A deployment that emits localhost URLs in its sitemap is broken for
+    // anyone who clicks them — the failure mode when the site origin isn't
+    // resolved from the environment.
+    check(
+      "seo",
+      "sitemap uses the configured origin, not localhost",
+      !sitemapBody.includes("localhost") || (process.env.NEXT_PUBLIC_SITE_URL ?? "").includes("localhost")
+    );
     check(
       "seo",
       "sitemap excludes admin routes",
