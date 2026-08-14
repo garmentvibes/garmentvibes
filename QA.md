@@ -32,6 +32,19 @@ qa:routes` to point at a deployed preview instead of localhost).
 
 ### What each script actually catches
 
+- **`npm test`** (`vitest run`) — unit tests over the pure functions the
+  browser suites can only reach clumsily: GST arithmetic and slab
+  boundaries, return/claim window edges, Razorpay signature verification,
+  order pricing rejections, and credit ageing. Runs in under a second, so it
+  goes before the build in CI — a broken invariant should fail without
+  waiting on a compile.
+  - These were checked with mutation testing rather than trusted because
+    they were green: breaking the rounding in `splitTaxInclusive` and the
+    return-window boundary each fail exactly one test.
+  - **Known blind spot:** swapping `timingSafeEqual` for `a === b` in
+    `signature.ts` passes every test, because the two agree on every
+    accept/reject and differ only in timing. Treat any change to that
+    comparison as unreviewed by the test suite.
 - **`qa:static`** also checks **sitemap coverage**: every public static page
   must either appear in `sitemap.ts` or be disallowed in `robots.txt`. A page
   missing from the sitemap is otherwise invisible to this suite — it still
@@ -193,6 +206,29 @@ without checking with the user first:
   buffers events and error reports and gates delivery on
   `NEXT_PUBLIC_ANALYTICS_KEY`, which is intentionally unset
 
+### Content Security Policy: a deliberate trade-off
+
+`next.config.ts` sets a CSP plus HSTS, nosniff, `X-Frame-Options`,
+`Referrer-Policy` and `Permissions-Policy` on every route including the API.
+
+`script-src` keeps `'unsafe-inline'`, which is a genuine weakening: this
+policy does **not** stop an injected inline `<script>`. The strict
+nonce-based CSP that Next.js documents needs a fresh nonce per request and
+therefore dynamic rendering, which would give up static prerendering across
+~60 product pages and every content page — real cost for a catalogue with no
+user-generated content.
+
+What the policy *does* stop: script from an unapproved origin, framing,
+form hijacking to a third-party endpoint, plugin content, and base-tag
+rewriting.
+
+**Revisit this the moment user-generated content renders as HTML** — reviews,
+seller-supplied copy, anything of that shape. At that point move to nonces in
+`proxy.ts` per the Next.js CSP guide and accept dynamic rendering.
+
+Note that `qa:routes` doubles as CSP-violation detection: violations surface
+as console errors, and that sweep fails on any console error.
+
 ### ⚠️ Admin panel: must not ship publicly as-is
 
 `/admin` is gated **in the browser only**, against the same mock session
@@ -226,6 +262,22 @@ had real bugs before it was trustworthy:
 - The very first couple of routes hit against `next dev` can time out on
   cold-start compilation — that's Turbopack, not a bug; warm up with one
   throwaway navigation before asserting anything.
+- `NEXT_PUBLIC_*` variables are inlined at **build** time, not read at
+  runtime. Setting `NEXT_PUBLIC_SITE_URL` when starting the server has no
+  effect whatsoever — the value baked in at `next build` is what ships. CI
+  therefore sets it on the build step, and a deployment platform must set it
+  as a build environment variable.
+- Playwright's `waitUntil: "networkidle"` is a trap for a Next.js app. Once
+  Next prefetches linked routes in the background, the mega-menu alone keeps
+  RSC requests open and the network is never idle, so every navigation times
+  out. It was the wrong signal even before that — it guessed readiness from
+  traffic and never actually guaranteed hydration. The suites now wait for
+  `data-hydrated` on `<html>`, set by StoreHydrator once the persisted stores
+  are live. Faster and truthful.
+- `locator().count()` resolves immediately, so asserting presence right after
+  a navigation races the first render of a client island. Use the `appears()`
+  helper for "should be there" and plain `count()` only for "should be
+  absent".
 - A route intentionally returning 404 will itself log a browser-level
   "Failed to load resource: 404" console message — expected noise for that
   one probe, not a real console error.

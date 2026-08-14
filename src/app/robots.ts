@@ -1,7 +1,23 @@
 import type { MetadataRoute } from "next";
+import { shouldAllowIndexing, siteUrl } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const origin = siteUrl();
+
+  // A preview deployment gets a blanket disallow. Indexing one would put a
+  // half-built shop into search results and later compete with the real
+  // site for the same content.
+  if (
+    !shouldAllowIndexing({
+      vercelEnv: process.env.VERCEL_ENV,
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    })
+  ) {
+    return {
+      rules: { userAgent: "*", disallow: "/" },
+    };
+  }
+
   return {
     rules: {
       userAgent: "*",
@@ -38,6 +54,6 @@ export default function robots(): MetadataRoute.Robots {
         "/wholesale/account",
       ],
     },
-    sitemap: `${siteUrl}/sitemap.xml`,
+    sitemap: `${origin}/sitemap.xml`,
   };
 }

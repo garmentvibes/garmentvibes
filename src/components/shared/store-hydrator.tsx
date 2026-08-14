@@ -48,6 +48,13 @@ export function StoreHydrator() {
     useStockAlertsStore.persist.rehydrate();
     useClaimsStore.persist.rehydrate();
     useCreditStore.persist.rehydrate();
+
+    // Signals "React has hydrated and persisted state is live". The QA suite
+    // waits on this instead of Playwright's `networkidle`, which never
+    // settles now that Next prefetches linked routes in the background — and
+    // which never actually guaranteed hydration anyway, it just usually took
+    // long enough to look like it did.
+    document.documentElement.dataset.hydrated = "true";
   }, []);
 
   return null;

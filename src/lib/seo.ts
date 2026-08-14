@@ -9,8 +9,51 @@ import { BUSINESS_INFO } from "@/lib/business-info";
 import type { RetailProduct, WholesaleProduct } from "@/types/catalog";
 import { wholesalePriceForQty } from "@/types/catalog";
 
+/**
+ * The origin this deployment should present as, used for canonicals, OG
+ * image URLs, the sitemap and robots.txt.
+ *
+ * Precedence:
+ *   1. NEXT_PUBLIC_SITE_URL — set this only for Production, to the real
+ *      domain. Setting it for Preview too would make every preview claim
+ *      canonical URLs on the live site.
+ *   2. The Vercel deployment URL, which Vercel injects automatically. This
+ *      is what makes a preview self-consistent instead of emitting
+ *      localhost links that 404 for anyone who clicks them.
+ *   3. localhost, for local development.
+ */
 export function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+
+  const vercelUrl =
+    process.env.NEXT_PUBLIC_VERCEL_URL ?? process.env.VERCEL_URL;
+  if (vercelUrl) return `https://${vercelUrl}`;
+
+  return "http://localhost:3000";
+}
+
+/**
+ * Whether search engines should be allowed to index this deployment.
+ *
+ * Pure so it can be unit tested; `robots.ts` passes the live environment.
+ *
+ * A preview deployment must never be indexed. Google finding a half-built
+ * shop is bad on its own, and it also competes with the real site for the
+ * same content once that exists. Vercel does add a noindex header to
+ * previews, but relying on someone else's default for something this
+ * expensive to undo is not worth it.
+ */
+export function shouldAllowIndexing(env: {
+  vercelEnv?: string;
+  siteUrl?: string;
+}) {
+  // Explicitly deployed as production on Vercel: index it.
+  if (env.vercelEnv === "production") return true;
+  // Any other Vercel environment is a preview: never index.
+  if (env.vercelEnv) return false;
+  // Off Vercel entirely (local, or self-hosted): index only when a real
+  // site URL has been configured deliberately.
+  return Boolean(env.siteUrl);
 }
 
 export function absoluteUrl(path: string) {
