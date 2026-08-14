@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, Building2, FileText } from "lucide-react";
@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { useAdminOrdersStore, useWholesaleQuote } from "@/lib/stores/admin-orders-store";
 import { notify } from "@/lib/stores/notification-store";
+import { COURIERS, trackingUrlFor } from "@/lib/couriers";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   WHOLESALE_QUOTE_STATUSES,
   WHOLESALE_QUOTE_STATUS_LABELS,
@@ -21,6 +24,9 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
   const { id } = use(params);
   const quote = useWholesaleQuote(id);
   const setQuoteStatus = useAdminOrdersStore((s) => s.setQuoteStatus);
+  const setQuoteShipment = useAdminOrdersStore((s) => s.setQuoteShipment);
+  const [courierId, setCourierId] = useState(quote?.shipment?.courierId ?? COURIERS[0].id);
+  const [awb, setAwb] = useState(quote?.shipment?.awb ?? "");
 
   if (!quote) {
     return (
@@ -56,7 +62,35 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
       return;
     }
 
+    // Shipping a consignment is the other transition the buyer acts on —
+    // they need to know to check it against the packing list on arrival.
+    if (status === "shipped" && quote) {
+      notify({
+        templateId: "bulk_order_shipped",
+        recipientName: quote.contactName,
+        email: quote.email,
+        relatedTo: quote.id,
+        vars: {
+          name: quote.contactName,
+          orderId: quote.id,
+          businessName: quote.businessName,
+          trackingUrl: trackingUrlFor(quote.shipment?.courierId, quote.shipment?.awb) ?? undefined,
+        },
+      });
+      toast.success("Marked as Shipped — buyer notified");
+      return;
+    }
+
     toast.success(`Marked as ${WHOLESALE_QUOTE_STATUS_LABELS[status]}`);
+  }
+
+  function saveShipment() {
+    if (!awb.trim()) {
+      toast.error("Enter the AWB / tracking number");
+      return;
+    }
+    setQuoteShipment(id, courierId, awb.trim());
+    toast.success("Tracking saved — it now appears on the buyer's order");
   }
 
   return (
@@ -141,6 +175,61 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
                 </Button>
               ))}
             </div>
+          </div>
+
+          {/* Enter tracking before marking the consignment shipped, so the
+              buyer's notification carries a working link. */}
+          <div className="rounded-lg border border-neutral-200 bg-white p-5">
+            <h2 className="mb-3 font-semibold text-neutral-900">Consignment tracking</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,12rem)_1fr_auto] sm:items-end">
+              <div>
+                <Label htmlFor="courier">Courier</Label>
+                <select
+                  id="courier"
+                  value={courierId}
+                  onChange={(e) => setCourierId(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                >
+                  {COURIERS.map((courier) => (
+                    <option key={courier.id} value={courier.id}>
+                      {courier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="awb">AWB / LR number</Label>
+                <Input
+                  id="awb"
+                  value={awb}
+                  onChange={(e) => setAwb(e.target.value)}
+                  placeholder="e.g. 1234567890"
+                  className="mt-1"
+                />
+              </div>
+              <Button size="sm" onClick={saveShipment}>
+                Save tracking
+              </Button>
+            </div>
+
+            {quote.shipment && (
+              <p className="mt-3 text-xs text-neutral-500">
+                Shipped {quote.shipment.shippedAt} &middot;{" "}
+                <a
+                  href={trackingUrlFor(quote.shipment.courierId, quote.shipment.awb) ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-neutral-800"
+                >
+                  Track {quote.shipment.awb}
+                </a>
+              </p>
+            )}
+            {quote.deliveredAt && (
+              <p className="mt-1 text-xs text-neutral-500">
+                Received {quote.deliveredAt} — claims window runs from this date
+              </p>
+            )}
           </div>
         </div>
 

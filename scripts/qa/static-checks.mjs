@@ -118,6 +118,55 @@ walk(SRC_DIR, (file) => {
 if (leftovers === 0) pass("No TODO/FIXME/Lorem ipsum/console.log leftovers found");
 
 // ---------------------------------------------------------------------------
+// 4. Sitemap coverage
+//
+// A public page missing from the sitemap is invisible to this suite
+// otherwise: every route still renders, every link still resolves, so
+// nothing fails — it just quietly never gets crawled. That is how the
+// Refund Policy and Grievance pages, which Razorpay reads during merchant
+// onboarding, went unlisted for weeks.
+//
+// Anything genuinely private must be disallowed in robots.txt, so that file
+// is the source of truth for what may be excluded rather than a second list
+// maintained here.
+// ---------------------------------------------------------------------------
+
+const sitemapSource = readFileSync(join(APP_DIR, "sitemap.ts"), "utf8");
+const robotsSource = readFileSync(join(APP_DIR, "robots.ts"), "utf8");
+
+// Paths robots.txt tells crawlers to stay out of.
+const disallowed = [...robotsSource.matchAll(/"(\/[^"]*)"/g)]
+  .map((m) => m[1])
+  .filter((p) => p !== "/");
+
+// Static public pages in the app tree: no dynamic segments, not an API
+// route, and not one of the utility pages that should never be indexed.
+const NEVER_INDEXED = ["/offline", "/admin"];
+const staticPublicRoutes = [];
+walk(APP_DIR, (file) => {
+  if (!/\/page\.tsx$/.test(file)) return;
+  const dir = relative(APP_DIR, file.replace(/\/page\.tsx$/, ""));
+  const segments = (dir === "" ? [] : dir.split("/")).filter((s) => !/^\(.*\)$/.test(s));
+  if (segments.some((s) => s.startsWith("["))) return; // dynamic, covered separately
+  const route = "/" + segments.join("/");
+  if (route === "/") return; // the root is added explicitly
+  if (NEVER_INDEXED.some((p) => route.startsWith(p))) return;
+  if (disallowed.some((p) => route === p || route.startsWith(`${p}/`))) return;
+  staticPublicRoutes.push(route);
+});
+
+let uncovered = 0;
+for (const route of staticPublicRoutes) {
+  if (!sitemapSource.includes(`"${route}"`)) {
+    fail(`${route} is publicly reachable but missing from sitemap.ts`);
+    uncovered++;
+  }
+}
+if (uncovered === 0) {
+  pass(`All ${staticPublicRoutes.length} public static pages are in the sitemap`);
+}
+
+// ---------------------------------------------------------------------------
 
 console.log(`\n${failures === 0 ? "PASS" : "FAIL"}: ${failures} issue(s) found`);
 process.exit(failures === 0 ? 0 : 1);

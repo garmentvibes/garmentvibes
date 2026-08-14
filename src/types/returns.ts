@@ -67,6 +67,13 @@ export interface ReturnItem {
   price: number; // minor units, as charged
   /** Exchange only: the size going out in place of `size`. */
   exchangeForSize?: string;
+  /**
+   * Exchange only: swap to a different product entirely. Absent means a
+   * like-for-like size swap on the same product.
+   */
+  exchangeForProductId?: string;
+  /** Unit price of the replacement, captured at request time. */
+  exchangeForPrice?: number;
 }
 
 export interface ReturnRequest {
@@ -88,4 +95,18 @@ export interface ReturnRequest {
 
 export function returnRefundTotal(request: ReturnRequest) {
   return request.items.reduce((sum, i) => sum + i.qty * i.price, 0);
+}
+
+/**
+ * Net price difference on an exchange, in minor units.
+ *
+ * Positive means the customer owes us (they swapped up); negative means we
+ * owe them (they swapped down). Zero for a like-for-like size swap, which is
+ * why the same-product path never asks anyone for money.
+ */
+export function exchangeBalance(request: ReturnRequest) {
+  return request.items.reduce((sum, item) => {
+    const replacement = item.exchangeForPrice ?? item.price;
+    return sum + item.qty * (replacement - item.price);
+  }, 0);
 }

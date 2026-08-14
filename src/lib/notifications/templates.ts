@@ -165,6 +165,44 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateId, TemplateDefi
     short: (v) => `GarmentVibes: Quote ${v.orderId} is ready (${v.amount}). Valid for 14 days.`,
   },
 
+  bulk_order_shipped: {
+    label: "Bulk order shipped",
+    channels: ["email", "whatsapp"],
+    subject: (v) => `Bulk order ${v.orderId} has shipped`,
+    email: (v) =>
+      `Hi ${v.name},\n\nYour bulk order ${v.orderId} for ${v.businessName ?? "your business"} has shipped.\n\nTrack it here: ${v.trackingUrl ?? "your dashboard"}\n\nPlease check the consignment against the packing list on arrival. Short shipments or transit damage should be raised within 7 days of delivery so we can put it right.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: Bulk order ${v.orderId} has shipped. Check the consignment on arrival.`,
+  },
+
+  claim_received: {
+    label: "Claim received",
+    channels: ["email"],
+    subject: (v) => `Claim received for order ${v.orderId}`,
+    email: (v) =>
+      `Hi ${v.name},\n\nWe've received your claim against order ${v.orderId}${v.reason ? ` (${v.reason})` : ""}, covering ${v.amount ?? "the units noted"}.\n\nOur team will review it within 3 business days. Please keep the affected cartons and packaging until we've been in touch — we may need photographs or a carrier inspection.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: Claim received for order ${v.orderId}. We'll review within 3 business days.`,
+  },
+
+  claim_resolved: {
+    label: "Claim resolved",
+    channels: ["email"],
+    subject: (v) => `Your claim on order ${v.orderId} has been settled`,
+    email: (v) =>
+      `Hi ${v.name},\n\nYour claim against order ${v.orderId} has been settled${v.reason ? ` as a ${v.reason}` : ""}${v.amount ? ` to the value of ${v.amount}` : ""}.\n\nA credit note is applied against your account and appears on your next statement; a replacement consignment ships on the usual lead time.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: Your claim on order ${v.orderId} has been settled.`,
+  },
+
+  // Deliberately plain and factual rather than threatening — most overdue
+  // invoices are an oversight, and the relationship outlasts the invoice.
+  payment_overdue: {
+    label: "Payment overdue",
+    channels: ["email"],
+    subject: (v) => `Invoice ${v.orderId} is past due`,
+    email: (v) =>
+      `Hi ${v.name},\n\nOur records show invoice ${v.orderId} for ${v.businessName ?? "your business"} is ${v.reason ?? "past due"}, with ${v.amount ?? "an amount"} outstanding.\n\nIf it's already been paid, send us the transaction reference and we'll reconcile it. If there's a query on the invoice, reply here and we'll sort it out.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: Invoice ${v.orderId} is past due, ${v.amount ?? ""} outstanding.`,
+  },
+
   credit_terms_approved: {
     label: "Credit terms approved",
     channels: ["email"],

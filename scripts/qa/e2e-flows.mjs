@@ -570,6 +570,27 @@ allConsoleErrors.push(
     const swapOptions = await page.locator("#swap-0 option").allTextContents();
     check("exchanges", "replacement options exclude the size being returned", !swapOptions.includes("M"));
 
+    // Swapping to a different product should settle the price difference.
+    check("exchanges", "a different product can be chosen", (await page.locator("#swap-product-0 option").count()) > 1);
+    await page.selectOption("#swap-product-0", { index: 1 });
+    await page.waitForTimeout(300);
+    check("exchanges", "changing product clears the stale size choice", (await page.locator("#swap-0").inputValue()) === "");
+    check(
+      "exchanges",
+      "a price difference is shown before submitting",
+      (await page.locator("text=/Difference to pay|Difference refunded/").count()) > 0
+    );
+
+    // Back to a same-product swap for the rest of the flow: a like-for-like
+    // exchange must show no difference at all.
+    await page.selectOption("#swap-product-0", { index: 0 });
+    await page.waitForTimeout(300);
+    check(
+      "exchanges",
+      "a like-for-like swap shows no price difference",
+      (await page.locator("text=/Difference to pay|Difference refunded/").count()) === 0
+    );
+
     // Submitting without picking a replacement is refused.
     await page.click('button:has-text("Submit exchange request")');
     await page.waitForTimeout(300);
@@ -715,6 +736,139 @@ allConsoleErrors.push(
       });
       check("back-in-stock", "registration is consumed once fired", remaining.length < afterDuplicate.length);
     }
+  }))
+);
+
+// ---------------------------------------------------------------------------
+// Wholesale lifecycle: consignment tracking, claims, and the credit ledger
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await page.fill("#email", "staff@garmentvibes.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/admin");
+
+    // ---- Consignment tracking -------------------------------------------
+    await page.goto(`${BASE_URL}/admin/quotes/GVQ84190233`, { waitUntil: "networkidle" });
+    await page.selectOption("#courier", "bluedart");
+    await page.fill("#awb", "QAWS55501");
+    await page.click('button:has-text("Save tracking")');
+    await page.waitForTimeout(300);
+    check("wholesale-lifecycle", "admin records consignment tracking", (await page.locator("text=QAWS55501").count()) > 0);
+
+    await page.click('button:text-is("Shipped")');
+    await page.waitForTimeout(400);
+    const shipOutbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check("wholesale-lifecycle", "shipping a consignment notifies the buyer", shipOutbox.some((m) => m.templateId === "bulk_order_shipped"));
+
+    // The buyer dashboard reads the same source, so this must appear there.
+    await page.goto(`${BASE_URL}/wholesale/dashboard`, { waitUntil: "networkidle" });
+    check("wholesale-lifecycle", "buyer dashboard shows the tracking number", (await page.locator("text=QAWS55501").count()) > 0);
+    check("wholesale-lifecycle", "buyer gets a courier tracking link", (await page.locator('a[href*="bluedart"]').count()) > 0);
+
+    // ---- Claims ----------------------------------------------------------
+    // Not raisable until the consignment is marked received.
+    await page.goto(`${BASE_URL}/wholesale/orders/GVQ84190233/claim`, { waitUntil: "networkidle" });
+    check("wholesale-lifecycle", "claim refused before the order is fulfilled", (await page.locator("text=Claim not available").count()) > 0);
+
+    await page.goto(`${BASE_URL}/admin/quotes/GVQ84190233`, { waitUntil: "networkidle" });
+    await page.click('button:text-is("Fulfilled")');
+    await page.waitForTimeout(300);
+    check("wholesale-lifecycle", "fulfilling stamps a received date", (await page.locator("text=/claims window runs from/").count()) > 0);
+
+    await page.goto(`${BASE_URL}/wholesale/orders/GVQ84190233/claim`, { waitUntil: "networkidle" });
+    check("wholesale-lifecycle", "claim form opens once received", (await page.locator("text=Affected quantities").count()) > 0);
+
+    // Submitting with nothing affected is refused.
+    await page.click('button:has-text("Submit claim")');
+    await page.waitForTimeout(300);
+    check("wholesale-lifecycle", "empty claim is refused", page.url().includes("/claim"));
+
+    // Cannot claim more units than were invoiced.
+    const billed = Number(await page.locator("#claim-0").getAttribute("max"));
+    await page.fill("#claim-0", String(billed + 500));
+    await page.waitForTimeout(200);
+    check("wholesale-lifecycle", "claimed quantity is capped at the billed quantity", Number(await page.locator("#claim-0").inputValue()) === billed);
+
+    await page.fill("#claim-0", "12");
+    await page.selectOption("#claim-reason", "Short shipment");
+    await page.selectOption("#claim-resolution", "credit_note");
+    await page.click('button:has-text("Submit claim")');
+    await page.waitForURL("**/wholesale/dashboard");
+    await page.waitForTimeout(300);
+
+    const claimOutbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check("wholesale-lifecycle", "raising a claim acknowledges it to the buyer", claimOutbox.some((m) => m.templateId === "claim_received"));
+
+    // A second claim on the same order is blocked while one is open.
+    await page.goto(`${BASE_URL}/wholesale/orders/GVQ84190233/claim`, { waitUntil: "networkidle" });
+    check("wholesale-lifecycle", "second claim blocked while one is open", (await page.locator("text=/already been raised/").count()) > 0);
+
+    // ---- Admin claim resolution -----------------------------------------
+    await page.goto(`${BASE_URL}/admin/claims`, { waitUntil: "networkidle" });
+    check("wholesale-lifecycle", "claim appears in the admin queue", (await page.locator("#claims-list > li").count()) > 0);
+
+    await page.click('button:has-text("Start review")');
+    await page.waitForTimeout(300);
+    await page.click('button:text-is("Under review")');
+    await page.waitForTimeout(200);
+    await page.click('button:text-is("Approve")');
+    await page.waitForTimeout(300);
+    await page.click('button:text-is("Approved")');
+    await page.waitForTimeout(200);
+    await page.click('button:has-text("Mark settled")');
+    await page.waitForTimeout(400);
+
+    const settledOutbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check("wholesale-lifecycle", "settling a claim notifies the buyer", settledOutbox.some((m) => m.templateId === "claim_resolved"));
+
+    // ---- Credit ledger ---------------------------------------------------
+    await page.goto(`${BASE_URL}/admin/credit`, { waitUntil: "networkidle" });
+    check("credit", "ledger lists outstanding invoices", (await page.locator("#credit-list > li").count()) > 0);
+    check("credit", "ageing summary is shown", (await page.locator("text=Ageing").count()) > 0);
+
+    await page.click('button:text-is("overdue")');
+    await page.waitForTimeout(300);
+    const overdueCount = await page.locator("#credit-list > li").count();
+    check("credit", "overdue filter surfaces past-due invoices", overdueCount > 0);
+    check("credit", "overdue invoices offer a reminder", (await page.locator('button:has-text("Send reminder")').count()) > 0);
+
+    await page.click('button:has-text("Send reminder")');
+    await page.waitForTimeout(300);
+    const chaseOutbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check("credit", "reminder is queued to the buyer", chaseOutbox.some((m) => m.templateId === "payment_overdue"));
+
+    // Overpaying would make the ledger lie, so it must be refused.
+    await page.click('button:has-text("Record payment") >> nth=0');
+    await page.waitForTimeout(200);
+    const amountField = page.locator('input[id^="amount-"]').first();
+    const owed = Number(await amountField.inputValue());
+    await amountField.fill(String(owed + 1000));
+    await page.click('button:text-is("Save")');
+    await page.waitForTimeout(300);
+    check("credit", "a payment larger than the balance is refused", (await page.locator('input[id^="amount-"]').count()) > 0);
+
+    // A part payment moves it to part_paid, not paid.
+    await amountField.fill(String(Math.max(1, Math.floor(owed / 2))));
+    await page.click('button:text-is("Save")');
+    await page.waitForTimeout(400);
+    await page.click('button:text-is("all")');
+    await page.waitForTimeout(300);
+    check("credit", "a part payment is recorded as part paid", (await page.locator("text=Part paid").count()) > 0);
   }))
 );
 

@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { SEED_RETAIL_ORDERS, SEED_WHOLESALE_QUOTES } from "@/lib/mock/admin-data";
-import type { RetailOrder, RetailOrderStatus, WholesaleQuoteStatus } from "@/types/admin";
+import type {
+  RetailOrder,
+  RetailOrderStatus,
+  WholesaleQuote,
+  WholesaleQuoteStatus,
+} from "@/types/admin";
 
 // Layers admin status changes on top of the seed orders/quotes. Once Supabase
 // is connected these become real table updates; the component API stays the
@@ -11,9 +16,12 @@ interface AdminOrdersState {
   deliveredAtOverrides: Record<string, string>;
   shipmentOverrides: Record<string, RetailOrder["shipment"]>;
   quoteStatusOverrides: Record<string, WholesaleQuoteStatus>;
+  quoteShipmentOverrides: Record<string, WholesaleQuote["shipment"]>;
+  quoteDeliveredAtOverrides: Record<string, string>;
   setRetailStatus: (orderId: string, status: RetailOrderStatus) => void;
   setShipment: (orderId: string, courierId: string, awb: string) => void;
   setQuoteStatus: (quoteId: string, status: WholesaleQuoteStatus) => void;
+  setQuoteShipment: (quoteId: string, courierId: string, awb: string) => void;
 }
 
 export const useAdminOrdersStore = create<AdminOrdersState>()(
@@ -23,6 +31,8 @@ export const useAdminOrdersStore = create<AdminOrdersState>()(
       deliveredAtOverrides: {},
       shipmentOverrides: {},
       quoteStatusOverrides: {},
+      quoteShipmentOverrides: {},
+      quoteDeliveredAtOverrides: {},
       setShipment: (orderId, courierId, awb) =>
         set((s) => ({
           shipmentOverrides: {
@@ -45,7 +55,25 @@ export const useAdminOrdersStore = create<AdminOrdersState>()(
               : s.deliveredAtOverrides,
         })),
       setQuoteStatus: (quoteId, status) =>
-        set((s) => ({ quoteStatusOverrides: { ...s.quoteStatusOverrides, [quoteId]: status } })),
+        set((s) => ({
+          quoteStatusOverrides: { ...s.quoteStatusOverrides, [quoteId]: status },
+          // Same rule as retail: stamp receipt once, so a status bounced
+          // back and forth can't extend the claims window.
+          quoteDeliveredAtOverrides:
+            status === "fulfilled" && !s.quoteDeliveredAtOverrides[quoteId]
+              ? {
+                  ...s.quoteDeliveredAtOverrides,
+                  [quoteId]: new Date().toISOString().slice(0, 10),
+                }
+              : s.quoteDeliveredAtOverrides,
+        })),
+      setQuoteShipment: (quoteId, courierId, awb) =>
+        set((s) => ({
+          quoteShipmentOverrides: {
+            ...s.quoteShipmentOverrides,
+            [quoteId]: { courierId, awb, shippedAt: new Date().toISOString().slice(0, 10) },
+          },
+        })),
     }),
     { name: "garmentvibes-admin-orders", skipHydration: true }
   )
@@ -69,7 +97,14 @@ export function useRetailOrder(id: string) {
 
 export function useWholesaleQuotes() {
   const overrides = useAdminOrdersStore((s) => s.quoteStatusOverrides);
-  return SEED_WHOLESALE_QUOTES.map((q) => ({ ...q, status: overrides[q.id] ?? q.status }));
+  const shipments = useAdminOrdersStore((s) => s.quoteShipmentOverrides);
+  const deliveredAt = useAdminOrdersStore((s) => s.quoteDeliveredAtOverrides);
+  return SEED_WHOLESALE_QUOTES.map((q) => ({
+    ...q,
+    status: overrides[q.id] ?? q.status,
+    shipment: shipments[q.id] ?? q.shipment,
+    deliveredAt: q.deliveredAt ?? deliveredAt[q.id],
+  }));
 }
 
 export function useWholesaleQuote(id: string) {

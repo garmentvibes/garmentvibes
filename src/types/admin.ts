@@ -103,6 +103,13 @@ export interface WholesaleQuote {
   email: string;
   status: WholesaleQuoteStatus;
   items: WholesaleQuoteItem[];
+  /** Set when the consignment ships. Courier id matches lib/couriers.ts. */
+  shipment?: { courierId: string; awb: string; shippedAt: string };
+  /**
+   * Set when the buyer confirms receipt. Bulk claims (short shipment, transit
+   * damage) run from this date, the same way retail returns run from delivery.
+   */
+  deliveredAt?: string; // ISO date
 }
 
 export function wholesaleQuoteTotal(quote: WholesaleQuote) {

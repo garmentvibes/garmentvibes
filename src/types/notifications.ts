@@ -29,7 +29,11 @@ export type NotificationTemplateId =
   | "wholesale_account_approved"
   | "wholesale_account_rejected"
   | "quote_ready"
-  | "credit_terms_approved";
+  | "bulk_order_shipped"
+  | "claim_received"
+  | "claim_resolved"
+  | "credit_terms_approved"
+  | "payment_overdue";
 
 export type NotificationStatus = "queued" | "sent" | "failed";
 

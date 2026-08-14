@@ -1,67 +1,57 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 import { useWholesaleOrderStore } from "@/lib/stores/wholesale-order-store";
+import { useWholesaleQuotes } from "@/lib/stores/admin-orders-store";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { courierById, trackingUrlFor } from "@/lib/couriers";
 import { wholesalePriceForQty } from "@/types/catalog";
+import {
+  WHOLESALE_QUOTE_STATUS_LABELS,
+  wholesaleQuoteTotal,
+  wholesaleQuoteUnits,
+  type WholesaleQuote,
+  type WholesaleQuoteStatus,
+} from "@/types/admin";
 
-const MOCK_ORDERS = [
-  {
-    id: "GVQ84213567",
-    date: "2026-08-05",
-    status: "Confirmed" as const,
-    items: [
-      { sku: "GV-WCT-001", qty: 300 },
-      { sku: "GV-WDN-003", qty: 96 },
-    ],
-  },
-  {
-    id: "GVQ84119042",
-    date: "2026-07-22",
-    status: "Shipped" as const,
-    items: [{ sku: "GV-WKR-002", qty: 150 }],
-  },
-  {
-    id: "GVQ83997211",
-    date: "2026-07-02",
-    status: "Delivered" as const,
-    items: [{ sku: "GV-WKD-004", qty: 72 }],
-  },
-];
+// Reads the same source as the admin quote list, so a status change or a
+// tracking number entered by staff shows up here immediately. This page used
+// to keep its own MOCK_ORDERS array, which meant the buyer and the office
+// were looking at different data.
 
-const STATUS_VARIANT = {
-  Confirmed: "wholesale",
-  Shipped: "warning",
-  Delivered: "success",
-} as const;
+const STATUS_VARIANT: Record<WholesaleQuoteStatus, "wholesale" | "warning" | "success" | "destructive"> = {
+  requested: "warning",
+  quoted: "warning",
+  confirmed: "wholesale",
+  in_production: "wholesale",
+  shipped: "warning",
+  fulfilled: "success",
+  rejected: "destructive",
+};
 
-type StatusFilter = "All" | keyof typeof STATUS_VARIANT;
+type StatusFilter = WholesaleQuoteStatus | "all";
 
-function orderTotal(items: { sku: string; qty: number }[]) {
-  return items.reduce((sum, item) => {
-    const product = WHOLESALE_PRODUCTS.find((p) => p.sku === item.sku);
-    if (!product) return sum;
-    return sum + wholesalePriceForQty(product, item.qty) * item.qty;
-  }, 0);
-}
-
-function orderUnits(items: { sku: string; qty: number }[]) {
-  return items.reduce((sum, item) => sum + item.qty, 0);
-}
+const FILTERS: StatusFilter[] = ["all", "quoted", "confirmed", "in_production", "shipped", "fulfilled"];
 
 export default function WholesaleDashboardPage() {
-  const [filter, setFilter] = useState<StatusFilter>("All");
+  const mounted = useHasMounted();
+  const [filter, setFilter] = useState<StatusFilter>("all");
   const upsertLine = useWholesaleOrderStore((s) => s.upsertLine);
+  const quotes = useWholesaleQuotes();
 
-  const visibleOrders = MOCK_ORDERS.filter((o) => filter === "All" || o.status === filter);
+  if (!mounted) return null;
 
-  function handleReorder(order: (typeof MOCK_ORDERS)[number]) {
+  const visible = quotes.filter((q) => filter === "all" || q.status === filter);
+
+  function handleReorder(quote: WholesaleQuote) {
     let added = 0;
-    for (const item of order.items) {
+    for (const item of quote.items) {
       const product = WHOLESALE_PRODUCTS.find((p) => p.sku === item.sku);
       if (!product) continue;
       upsertLine({
@@ -78,18 +68,18 @@ export default function WholesaleDashboardPage() {
       });
       added++;
     }
-    toast.success(`${added} item(s) from ${order.id} added to your order`);
+    toast.success(`${added} item(s) from ${quote.id} added to your order`);
   }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-slate-900">Account Dashboard</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Sample order history — will reflect real orders once accounts are connected.
+        Your quotes and bulk orders, with live status and consignment tracking.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {(["All", "Confirmed", "Shipped", "Delivered"] as StatusFilter[]).map((status) => (
+        {FILTERS.map((status) => (
           <button
             key={status}
             type="button"
@@ -100,46 +90,85 @@ export default function WholesaleDashboardPage() {
                 : "border-slate-300 text-slate-600 hover:border-slate-400"
             }`}
           >
-            {status}
+            {status === "all" ? "All" : WHOLESALE_QUOTE_STATUS_LABELS[status]}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Reference</th>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Units</th>
-              <th className="px-4 py-3">Total</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {visibleOrders.map((order) => (
-              <tr key={order.id}>
-                <td className="px-4 py-3 font-mono text-xs text-slate-500">{order.id}</td>
-                <td className="px-4 py-3 text-slate-700">{order.date}</td>
-                <td className="px-4 py-3 text-slate-700">{orderUnits(order.items)}</td>
-                <td className="px-4 py-3 text-slate-800">{formatPrice(orderTotal(order.items))}</td>
-                <td className="px-4 py-3">
-                  <Badge variant={STATUS_VARIANT[order.status]}>{order.status}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  <Button variant="outline" size="sm" onClick={() => handleReorder(order)}>
+      <div className="mt-4 space-y-3">
+        {visible.map((quote) => {
+          const trackingUrl = trackingUrlFor(quote.shipment?.courierId, quote.shipment?.awb);
+          return (
+            <div
+              key={quote.id}
+              className="rounded-lg border border-slate-200 bg-white p-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs text-slate-500">{quote.id}</span>
+                    <Badge variant={STATUS_VARIANT[quote.status]}>
+                      {WHOLESALE_QUOTE_STATUS_LABELS[quote.status]}
+                    </Badge>
+                    <span className="text-xs capitalize text-slate-400">{quote.kind}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {quote.requestedAt} &middot; {wholesaleQuoteUnits(quote)} units &middot;{" "}
+                    {formatPrice(wholesaleQuoteTotal(quote))}
+                    <span className="ml-1 text-xs text-slate-400">+ GST</span>
+                  </p>
+
+                  {quote.shipment && (
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      {courierById(quote.shipment.courierId)?.name ?? "Courier"} &middot;{" "}
+                      <span className="font-mono">{quote.shipment.awb}</span>
+                      {trackingUrl && (
+                        <>
+                          {" "}
+                          &middot;{" "}
+                          <a
+                            href={trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-700 underline"
+                          >
+                            Track consignment
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  )}
+
+                  {quote.deliveredAt && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Received {quote.deliveredAt}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {quote.status === "fulfilled" && (
+                    <Link href={`/wholesale/orders/${quote.id}/claim`}>
+                      <Button variant="outline" size="sm">
+                        Raise a claim
+                      </Button>
+                    </Link>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => handleReorder(quote)}>
                     Reorder
                   </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {visibleOrders.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-500">No orders with this status.</p>
-        )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {visible.length === 0 && (
+        <p className="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+          No orders with this status.
+        </p>
+      )}
     </div>
   );
 }

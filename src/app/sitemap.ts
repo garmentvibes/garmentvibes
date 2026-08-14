@@ -5,8 +5,36 @@ import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 const RETAIL_CATEGORIES = ["women", "men", "kids"];
 const WHOLESALE_CATEGORIES = ["women", "men", "kids", "unisex", "fabric"];
 
-const STATIC_RETAIL_PAGES = ["/shop", "/shop/about", "/shop/faq", "/shop/shipping-policy"];
-const STATIC_WHOLESALE_PAGES = ["/wholesale", "/wholesale/how-it-works", "/wholesale/faq", "/wholesale/catalog"];
+// Every publicly reachable, indexable page. Account and checkout routes are
+// deliberately absent — they're behind a login and disallowed in robots.txt.
+//
+// The policy pages are not just SEO: Razorpay reads the Refund/Cancellation
+// and Grievance Officer pages during merchant onboarding, and both are a
+// requirement under the Consumer Protection (E-Commerce) Rules 2020. Leaving
+// them out of the sitemap makes them harder to find exactly when it matters.
+const STATIC_RETAIL_PAGES = [
+  "/shop",
+  "/shop/about",
+  "/shop/contact",
+  "/shop/faq",
+  "/shop/shipping-policy",
+  "/shop/refund-policy",
+  "/shop/grievance",
+  "/shop/terms",
+  "/shop/privacy",
+  "/shop/signup", // acquisition page, worth indexing; /shop/login is not
+];
+
+const STATIC_WHOLESALE_PAGES = [
+  "/wholesale",
+  "/wholesale/how-it-works",
+  "/wholesale/faq",
+  "/wholesale/catalog",
+  "/wholesale/contact",
+  "/wholesale/terms",
+  "/wholesale/pricing-calculator",
+  "/wholesale/signup", // how new B2B buyers find us
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
