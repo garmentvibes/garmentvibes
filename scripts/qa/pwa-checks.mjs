@@ -14,6 +14,7 @@
 //   node scripts/qa/pwa-checks.mjs
 
 import { launchBrowser } from "./_launch-browser.mjs";
+import { goto } from "./_goto.mjs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
@@ -64,13 +65,30 @@ const browser = await launchBrowser();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await context.newPage();
 
-await page.goto(BASE_URL, { waitUntil: "networkidle" });
+await goto(page, BASE_URL);
 
+// `serviceWorker.ready` resolves as soon as a registration has an active
+// worker, which can still be in the "activating" state. Wait for it to
+// actually reach "activated" rather than sampling the state once — the
+// previous code only passed because networkidle happened to burn enough
+// time first.
 const swState = await page.evaluate(async () => {
   if (!("serviceWorker" in navigator)) return "unsupported";
   const reg = await navigator.serviceWorker.ready.catch(() => null);
   if (!reg) return "not-ready";
-  return reg.active?.state ?? "no-active-worker";
+  const worker = reg.active;
+  if (!worker) return "no-active-worker";
+  if (worker.state === "activated") return "activated";
+
+  return await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(worker.state), 10000);
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "activated") {
+        clearTimeout(timer);
+        resolve("activated");
+      }
+    });
+  });
 });
 
 if (swState !== "activated") {

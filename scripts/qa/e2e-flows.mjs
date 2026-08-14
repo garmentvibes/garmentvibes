@@ -9,6 +9,7 @@
 // within a single flow function rather than across functions.
 
 import { launchBrowser } from "./_launch-browser.mjs";
+import { goto, appears } from "./_goto.mjs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
@@ -37,45 +38,45 @@ let allConsoleErrors = [];
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     await page.click('button[aria-label="Add to wishlist"]');
     await page.waitForTimeout(200);
-    await page.goto(`${BASE_URL}/shop/wishlist`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/wishlist`);
     check("retail-discovery", "wishlist shows saved item", (await page.locator("text=Floral Printed Anarkali Kurta").count()) > 0);
 
-    await page.goto(`${BASE_URL}/shop/women`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/women`);
     const before = await page.locator("text=/Showing \\d+/").first().textContent();
     await page.click('text="Under ₹999"');
     await page.waitForTimeout(300);
     const after = await page.locator("text=/Showing \\d+|No products/").first().textContent();
     check("retail-discovery", "price filter changes result count", before !== after);
 
-    await page.goto(`${BASE_URL}/shop/search?q=jeans`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/search?q=jeans`);
     check("retail-discovery", "search finds matching products", (await page.locator("text=/Jeans/i").count()) > 0);
 
     // Typo tolerance: a misspelling should still find the product.
-    await page.goto(`${BASE_URL}/shop/search?q=kurtaa`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/search?q=kurtaa`);
     check("retail-discovery", "misspelled query still returns results", (await page.locator("text=/Kurta/i").count()) > 0);
 
     // Nonsense should return the recovery state, not a blank page.
-    await page.goto(`${BASE_URL}/shop/search?q=zzzzqqqq`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/search?q=zzzzqqqq`);
     check("retail-discovery", "no-results state offers category links", (await page.locator("text=/No products matched/").count()) > 0);
 
     // Autocomplete dropdown suggests products as you type.
-    await page.goto(`${BASE_URL}/shop`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop`);
     await page.fill('input[aria-label="Search products"]', "saree");
     await page.waitForTimeout(300);
     check("retail-discovery", "search autocomplete shows suggestions", (await page.locator("#search-suggestions li").count()) > 0);
 
     // Colour and discount facets, plus pagination.
-    await page.goto(`${BASE_URL}/shop/women`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/women`);
     const beforeColour = await page.locator("text=/Showing \\d+/").first().textContent();
     await page.click('text="Black"');
     await page.waitForTimeout(300);
     const afterColour = await page.locator("text=/Showing \\d+|No products/").first().textContent();
     check("retail-discovery", "colour filter narrows results", beforeColour !== afterColour);
 
-    await page.goto(`${BASE_URL}/shop/women`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/women`);
     await page.click('text="40% and above"');
     await page.waitForTimeout(300);
     check("retail-discovery", "discount filter applies", (await page.locator("text=/Showing \\d+|No products/").count()) > 0);
@@ -87,7 +88,7 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/shop/addresses`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/addresses`);
     await page.click("text=Add Address");
     await page.fill("#label", "Home");
     await page.fill("#fullName", "QA Buyer");
@@ -100,10 +101,10 @@ allConsoleErrors.push(
     await page.waitForTimeout(200);
     check("retail-checkout", "address saved and listed", (await page.locator("text=QA Buyer").count()) > 0);
 
-    await page.goto(`${BASE_URL}/shop/product/classic-crew-neck-tee`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
     await page.click("text=Add to Bag");
     await page.waitForTimeout(200);
-    await page.goto(`${BASE_URL}/shop/checkout`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/checkout`);
     check("retail-checkout", "checkout gated when signed out", (await page.locator("text=Sign in to check out").count()) > 0);
 
     await page.getByRole("link", { name: "Sign In", exact: true }).click();
@@ -158,7 +159,7 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
 
     // XL is seeded out of stock in the mock catalog, so its size button must
     // be disabled rather than merely styled as unavailable.
@@ -184,13 +185,13 @@ allConsoleErrors.push(
     // Reviews require sign-in.
     check("retail-product", "review prompts sign-in when signed out", (await page.locator('a:has-text("Sign in to review")').count()) > 0);
 
-    await page.goto(`${BASE_URL}/shop/login`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/login`);
     await page.fill("#email", "reviewer@example.com");
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/shop");
 
-    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     await page.click('button:has-text("Write a review")');
     await page.click('button[aria-label="5 stars"]');
     await page.fill("#review-title", "QA review title");
@@ -206,17 +207,17 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/shop/orders`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders`);
     check("retail-orders", "order list renders", (await page.locator('a[href^="/shop/orders/"]').count()) > 0);
 
     // A delivered order can't be cancelled; a pending one can. Pick the
     // pending one explicitly so the assertion isn't order-dependent.
-    await page.goto(`${BASE_URL}/shop/orders/GV83997211`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV83997211`);
     check("retail-orders", "order detail shows status timeline", (await page.locator("text=Order placed").count()) > 0);
     check("retail-orders", "pending order offers cancellation", (await page.locator('button:has-text("Cancel order")').count()) > 0);
 
     // Invoice renders with the operating entity and GSTIN on it.
-    await page.goto(`${BASE_URL}/shop/orders/GV83997211/invoice`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV83997211/invoice`);
     check("retail-orders", "invoice shows INVOICE heading", (await page.locator("text=INVOICE").count()) > 0);
     check("retail-orders", "invoice carries GSTIN", (await page.locator("text=/GSTIN/").count()) > 0);
 
@@ -232,7 +233,7 @@ allConsoleErrors.push(
     check("retail-orders", "IGST invoice shows no CGST line", (await page.locator("dt:has-text('CGST')").count()) === 0);
 
     // Same seller state (Telangana) must split into CGST + SGST instead.
-    await page.goto(`${BASE_URL}/shop/orders/GV84055120/invoice`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84055120/invoice`);
     check("retail-orders", "in-state order is taxed as CGST + SGST", (await page.locator("text=/Intra-state supply/").count()) > 0);
     check("retail-orders", "in-state invoice shows both CGST and SGST", (await page.locator("dt:has-text('CGST')").count()) > 0 && (await page.locator("dt:has-text('SGST')").count()) > 0);
 
@@ -241,7 +242,7 @@ allConsoleErrors.push(
     check("retail-orders", "GST is inclusive — total is unchanged", (await page.locator("text=/₹1,398/").count()) > 0);
 
     // Cancel, and confirm it sticks and removes the cancel affordance.
-    await page.goto(`${BASE_URL}/shop/orders/GV83997211`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV83997211`);
     await page.click('button:has-text("Cancel order")');
     await page.click('button:has-text("Yes, cancel order")');
     await page.waitForTimeout(400);
@@ -249,7 +250,7 @@ allConsoleErrors.push(
     check("retail-orders", "cancelled order no longer offers cancellation", (await page.locator('button:has-text("Cancel order")').count()) === 0);
 
     // A delivered order should never offer cancellation.
-    await page.goto(`${BASE_URL}/shop/orders/GV84098771`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84098771`);
     check("retail-orders", "delivered order cannot be cancelled", (await page.locator('button:has-text("Cancel order")').count()) === 0);
   }))
 );
@@ -259,11 +260,11 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
     await page.click("text=Add to Order");
     await page.waitForTimeout(200);
 
-    await page.goto(`${BASE_URL}/wholesale/signup`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/signup`);
     await page.fill("#businessName", "QA Traders");
     await page.fill("#contactName", "QA Contact");
     await page.fill("#email", "qa@traders.example");
@@ -271,14 +272,14 @@ allConsoleErrors.push(
     await page.click('button:has-text("Create business account")');
     await page.waitForURL("**/wholesale/dashboard");
 
-    await page.goto(`${BASE_URL}/wholesale/order`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/order`);
     check("wholesale-pending", "pending account sees lock message", (await page.locator("text=Placing orders directly unlocks once your account is approved").count()) > 0);
     check("wholesale-pending", "Place Order Directly hidden while pending", (await page.locator('button:has-text("Place Order Directly")').count()) === 0);
     await page.click('button:has-text("Request Quote")');
     await page.waitForURL("**/wholesale/quote-confirmation**");
     check("wholesale-pending", "pending account can still request a quote", (await page.locator("text=Request received").count()) > 0);
 
-    await page.goto(`${BASE_URL}/wholesale/settings`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/settings`);
     check("wholesale-pending", "settings shows Pending Verification badge", (await page.locator("text=Pending Verification").count()) > 0);
     check("wholesale-pending", "credit terms button disabled while pending", await page.locator('button:has-text("Request Net-30 Credit Terms")').isDisabled());
   }))
@@ -289,35 +290,35 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/wholesale/login`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/login`);
     await page.fill("#email", "qa-buyer@example.com");
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/wholesale/dashboard");
 
-    await page.goto(`${BASE_URL}/wholesale/product/denim-jeans-bulk`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/product/denim-jeans-bulk`);
     await page.click("text=Add to Order");
     await page.waitForTimeout(200);
-    await page.goto(`${BASE_URL}/wholesale/order`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/order`);
     check("wholesale-approved", "approved account sees Place Order Directly", (await page.locator('button:has-text("Place Order Directly")').count()) > 0);
 
-    await page.goto(`${BASE_URL}/wholesale/settings`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/settings`);
     check("wholesale-approved", "settings shows Approved badge", (await page.locator("text=Approved").count()) > 0);
     await page.click('button:has-text("Request Net-30 Credit Terms")');
     await page.waitForTimeout(200);
     check("wholesale-approved", "credit terms request confirmed", (await page.locator("text=Net-30 credit terms requested").count()) > 0);
 
-    await page.goto(`${BASE_URL}/wholesale/team`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/team`);
     await page.fill("#name", "QA Team Member");
     await page.fill("#email", "member@qa.example");
     await page.click('button:has-text("Invite")');
     await page.waitForTimeout(200);
     check("wholesale-approved", "team member invited and listed", (await page.locator("text=QA Team Member").count()) > 0);
 
-    await page.goto(`${BASE_URL}/wholesale/dashboard`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/dashboard`);
     await page.click('button:has-text("Reorder") >> nth=0');
     await page.waitForTimeout(200);
-    await page.goto(`${BASE_URL}/wholesale/order`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/order`);
     check("wholesale-approved", "reorder added items to order review", (await page.locator("text=/units/").count()) > 0);
   }))
 );
@@ -327,14 +328,14 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/wholesale/pricing-calculator`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/pricing-calculator`);
     const priceBefore = await page.locator("text=PRICE PER UNIT").locator("..").textContent();
     await page.fill("#calc-qty", "700");
     await page.waitForTimeout(200);
     const priceAfter = await page.locator("text=PRICE PER UNIT").locator("..").textContent();
     check("wholesale-tools", "pricing calculator updates with quantity", priceBefore !== priceAfter);
 
-    await page.goto(`${BASE_URL}/wholesale/quick-order`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/quick-order`);
     check("wholesale-tools", "quick order page loads with product table", (await page.locator("table").count()) > 0);
   }))
 );
@@ -345,10 +346,10 @@ allConsoleErrors.push(
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
     // Gating: admin routes are unusable without an admin session.
-    await page.goto(`${BASE_URL}/admin`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin`);
     check("admin", "admin gated when signed out", (await page.locator("text=Admin access required").count()) > 0);
 
-    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/login`);
     await page.fill("#email", "staff@garmentvibes.com");
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
@@ -356,7 +357,7 @@ allConsoleErrors.push(
     check("admin", "admin login reaches dashboard", (await page.locator("text=Dashboard").count()) > 0);
 
     // The approval queue is the counterpart to the storefront's pending state.
-    await page.goto(`${BASE_URL}/admin/accounts`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/accounts`);
     const pendingBefore = await page.locator('button:has-text("Approve")').count();
     check("admin", "pending accounts awaiting approval are listed", pendingBefore > 0);
     await page.click('button:has-text("Approve") >> nth=0');
@@ -365,16 +366,16 @@ allConsoleErrors.push(
     check("admin", "approving an account removes it from the pending queue", pendingAfter < pendingBefore);
 
     // Retail order status transition persists to the list view.
-    await page.goto(`${BASE_URL}/admin/orders`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/orders`);
     await page.click('a[href^="/admin/orders/"] >> nth=0');
     await page.waitForURL("**/admin/orders/**");
     await page.click('button:has-text("shipped")');
     await page.waitForTimeout(300);
-    await page.goto(`${BASE_URL}/admin/orders`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/orders`);
     check("admin", "retail order status change persists", (await page.locator("text=shipped").count()) > 0);
 
     // Wholesale quote status transition.
-    await page.goto(`${BASE_URL}/admin/quotes`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/quotes`);
     await page.click('a[href^="/admin/quotes/"] >> nth=0');
     await page.waitForURL("**/admin/quotes/**");
     await page.click('button:has-text("Confirmed")');
@@ -382,7 +383,7 @@ allConsoleErrors.push(
     check("admin", "quote status change applies", (await page.locator("text=Confirmed").count()) > 0);
 
     // Product creation shows up in the catalog list.
-    await page.goto(`${BASE_URL}/admin/products/retail/new`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/products/retail/new`);
     await page.fill("#name", "QA Test Kurta");
     await page.fill("#brand", "QA Brand");
     await page.selectOption("#subcategory", "Kurtas");
@@ -394,7 +395,7 @@ allConsoleErrors.push(
     check("admin", "new retail product appears in the catalog list", (await page.locator("text=QA Test Kurta").count()) > 0);
 
     // Guardrail: wholesale tiers must not get more expensive at higher volume.
-    await page.goto(`${BASE_URL}/admin/products/wholesale/new`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/products/wholesale/new`);
     await page.fill("#name", "QA Bulk Tee");
     await page.fill("#sku", "GV-QA-001");
     await page.selectOption("#subcategory", "Basics");
@@ -416,7 +417,7 @@ allConsoleErrors.push(
     // ---- Notification outbox -------------------------------------------
     // This flow already approved an account and shipped an order above, so
     // both should have queued customer messages by now.
-    await page.goto(`${BASE_URL}/admin/notifications`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/notifications`);
     check("admin", "outbox lists seeded message history", (await page.locator("text=Order placed").count()) > 0);
     check(
       "admin",
@@ -470,18 +471,18 @@ allConsoleErrors.push(
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
     // Eligibility gating: only delivered orders, and only inside the window.
-    await page.goto(`${BASE_URL}/shop/orders/GV84213102`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84213102`);
     check("returns", "undelivered order offers no return", (await page.locator('a:has-text("Return items")').count()) === 0);
 
-    await page.goto(`${BASE_URL}/shop/orders/GV84213102/return`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84213102/return`);
     check("returns", "return page refuses an undelivered order", (await page.locator("text=Return not available").count()) > 0);
 
     // An order that already has a return open can't raise a second one.
-    await page.goto(`${BASE_URL}/shop/orders/GV84098771/return`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84098771/return`);
     check("returns", "order with an open return can't raise another", (await page.locator("text=/already been raised/").count()) > 0);
 
     // The happy path: a delivered order with no return yet.
-    await page.goto(`${BASE_URL}/shop/orders/GV84055120`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84055120`);
     check("returns", "delivered order offers a return", (await page.locator('a:has-text("Return items")').count()) > 0);
 
     await page.click('a:has-text("Return items")');
@@ -517,13 +518,13 @@ allConsoleErrors.push(
     check("returns", "raising a return queues a confirmation", outbox.some((m) => m.templateId === "return_requested"));
 
     // Admin side: review and approve.
-    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/login`);
     await page.fill("#email", "staff@garmentvibes.com");
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/admin");
 
-    await page.goto(`${BASE_URL}/admin/returns`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/returns`);
     const queuedBefore = await page.locator("#returns-list > li").count();
     check("returns", "admin queue lists pending returns", queuedBefore > 0);
 
@@ -561,7 +562,7 @@ allConsoleErrors.push(
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
     // ---- Exchange: request a size swap rather than a refund -------------
-    await page.goto(`${BASE_URL}/shop/orders/GV84055120/return`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84055120/return`);
     await page.click('button:has-text("Exchange")');
     await page.selectOption("#qty-0", "1");
     check("exchanges", "choosing exchange reveals a replacement size picker", (await page.locator("#swap-0").count()) > 0);
@@ -603,13 +604,13 @@ allConsoleErrors.push(
     check("exchanges", "exchange request appears on the order", (await page.locator("text=Returns on this order").count()) > 0);
 
     // ---- Admin: exchange fulfilment and reason-aware restocking --------
-    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/login`);
     await page.fill("#email", "staff@garmentvibes.com");
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/admin");
 
-    await page.goto(`${BASE_URL}/admin/returns`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/returns`);
     check("exchanges", "admin queue labels the resolution type", (await page.locator("text=exchange").first().count()) > 0);
 
     await page.click('button:text-is("Approve") >> nth=0');
@@ -632,7 +633,7 @@ allConsoleErrors.push(
 
     // The seeded return is a size issue, so it restocks; a damaged-goods
     // return must not. The queue warns staff before they act.
-    await page.goto(`${BASE_URL}/admin/returns`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/returns`);
     await page.click('button:text-is("All")');
     await page.waitForTimeout(300);
     const stockBefore = await page.evaluate(() => {
@@ -642,19 +643,19 @@ allConsoleErrors.push(
     check("restocking", "stock overrides are recorded when a return completes", Object.keys(stockBefore).length > 0);
 
     // ---- Shipment tracking ---------------------------------------------
-    await page.goto(`${BASE_URL}/admin/orders/GV84213567`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/orders/GV84213567`);
     await page.selectOption("#courier", "delhivery");
     await page.fill("#awb", "QA123456789");
     await page.click('button:has-text("Save tracking")');
     await page.waitForTimeout(300);
     check("tracking", "admin can record courier and AWB", (await page.locator("text=QA123456789").count()) > 0);
 
-    await page.goto(`${BASE_URL}/shop/orders/GV84213567`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/orders/GV84213567`);
     check("tracking", "customer sees the tracking number", (await page.locator("text=QA123456789").count()) > 0);
     check("tracking", "customer gets a courier tracking link", (await page.locator('a[href*="delhivery.com"]').count()) > 0);
 
     // ---- Promo codes ----------------------------------------------------
-    await page.goto(`${BASE_URL}/admin/promos`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/promos`);
     const promosBefore = await page.locator("#promo-list > li").count();
     check("promos", "built-in codes are listed", promosBefore >= 2);
 
@@ -676,7 +677,7 @@ allConsoleErrors.push(
     check("promos", "custom codes can be deleted", (await page.locator('button[aria-label="Delete QATEST25"]').count()) > 0);
 
     // Deactivating must stop it working at checkout immediately.
-    await page.goto(`${BASE_URL}/admin/promos`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/promos`);
     await page.click('li:has-text("GARMENT10") button:has-text("Deactivate")');
     await page.waitForTimeout(300);
     check("promos", "a code can be deactivated", (await page.locator('li:has-text("GARMENT10") button:has-text("Activate")').count()) > 0);
@@ -688,8 +689,8 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
-    const hasNotify = (await page.locator("text=Sold out in your size?").count()) > 0;
+    await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
+    const hasNotify = await appears(page, "text=Sold out in your size?");
     check("back-in-stock", "sold-out product offers a notify-me form", hasNotify);
 
     if (hasNotify) {
@@ -714,13 +715,13 @@ allConsoleErrors.push(
       check("back-in-stock", "duplicate registration is ignored", afterDuplicate.length === alerts.length);
 
       // Restocking from zero in admin should fire and consume it.
-      await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+      await goto(page, `${BASE_URL}/admin/login`);
       await page.fill("#email", "staff@garmentvibes.com");
       await page.fill("#password", "password123");
       await page.click('button:has-text("Sign in")');
       await page.waitForURL("**/admin");
 
-      await page.goto(`${BASE_URL}/admin/products/retail/r1`, { waitUntil: "networkidle" });
+      await goto(page, `${BASE_URL}/admin/products/retail/r1`);
       await page.fill(`input[aria-label="Stock for size ${size}"]`, "8");
       await page.waitForTimeout(500);
 
@@ -744,14 +745,14 @@ allConsoleErrors.push(
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/admin/login`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/login`);
     await page.fill("#email", "staff@garmentvibes.com");
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/admin");
 
     // ---- Consignment tracking -------------------------------------------
-    await page.goto(`${BASE_URL}/admin/quotes/GVQ84190233`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/quotes/GVQ84190233`);
     await page.selectOption("#courier", "bluedart");
     await page.fill("#awb", "QAWS55501");
     await page.click('button:has-text("Save tracking")');
@@ -767,21 +768,21 @@ allConsoleErrors.push(
     check("wholesale-lifecycle", "shipping a consignment notifies the buyer", shipOutbox.some((m) => m.templateId === "bulk_order_shipped"));
 
     // The buyer dashboard reads the same source, so this must appear there.
-    await page.goto(`${BASE_URL}/wholesale/dashboard`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/dashboard`);
     check("wholesale-lifecycle", "buyer dashboard shows the tracking number", (await page.locator("text=QAWS55501").count()) > 0);
     check("wholesale-lifecycle", "buyer gets a courier tracking link", (await page.locator('a[href*="bluedart"]').count()) > 0);
 
     // ---- Claims ----------------------------------------------------------
     // Not raisable until the consignment is marked received.
-    await page.goto(`${BASE_URL}/wholesale/orders/GVQ84190233/claim`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/orders/GVQ84190233/claim`);
     check("wholesale-lifecycle", "claim refused before the order is fulfilled", (await page.locator("text=Claim not available").count()) > 0);
 
-    await page.goto(`${BASE_URL}/admin/quotes/GVQ84190233`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/quotes/GVQ84190233`);
     await page.click('button:text-is("Fulfilled")');
     await page.waitForTimeout(300);
     check("wholesale-lifecycle", "fulfilling stamps a received date", (await page.locator("text=/claims window runs from/").count()) > 0);
 
-    await page.goto(`${BASE_URL}/wholesale/orders/GVQ84190233/claim`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/orders/GVQ84190233/claim`);
     check("wholesale-lifecycle", "claim form opens once received", (await page.locator("text=Affected quantities").count()) > 0);
 
     // Submitting with nothing affected is refused.
@@ -809,11 +810,11 @@ allConsoleErrors.push(
     check("wholesale-lifecycle", "raising a claim acknowledges it to the buyer", claimOutbox.some((m) => m.templateId === "claim_received"));
 
     // A second claim on the same order is blocked while one is open.
-    await page.goto(`${BASE_URL}/wholesale/orders/GVQ84190233/claim`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/orders/GVQ84190233/claim`);
     check("wholesale-lifecycle", "second claim blocked while one is open", (await page.locator("text=/already been raised/").count()) > 0);
 
     // ---- Admin claim resolution -----------------------------------------
-    await page.goto(`${BASE_URL}/admin/claims`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/claims`);
     check("wholesale-lifecycle", "claim appears in the admin queue", (await page.locator("#claims-list > li").count()) > 0);
 
     await page.click('button:has-text("Start review")');
@@ -834,7 +835,7 @@ allConsoleErrors.push(
     check("wholesale-lifecycle", "settling a claim notifies the buyer", settledOutbox.some((m) => m.templateId === "claim_resolved"));
 
     // ---- Credit ledger ---------------------------------------------------
-    await page.goto(`${BASE_URL}/admin/credit`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/admin/credit`);
     check("credit", "ledger lists outstanding invoices", (await page.locator("#credit-list > li").count()) > 0);
     check("credit", "ageing summary is shown", (await page.locator("text=Ageing").count()) > 0);
 
@@ -1006,7 +1007,7 @@ async function jsonLdBlocks(page) {
 
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
-    await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/`);
     const home = await jsonLdBlocks(page);
     check("seo", "site JSON-LD parses", home.every((b) => !b.__invalid));
     check("seo", "Organization schema present", home.some((b) => b["@type"] === "Organization"));
@@ -1014,7 +1015,7 @@ allConsoleErrors.push(
     check("seo", "WebSite schema exposes a SearchAction", Boolean(website?.potentialAction));
 
     // Retail product: the schema that drives price/stock/star rich results.
-    await page.goto(`${BASE_URL}/shop/product/floral-anarkali-kurta`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     const product = (await jsonLdBlocks(page)).find((b) => b["@type"] === "Product");
     check("seo", "product JSON-LD present", Boolean(product));
     check("seo", "product offer has a price and currency", Boolean(product?.offers?.price && product?.offers?.priceCurrency));
@@ -1039,7 +1040,7 @@ allConsoleErrors.push(
     );
 
     // Wholesale uses AggregateOffer because bulk pricing is a range.
-    await page.goto(`${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
     const bulk = (await jsonLdBlocks(page)).find((b) => b["@type"] === "Product");
     check("seo", "wholesale product uses AggregateOffer", bulk?.offers?.["@type"] === "AggregateOffer");
     check(
@@ -1048,18 +1049,18 @@ allConsoleErrors.push(
       Number(bulk?.offers?.lowPrice) <= Number(bulk?.offers?.highPrice)
     );
 
-    await page.goto(`${BASE_URL}/shop/faq`, { waitUntil: "networkidle" });
+    await goto(page, `${BASE_URL}/shop/faq`);
     const faq = (await jsonLdBlocks(page)).find((b) => b["@type"] === "FAQPage");
     check("seo", "FAQ page emits FAQPage schema", Boolean(faq?.mainEntity?.length));
 
     // Crawler files must be reachable and reference each other correctly.
-    const robots = await page.goto(`${BASE_URL}/robots.txt`);
+    const robots = await goto(page, `${BASE_URL}/robots.txt`);
     const robotsBody = await robots.text();
     check("seo", "robots.txt served", robots.status() === 200);
     check("seo", "robots.txt disallows /admin", robotsBody.includes("/admin"));
     check("seo", "robots.txt points at the sitemap", robotsBody.includes("sitemap.xml"));
 
-    const sitemap = await page.goto(`${BASE_URL}/sitemap.xml`);
+    const sitemap = await goto(page, `${BASE_URL}/sitemap.xml`);
     const sitemapBody = await sitemap.text();
     check("seo", "sitemap.xml served", sitemap.status() === 200);
     check("seo", "sitemap lists product URLs", sitemapBody.includes("/shop/product/"));
@@ -1071,7 +1072,7 @@ allConsoleErrors.push(
 
     // OG images are generated routes — a runtime failure there returns 500
     // and social previews silently fall back to nothing.
-    const og = await page.goto(`${BASE_URL}/opengraph-image`);
+    const og = await goto(page, `${BASE_URL}/opengraph-image`);
     check("seo", "generated OG image renders", og.status() === 200);
     check("seo", "OG image is a PNG", (og.headers()["content-type"] ?? "").includes("image/png"));
   }))

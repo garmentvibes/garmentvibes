@@ -13,10 +13,10 @@ import { reportError } from "@/lib/analytics";
 
 export default function GlobalError({
   error,
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     reportError(error, "global-error-boundary");
@@ -56,7 +56,7 @@ export default function GlobalError({
         <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
           <button
             type="button"
-            onClick={() => unstable_retry()}
+            onClick={() => retry()}
             style={{
               cursor: "pointer",
               borderRadius: "0.375rem",
@@ -69,13 +69,19 @@ export default function GlobalError({
           >
             Try Again
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/";
-            }}
+          {/*
+            Deliberately a plain anchor rather than next/link. This boundary
+            only renders when the ROOT LAYOUT threw, so a client-side
+            navigation would re-render that same broken layout and fail
+            again. A full document load re-fetches from the server, which is
+            the only thing that actually recovers from a transient failure.
+          */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href="/"
             style={{
-              cursor: "pointer",
+              display: "inline-block",
+              textDecoration: "none",
               borderRadius: "0.375rem",
               border: "1px solid #d4d4d4",
               background: "white",
@@ -85,7 +91,7 @@ export default function GlobalError({
             }}
           >
             Go Home
-          </button>
+          </a>
         </div>
       </body>
     </html>

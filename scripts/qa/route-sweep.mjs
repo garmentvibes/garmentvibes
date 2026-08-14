@@ -14,6 +14,7 @@
 import { readdirSync, statSync, readFileSync } from "fs";
 import { join, relative } from "path";
 import { launchBrowser } from "./_launch-browser.mjs";
+import { goto } from "./_goto.mjs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const APP_DIR = join(process.cwd(), "src/app");
@@ -98,7 +99,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 // throwaway visit with a generous timeout avoids false "navigation failed"
 // failures caused purely by cold-start compilation, not a real bug.
 try {
-  await page.goto(BASE_URL, { waitUntil: "networkidle", timeout: 60000 });
+  await goto(page, BASE_URL, { timeout: 60000 });
 } catch {
   // ignore — the real pass below will report any genuine failure
 }
@@ -115,7 +116,7 @@ for (const route of [...routes].sort()) {
 
   let response;
   try {
-    response = await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle", timeout: 15000 });
+    response = await goto(page, `${BASE_URL}${route}`, { timeout: 20000 });
   } catch (e) {
     fail(`${route} — navigation failed: ${e.message}`);
     page.off("console", onConsole);

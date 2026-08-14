@@ -1,21 +1,25 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { reportError } from "@/lib/analytics";
 
 // Route-level boundary. Errors thrown by the root layout itself escape this
 // one — global-error.tsx catches those.
 //
-// Next.js 16.2 recommends `unstable_retry` over `reset`: it re-fetches the
-// segment's data before re-rendering, whereas `reset` only re-renders.
+// Next.js recommends `retry` over `reset`: it re-fetches the segment's data
+// before re-rendering, whereas `reset` only re-renders. The prop was
+// `unstable_retry` in 16.2 and became stable in 16.3.
 export default function RouteError({
   error,
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
+  const router = useRouter();
+
   useEffect(() => {
     reportError(error, "route-error-boundary");
   }, [error]);
@@ -28,10 +32,10 @@ export default function RouteError({
         An unexpected error occurred. You can try again, or head back to the homepage.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-3">
-        <Button variant="default" onClick={() => unstable_retry()}>
+        <Button variant="default" onClick={() => retry()}>
           Try Again
         </Button>
-        <Button variant="outline" onClick={() => (window.location.href = "/")}>
+        <Button variant="outline" onClick={() => router.push("/")}>
           Go Home
         </Button>
       </div>
