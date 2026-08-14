@@ -12,8 +12,10 @@ import { useStockStore, stockForProductId } from "@/lib/stores/stock-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { notify } from "@/lib/stores/notification-store";
 import { notifyRestocked } from "@/lib/notify-restock";
+import { getRetailProductById } from "@/lib/mock/retail-products";
 import {
   RETURN_STATUS_LABELS,
+  exchangeBalance,
   isRestockable,
   returnRefundTotal,
   type ReturnRequest,
@@ -107,11 +109,14 @@ export default function AdminReturnsPage() {
     // still sellable. Both movements belong to this single transition.
     for (const item of request.items) {
       if (!item.exchangeForSize) continue;
+      // The replacement may be a different product entirely, so stock comes
+      // off whatever is actually being shipped — not off the item returned.
+      const outgoingProductId = item.exchangeForProductId ?? item.productId;
       decrement(
-        item.productId,
+        outgoingProductId,
         item.exchangeForSize,
         item.qty,
-        stockForProductId(item.productId, item.exchangeForSize)
+        stockForProductId(outgoingProductId, item.exchangeForSize)
       );
     }
     const restocked = restockIfSellable(request);
@@ -230,8 +235,15 @@ export default function AdminReturnsPage() {
                     {request.items.map((item, i) => (
                       <li key={`${item.productId}-${i}`}>
                         {item.qty} &times; {item.name} (Size {item.size}, {item.color})
-                        {item.exchangeForSize ? ` → size ${item.exchangeForSize}` : ""} —{" "}
-                        {formatPrice(item.qty * item.price)}
+                        {item.exchangeForSize
+                          ? ` → ${
+                              item.exchangeForProductId &&
+                              item.exchangeForProductId !== item.productId
+                                ? `${getRetailProductById(item.exchangeForProductId)?.name ?? "another item"}, `
+                                : ""
+                            }size ${item.exchangeForSize}`
+                          : ""}{" "}
+                        — {formatPrice(item.qty * item.price)}
                       </li>
                     ))}
                   </ul>
@@ -256,7 +268,17 @@ export default function AdminReturnsPage() {
                   <p className="text-sm font-semibold text-neutral-900">
                     {formatPrice(returnRefundTotal(request))}
                   </p>
-                  <p className="text-xs text-neutral-400">refund value</p>
+                  <p className="text-xs text-neutral-400">
+                    {request.resolution === "exchange" ? "value exchanged" : "refund value"}
+                  </p>
+                  {/* Staff need to know whether money still has to move. */}
+                  {request.resolution === "exchange" && exchangeBalance(request) !== 0 && (
+                    <p className="mt-0.5 text-xs font-medium text-amber-700">
+                      {exchangeBalance(request) > 0
+                        ? `${formatPrice(exchangeBalance(request))} to collect`
+                        : `${formatPrice(Math.abs(exchangeBalance(request)))} to refund`}
+                    </p>
+                  )}
 
                   <div className="mt-2 flex flex-wrap justify-end gap-2">
                     {request.status === "requested" && (

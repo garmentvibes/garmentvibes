@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Package, ShoppingCart, FileText, Building2, ArrowRight } from "lucide-react";
+import { Package, ShoppingCart, FileText, Building2, ArrowRight, Undo2, BellOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { useRetailOrders, useWholesaleQuotes } from "@/lib/stores/admin-orders-store";
@@ -11,6 +11,9 @@ import {
   useAdminWholesaleProducts,
 } from "@/lib/stores/admin-catalog-store";
 import { useStockStore, getTotalStock, LOW_STOCK_THRESHOLD } from "@/lib/stores/stock-store";
+import { useReturnsStore } from "@/lib/stores/returns-store";
+import { useNotificationStore } from "@/lib/stores/notification-store";
+import { NOTIFICATION_TEMPLATES } from "@/lib/notifications/templates";
 import { retailOrderTotal, wholesaleQuoteTotal } from "@/types/admin";
 
 export default function AdminDashboardPage() {
@@ -19,12 +22,19 @@ export default function AdminDashboardPage() {
   const orders = useRetailOrders();
   const quotes = useWholesaleQuotes();
   const accounts = useWholesaleAccounts();
+  const returns = useReturnsStore((s) => s.requests);
+  const messages = useNotificationStore((s) => s.messages);
 
   const stockOverrides = useStockStore((s) => s.overrides);
   const lowStock = retailProducts
     .map((p) => ({ product: p, total: getTotalStock(stockOverrides, p) }))
     .filter((x) => x.total <= LOW_STOCK_THRESHOLD)
     .sort((a, b) => a.total - b.total);
+
+  const openReturns = returns.filter((r) => r.status === "requested");
+  // A failed message means a customer was never told something we promised to
+  // tell them — a shipment, a refund. It needs to be visible, not buried.
+  const failedMessages = messages.filter((m) => m.status === "failed");
 
   const openOrders = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
   const openQuotes = quotes.filter((q) => ["requested", "quoted"].includes(q.status));
@@ -62,6 +72,23 @@ export default function AdminDashboardPage() {
       href: "/admin/accounts",
       icon: Building2,
     },
+    {
+      label: "Returns to review",
+      value: `${openReturns.length}`,
+      sub: `${returns.length} raised in total`,
+      href: "/admin/returns",
+      icon: Undo2,
+    },
+    {
+      label: "Failed messages",
+      value: `${failedMessages.length}`,
+      sub:
+        failedMessages.length > 0
+          ? "customers never received these"
+          : `${messages.length} sent or queued`,
+      href: "/admin/notifications",
+      icon: BellOff,
+    },
   ];
 
   return (
@@ -69,7 +96,7 @@ export default function AdminDashboardPage() {
       <h1 className="text-2xl font-bold text-neutral-900">Dashboard</h1>
       <p className="mt-1 text-sm text-neutral-500">Everything needing attention, at a glance.</p>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -89,6 +116,32 @@ export default function AdminDashboardPage() {
           );
         })}
       </div>
+
+      {failedMessages.length > 0 && (
+        <section className="mt-8 rounded-lg border border-red-200 bg-red-50 p-5">
+          <h2 className="font-semibold text-red-900">
+            {failedMessages.length} message{failedMessages.length === 1 ? "" : "s"} failed to send
+          </h2>
+          <p className="mt-1 text-sm text-red-800">
+            These customers were never told what we promised to tell them. Check the recipient
+            details and resend.
+          </p>
+          <ul className="mt-3 space-y-1 text-sm text-red-900">
+            {failedMessages.slice(0, 3).map((m) => (
+              <li key={m.id}>
+                &middot; {NOTIFICATION_TEMPLATES[m.templateId].label} to {m.recipient}
+                {m.failureReason ? ` — ${m.failureReason}` : ""}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/admin/notifications"
+            className="mt-3 inline-block text-sm font-medium text-red-900 underline"
+          >
+            Review the outbox
+          </Link>
+        </section>
+      )}
 
       {pendingAccounts.length > 0 && (
         <section className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5">

@@ -32,6 +32,14 @@ qa:routes` to point at a deployed preview instead of localhost).
 
 ### What each script actually catches
 
+- **`qa:static`** also checks **sitemap coverage**: every public static page
+  must either appear in `sitemap.ts` or be disallowed in `robots.txt`. A page
+  missing from the sitemap is otherwise invisible to this suite — it still
+  renders, its links still resolve, nothing fails — it just never gets
+  crawled. That is exactly how the Refund Policy and Grievance pages, which
+  Razorpay reads during merchant onboarding, sat unlisted. `robots.txt` is
+  the source of truth for what may be excluded, so there is no second
+  allow-list to keep in step.
 - **`qa:static`** (`static-checks.mjs`) — parses the App Router tree from
   `src/app` and cross-checks every internal `href` found in source (both
   JSX attributes and `href:` object-literal properties used in nav/footer
@@ -164,8 +172,13 @@ without checking with the user first:
   the checkout UI, but the payment route will not honour them until promos
   live in the database. Built-ins can be deactivated but not deleted, so the
   two lists can never contradict each other.
-- Exchanges cover a size swap on the same product; swapping to a *different*
-  product, or a price-difference top-up, is not supported
+- Exchange price differences are *shown and recorded* but not *settled* —
+  collecting a top-up or refunding the difference needs the payment provider,
+  so the admin queue tells staff how much to collect or refund and they do it
+  out of band for now
+- Wholesale claims resolve to a credit note or replacement, but the credit
+  note is not yet posted to the credit ledger automatically — the two systems
+  meet once orders and invoices live in the database
 - No warehouse inventory sync — stock is the local store, though returns and
   exchanges now move it correctly. Returns restock only for reasons where the
   unit is actually sellable: damaged and poor-quality returns are deliberately

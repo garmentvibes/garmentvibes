@@ -14,7 +14,14 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
 import { returnEligibility, INELIGIBLE_MESSAGES, RETURN_WINDOW_DAYS } from "@/lib/returns";
-import { getRetailProductById } from "@/lib/mock/retail-products";
+import { getRetailProductById, RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
+
+// Anything currently sellable can be exchanged into. Capped so the picker
+// stays a picker rather than becoming a second catalogue — a customer
+// wanting something further afield is better served returning and reordering.
+const EXCHANGEABLE_PRODUCTS = RETAIL_PRODUCTS.filter((p) =>
+  p.sizes.some((s) => s.inStock)
+).slice(0, 20);
 import { RETURN_REASONS, type ReturnReason, type ResolutionType } from "@/types/returns";
 
 export default function ReturnRequestPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +36,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
 
   const [selected, setSelected] = useState<Record<number, number>>({});
   const [exchangeSizes, setExchangeSizes] = useState<Record<number, string>>({});
+  const [exchangeProducts, setExchangeProducts] = useState<Record<number, string>>({});
   const [resolution, setResolution] = useState<ResolutionType>("refund");
   const [reason, setReason] = useState<ReturnReason>(RETURN_REASONS[0]);
   const [comments, setComments] = useState("");
@@ -79,6 +87,13 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
     .filter((x) => x.qty > 0);
   const refundTotal = chosen.reduce((sum, x) => sum + x.qty * x.item.price, 0);
 
+  // Positive: customer owes the difference. Negative: we refund it.
+  const balance = chosen.reduce((sum, x) => {
+    const replacementId = exchangeProducts[x.index] ?? x.item.productId;
+    const replacementPrice = getRetailProductById(replacementId)?.price ?? x.item.price;
+    return sum + x.qty * (replacementPrice - x.item.price);
+  }, 0);
+
   function submit() {
     if (chosen.length === 0) {
       toast.error(`Select at least one item to ${resolution === "exchange" ? "exchange" : "return"}`);
@@ -108,6 +123,14 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
         qty: x.qty,
         price: x.item.price,
         exchangeForSize: resolution === "exchange" ? exchangeSizes[x.index] : undefined,
+        exchangeForProductId:
+          resolution === "exchange" ? (exchangeProducts[x.index] ?? x.item.productId) : undefined,
+        exchangeForPrice:
+          resolution === "exchange"
+            ? // Captured now, so a later price change can't retroactively
+              // alter what the customer agreed to settle.
+              getRetailProductById(exchangeProducts[x.index] ?? x.item.productId)?.price
+            : undefined,
       })),
       reason,
       comments: comments.trim() || undefined,
@@ -209,11 +232,31 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
 
                 {resolution === "exchange" && (selected[i] ?? 0) > 0 && (
                   <>
-                    <Label htmlFor={`swap-${i}`} className="text-xs text-neutral-500">
+                    <Label htmlFor={`swap-product-${i}`} className="text-xs text-neutral-500">
                       Swap for
                     </Label>
                     <select
+                      id={`swap-product-${i}`}
+                      value={exchangeProducts[i] ?? item.productId}
+                      onChange={(e) => {
+                        setExchangeProducts((prev) => ({ ...prev, [i]: e.target.value }));
+                        // The old size may not exist on the new product, so
+                        // clear it rather than carry an invalid choice over.
+                        setExchangeSizes((prev) => ({ ...prev, [i]: "" }));
+                      }}
+                      className="max-w-[12rem] rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-rose-400 focus:outline-none"
+                    >
+                      <option value={item.productId}>Same item</option>
+                      {EXCHANGEABLE_PRODUCTS.filter((p) => p.id !== item.productId).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {formatPrice(p.price)}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
                       id={`swap-${i}`}
+                      aria-label={`Replacement size for ${item.name}`}
                       value={exchangeSizes[i] ?? ""}
                       onChange={(e) =>
                         setExchangeSizes((prev) => ({ ...prev, [i]: e.target.value }))
@@ -221,10 +264,18 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                       className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-rose-400 focus:outline-none"
                     >
                       <option value="">Size…</option>
-                      {/* Only sizes we can actually send, and never the one
-                          being sent back. */}
-                      {(getRetailProductById(item.productId)?.sizes ?? [])
-                        .filter((s) => s.label !== item.size && s.inStock)
+                      {/* Only sizes we can actually send. On a same-product
+                          swap the original size is excluded, since that's
+                          not an exchange. */}
+                      {(getRetailProductById(exchangeProducts[i] ?? item.productId)?.sizes ?? [])
+                        .filter(
+                          (s) =>
+                            s.inStock &&
+                            !(
+                              (exchangeProducts[i] ?? item.productId) === item.productId &&
+                              s.label === item.size
+                            )
+                        )
                         .map((s) => (
                           <option key={s.label} value={s.label}>
                             {s.label}
@@ -274,11 +325,28 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
           </span>
           <span className="font-semibold text-neutral-900">{formatPrice(refundTotal)}</span>
         </div>
+        {resolution === "exchange" && balance !== 0 && (
+          <div className="mt-1.5 flex items-center justify-between border-t border-neutral-200 pt-1.5 text-sm">
+            <span className="text-neutral-600">
+              {balance > 0 ? "Difference to pay" : "Difference refunded to you"}
+            </span>
+            <span
+              className={`font-semibold ${balance > 0 ? "text-neutral-900" : "text-green-700"}`}
+            >
+              {formatPrice(Math.abs(balance))}
+            </span>
+          </div>
+        )}
+
         <p className="mt-2 flex items-start gap-1.5 text-xs text-neutral-500">
           <PackageCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           Items must be unused with original tags and packaging. Pickup is free.{" "}
           {resolution === "exchange"
-            ? "The replacement ships once the original reaches us and passes a quick check. An exchange is a like-for-like swap, so there's nothing more to pay."
+            ? balance > 0
+              ? "The replacement ships once the original reaches us and the difference is paid."
+              : balance < 0
+                ? "The replacement ships once the original reaches us, and we'll refund the difference to your original payment method."
+                : "The replacement ships once the original reaches us and passes a quick check. A like-for-like swap costs nothing extra."
             : "The refund is issued once the item reaches us and passes a quick check."}
         </p>
       </div>

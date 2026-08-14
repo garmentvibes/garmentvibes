@@ -18,6 +18,8 @@ import { useNotificationStore } from "@/lib/stores/notification-store";
 import { useReturnsStore } from "@/lib/stores/returns-store";
 import { usePromoStore } from "@/lib/stores/promo-store";
 import { useStockAlertsStore } from "@/lib/stores/stock-alerts-store";
+import { useClaimsStore } from "@/lib/stores/claims-store";
+import { useCreditStore } from "@/lib/stores/credit-store";
 
 // All persisted stores use `skipHydration: true` so the first client render
 // matches the server-rendered HTML (both show default/empty state) — then we
@@ -44,6 +46,8 @@ export function StoreHydrator() {
     useReturnsStore.persist.rehydrate();
     usePromoStore.persist.rehydrate();
     useStockAlertsStore.persist.rehydrate();
+    useClaimsStore.persist.rehydrate();
+    useCreditStore.persist.rehydrate();
   }, []);
 
   return null;
