@@ -18,6 +18,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # Runs in about a second, so it goes before the build — a broken
+      # invariant should fail the job without waiting on a compile.
+      - run: npm run test
       - run: npm run build
       - run: npm run qa:static
 
