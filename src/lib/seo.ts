@@ -1,0 +1,192 @@
+// Structured data (schema.org JSON-LD) builders.
+//
+// Google reads these to render rich results — price, stock and star ratings
+// directly in search listings. Everything here is derived from the same
+// catalog data the pages render, so the markup can never drift from the
+// visible content (which is itself a Google policy requirement).
+
+import { BUSINESS_INFO } from "@/lib/business-info";
+import type { RetailProduct, WholesaleProduct } from "@/types/catalog";
+import { wholesalePriceForQty } from "@/types/catalog";
+
+export function siteUrl() {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+}
+
+export function absoluteUrl(path: string) {
+  return `${siteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/** Minor units (paise) -> the decimal string schema.org expects. */
+function schemaPrice(minorUnits: number) {
+  return (minorUnits / 100).toFixed(2);
+}
+
+export function organizationSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "GarmentVibes",
+    legalName: BUSINESS_INFO.legalName,
+    url: siteUrl(),
+    logo: absoluteUrl("/icons/icon-512.png"),
+    description:
+      "GarmentVibes is a dual-mode clothing platform: shop retail fashion or source wholesale apparel in bulk.",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: BUSINESS_INFO.address,
+      addressCountry: "IN",
+    },
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        email: BUSINESS_INFO.supportEmail,
+        telephone: BUSINESS_INFO.supportPhone,
+        areaServed: "IN",
+        availableLanguage: ["en", "hi"],
+      },
+      {
+        "@type": "ContactPoint",
+        contactType: "sales",
+        email: BUSINESS_INFO.wholesaleEmail,
+        areaServed: "IN",
+      },
+    ],
+  };
+}
+
+export function websiteSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "GarmentVibes",
+    url: siteUrl(),
+    // Lets Google offer a search box for the site directly in results.
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${siteUrl()}/shop/search?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
+export function retailProductSchema(product: RetailProduct) {
+  const anySizeInStock = product.sizes.some((s) => s.inStock);
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description,
+    sku: product.id,
+    image: product.images.map((img) =>
+      img.startsWith("http") ? img : absoluteUrl(img)
+    ),
+    brand: { "@type": "Brand", name: product.brand },
+    category: `${product.category} / ${product.subcategory}`,
+    color: product.colors.join(", "),
+    offers: {
+      "@type": "Offer",
+      url: absoluteUrl(`/shop/product/${product.slug}`),
+      priceCurrency: product.currency,
+      price: schemaPrice(product.price),
+      availability: anySizeInStock
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+      seller: { "@type": "Organization", name: "GarmentVibes" },
+    },
+    ...(product.ratingCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: product.rating,
+            reviewCount: product.ratingCount,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+  };
+}
+
+export function wholesaleProductSchema(product: WholesaleProduct) {
+  const lowest = wholesalePriceForQty(
+    product,
+    product.priceTiers[product.priceTiers.length - 1]?.minQty ?? product.moq
+  );
+  const highest = wholesalePriceForQty(product, product.moq);
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description,
+    sku: product.sku,
+    image: product.images.map((img) =>
+      img.startsWith("http") ? img : absoluteUrl(img)
+    ),
+    brand: { "@type": "Brand", name: "GarmentVibes" },
+    category: `wholesale / ${product.category} / ${product.subcategory}`,
+    material: product.fabric,
+    color: product.colors.join(", "),
+    // Bulk pricing is a range, not a single number — AggregateOffer is the
+    // correct shape for tiered per-unit prices.
+    offers: {
+      "@type": "AggregateOffer",
+      url: absoluteUrl(`/wholesale/product/${product.slug}`),
+      priceCurrency: product.currency,
+      lowPrice: schemaPrice(lowest),
+      highPrice: schemaPrice(highest),
+      offerCount: product.priceTiers.length,
+      availability: "https://schema.org/InStock",
+      seller: { "@type": "Organization", name: "GarmentVibes" },
+    },
+  };
+}
+
+export function breadcrumbSchema(items: Array<{ name: string; path: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: absoluteUrl(item.path),
+    })),
+  };
+}
+
+export function faqSchema(entries: Array<{ question: string; answer: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: entries.map((entry) => ({
+      "@type": "Question",
+      name: entry.question,
+      acceptedAnswer: { "@type": "Answer", text: entry.answer },
+    })),
+  };
+}
+
+export function itemListSchema(
+  name: string,
+  items: Array<{ name: string; path: string }>
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name,
+    numberOfItems: items.length,
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      url: absoluteUrl(item.path),
+    })),
+  };
+}

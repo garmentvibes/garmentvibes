@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  static:
+    name: Lint, build, static QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run qa:static
+
+  e2e:
+    name: Route sweep + E2E QA
+    runs-on: ubuntu-latest
+    needs: static
+    # The browser suites take ~3 minutes. Without a cap, a wedged page would
+    # hang the job until GitHub's 6-hour default kills it, which reads as
+    # "still running" rather than a failure.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # playwright-core doesn't bundle a browser (kept out of node_modules on
+      # purpose) — install just Chromium + its OS deps for this run.
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run build
+      - name: Start production server in background
+        # A dummy webhook secret so the payment signature checks can run.
+        # Deliberately NOT NEXT_PUBLIC_RAZORPAY_KEY_ID: that is inlined at
+        # build time and would switch the storefront to the real gateway,
+        # breaking the simulated checkout flow the rest of the suite drives.
+        env:
+          RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
+        run: nohup npm run start > server.log 2>&1 &
+      - name: Wait for server to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/ > /dev/null; then
+              echo "Server is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Server did not start in time"; cat server.log; exit 1
+      - run: npm run qa:routes
+      - run: npm run qa:e2e
+        env:
+          RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
+      - run: npm run qa:pwa
+      - name: Server log (on failure)
+        if: failure()
+        run: cat server.log || true
