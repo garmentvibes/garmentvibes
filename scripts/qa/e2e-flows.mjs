@@ -988,6 +988,40 @@ allConsoleErrors.push(
 }
 
 // ---------------------------------------------------------------------------
+// Security headers.
+//
+// These are invisible in the UI, so nothing else in this suite would notice
+// if a config edit dropped them. Asserted over plain fetch.
+// ---------------------------------------------------------------------------
+{
+  const response = await fetch(`${BASE_URL}/shop`);
+  const header = (name) => response.headers.get(name) ?? "";
+
+  check("security", "sends a Content-Security-Policy", header("content-security-policy").length > 0);
+  check("security", "denies framing", header("content-security-policy").includes("frame-ancestors 'none'"));
+  check("security", "blocks plugin content", header("content-security-policy").includes("object-src 'none'"));
+  check("security", "pins form submissions to this origin", header("content-security-policy").includes("form-action 'self'"));
+  check("security", "restricts base tag rewriting", header("content-security-policy").includes("base-uri 'self'"));
+  // Razorpay must stay allowed, or checkout silently fails once keys are set.
+  check("security", "allows the Razorpay checkout script", header("content-security-policy").includes("checkout.razorpay.com"));
+  check("security", "allows the Razorpay payment frame", header("content-security-policy").includes("frame-src") && header("content-security-policy").includes("api.razorpay.com"));
+
+  check("security", "sends HSTS", header("strict-transport-security").includes("max-age="));
+  check("security", "sends nosniff", header("x-content-type-options") === "nosniff");
+  check("security", "sends X-Frame-Options", header("x-frame-options") === "DENY");
+  check("security", "sends a Referrer-Policy", header("referrer-policy") === "strict-origin-when-cross-origin");
+  check("security", "sends a Permissions-Policy", header("permissions-policy").includes("camera=()"));
+
+  // API routes must carry them too — they're the endpoints handling money.
+  const apiResponse = await fetch(`${BASE_URL}/api/razorpay/order`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: [] }),
+  });
+  check("security", "API routes carry the security headers", apiResponse.headers.get("x-content-type-options") === "nosniff");
+}
+
+// ---------------------------------------------------------------------------
 // SEO: structured data, social cards, crawler files
 //
 // Rich results are silently lost if the JSON-LD is malformed, so these assert
