@@ -988,6 +988,50 @@ allConsoleErrors.push(
 }
 
 // ---------------------------------------------------------------------------
+// Install QR card.
+//
+// The QR is the one thing on the site a customer interacts with using a
+// second device, so a wrong or unreadable code fails silently — they just
+// shrug and give up. It is therefore actually DECODED here, not merely
+// asserted to exist.
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    const card = 'aside[aria-label="Continue shopping on your phone"]';
+
+    await goto(page, `${BASE_URL}/shop`);
+    // Held back deliberately so it doesn't compete with the page on arrival.
+    check("install-qr", "card is not shown immediately on arrival", (await page.locator(card).count()) === 0);
+
+    const appeared = await appears(page, card, 8000);
+    check("install-qr", "card appears on a desktop pointer", appeared);
+
+    if (appeared) {
+      const { default: jsQR } = await import("jsqr");
+      const { PNG } = await import("pngjs");
+
+      const buf = await page.locator("#install-qr svg").screenshot({ scale: "device" });
+      const png = PNG.sync.read(buf);
+      const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
+
+      check("install-qr", "the QR actually decodes", Boolean(decoded));
+      check(
+        "install-qr",
+        "the QR encodes this deployment's URL",
+        decoded?.data === (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000")
+      );
+
+      // Dismissal has to persist, or it becomes an irritant on every page.
+      await page.click('button[aria-label="Dismiss"]');
+      await page.waitForTimeout(300);
+      await goto(page, `${BASE_URL}/shop/women`);
+      await page.waitForTimeout(3200);
+      check("install-qr", "dismissal persists across navigation", (await page.locator(card).count()) === 0);
+    }
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Security headers.
 //
 // These are invisible in the UI, so nothing else in this suite would notice

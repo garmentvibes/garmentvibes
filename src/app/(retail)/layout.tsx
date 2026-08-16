@@ -1,5 +1,6 @@
 import { RetailSiteHeader } from "@/components/retail/site-header";
 import { RetailSiteFooter } from "@/components/retail/site-footer";
+import { InstallQrCard } from "@/components/retail/install-qr-card";
 
 export default function RetailLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,6 +8,7 @@ export default function RetailLayout({ children }: { children: React.ReactNode }
       <RetailSiteHeader />
       <main className="flex-1">{children}</main>
       <RetailSiteFooter />
+      <InstallQrCard />
     </div>
   );
 }
