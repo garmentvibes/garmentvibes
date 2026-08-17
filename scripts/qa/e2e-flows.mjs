@@ -1015,10 +1015,25 @@ allConsoleErrors.push(
       const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
 
       check("install-qr", "the QR actually decodes", Boolean(decoded));
+
+      // NEXT_PUBLIC_SITE_URL is inlined into the QR at build time, so this
+      // only means anything when the value here matches the one the server
+      // under test was built with. CI sets it once at the job level for
+      // exactly that reason.
       check(
         "install-qr",
         "the QR encodes this deployment's URL",
         decoded?.data === (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000")
+      );
+
+      // The caption under the code is rendered separately from the code
+      // itself, so the two can disagree — a scanner would land somewhere
+      // other than the address the customer was reading.
+      const caption = (await page.locator(`${card} .font-mono`).innerText()).trim();
+      check(
+        "install-qr",
+        "the QR and the printed address agree",
+        decoded?.data.replace(/^https?:\/\//, "") === caption
       );
 
       // Dismissal has to persist, or it becomes an irritant on every page.
