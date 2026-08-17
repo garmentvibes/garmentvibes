@@ -24,6 +24,40 @@ jobs:
       - run: npm run build
       - run: npm run qa:static
 
+  schema:
+    name: Migrations + RLS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Independent of the build: this job exercises SQL against a real Postgres
+    # and never touches Next.js, so there is nothing to wait for.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      # psql and pg_isready both read these, so the script needs no CI-specific
+      # branch — it talks to a socket locally and to the service container here.
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # No npm install: the schema checks shell out to psql and import nothing.
+      - run: npm run qa:schema
+
   e2e:
     name: Route sweep + E2E QA
     runs-on: ubuntu-latest

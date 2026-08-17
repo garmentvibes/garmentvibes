@@ -12,7 +12,8 @@
     "qa:routes": "node scripts/qa/route-sweep.mjs",
     "qa:e2e": "node scripts/qa/e2e-flows.mjs",
     "qa:pwa": "node scripts/qa/pwa-checks.mjs",
-    "qa": "npm run lint && npm run test && npm run build && npm run qa:static"
+    "qa:schema": "node scripts/qa/schema.mjs",
+    "qa": "npm run lint && npm run test && npm run build && npm run qa:static && npm run qa:schema"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
