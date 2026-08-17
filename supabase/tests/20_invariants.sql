@@ -12,6 +12,10 @@ set client_min_messages to notice;
 
 begin;
 
+-- Same reason as 10_: the seeded catalogue is cleared so this file's fixture
+-- is the only data present, and restored by the rollback at the end.
+truncate retail_products, wholesale_products, promo_codes cascade;
+
 insert into auth.users (id, email)
 values ('99999999-0000-0000-0000-000000000001', 'inv@example.com');
 

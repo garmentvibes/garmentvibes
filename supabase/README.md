@@ -19,8 +19,21 @@ Once the Supabase project exists:
 
 ```bash
 supabase link --project-ref <ref>
-supabase db push
+supabase db push          # migrations
+psql "$DATABASE_URL" -f supabase/seed.sql    # placeholder catalogue
 ```
+
+There is one step the seed deliberately cannot do: **create the first staff
+account**. Staff are identified by `profiles.role = 'admin'`, and a profile
+needs a row in `auth.users`, which only Supabase Auth can create. So sign up
+through the app as normal, then promote that account once:
+
+```sql
+update profiles set role = 'admin' where email = 'you@example.com';
+```
+
+Seeding an admin any other way would mean shipping a known account into every
+environment, which is a back door rather than a convenience.
 
 The files are ordered and each is applied in its own transaction. Every
 statement is guarded, so re-applying is a no-op rather than an error.
@@ -37,6 +50,32 @@ statement is guarded, so re-applying is a no-op rather than an error.
 | `0008_credit_ledger.sql` | Net-terms invoices, payments, balances view |
 | `0009_promos_and_notifications.sql` | Promo codes, notification outbox |
 | `0010_grants.sql` | Table privileges for `anon` / `authenticated` / `service_role` |
+
+`seed.sql` sits alongside them and is **generated**, not hand-written:
+
+```bash
+npm run seed:generate    # rewrite it from src/lib/mock/
+npm run seed:check       # fail if it has fallen behind (runs in CI)
+```
+
+The TypeScript in `src/lib/mock/` stays the single source of truth. Maintaining
+the catalogue twice would mean discovering the drift only when the storefront
+and the database disagreed about a price, so `seed:check` regenerates and
+compares on every CI run.
+
+It loads 33 retail products with their sizes and stock levels, 25 wholesale
+products with their quantity breaks, and the two built-in promo codes. Stock
+quantities come from the same `getStock()` helper the storefront uses, so a
+fresh database starts out showing exactly what the app shows today.
+
+Every statement upserts on a natural key — slug, or product plus label — so
+re-running updates rather than duplicating, and it is safe against a database
+that already has data. `qa:schema` proves that by loading it twice and checking
+the row count does not move.
+
+The images are data-URI SVG placeholders carried over verbatim, which is most
+of the file's 74KB. They belong in Supabase Storage once real photography
+exists: a bucket URL goes in the same column, no schema change needed.
 
 `0002` contains nothing but `alter type ... add value` because Postgres will not
 let a new enum value be *used* in the transaction that adds it. Anything
@@ -130,5 +169,9 @@ promo codes, and inserts on stock alerts and wholesale applications.
 - **Invoice numbering** is enforced unique but not generated here. GST requires a
   consecutive series per financial year; that belongs in a server action, and a
   half-designed scheme in the schema would be worse than none.
-- **No seed data.** `0001` was written expecting placeholder catalogue rows;
-  loading the mock catalogue into the database is a separate step.
+- **The seed covers the catalogue only.** No orders, customers, returns or
+  invoices — the admin panel's demo data in `src/lib/mock/admin-data.ts` stays
+  where it is. Loading fabricated orders into a real database would put
+  invented revenue in front of whoever opens the dashboard first, and there is
+  no honest way to mark a row as "not a real sale" once it is in the orders
+  table.
