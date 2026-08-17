@@ -15,6 +15,16 @@ npm run qa:static    # link integrity + placeholder/debug leftovers, no server n
 npm run qa:routes    # visits every route: HTTP status, console errors, <title>, basic a11y
 npm run qa:e2e       # drives real user flows end-to-end through the browser
 npm run qa:pwa       # manifest validity, SW registration, real offline fallback test
+npm run qa:schema    # applies the migrations to a scratch Postgres, tests the RLS policies
+```
+
+`qa:schema` needs a local Postgres rather than a running app. It skips itself
+if there isn't one, so `npm run qa` stays usable — except under `CI`, where a
+missing server is a failure instead, since a service container that failed to
+start would otherwise make the job pass without checking anything.
+
+```bash
+pg_ctlcluster 16 main start    # Debian/Ubuntu
 ```
 
 `qa:routes` and `qa:e2e` need the app already running in a separate
@@ -305,3 +315,35 @@ pass caused SSR/CSR mismatches app-wide. Fixed via `skipHydration` +
 `useSyncExternalStore`-based mount gating (`src/lib/hooks/use-has-mounted.ts`).
 If you see a hydration-mismatch console error again, that's the pattern to
 reach for.
+
+## Lessons from testing the schema (2026-08)
+
+- Writing SQL is not testing SQL. The first run of `qa:schema` against the
+  existing `0001_init.sql` — which had been reviewed and looked fine — found
+  that it could not be applied twice and that **six of its foreign keys had no
+  index**, making "my orders" a sequential scan of every order in the system.
+  Both were invisible on reading.
+- "RLS is enabled" is not a security check. A policy reading `using (true)`
+  satisfies it. The only assertion with any force is becoming two different
+  users and comparing what each can see, which is why the suite switches
+  identity via `set local role authenticated` plus the `request.jwt.claim.sub`
+  GUC that `auth.uid()` reads.
+- A Postgres **view bypasses RLS by default**, running with its owner's
+  privileges. `credit_invoice_balances` over `credit_invoices` would have handed
+  every business every other business's debts. `with (security_invoker = true)`
+  fixes it, and the test that proves it fails without it.
+- A policy on `profiles` that calls a function which reads `profiles` recurses
+  until Postgres gives up. `security definer` breaks the cycle — and then
+  `set search_path` is mandatory, because a definer function resolving table
+  names through the caller's path can be aimed at a shadow table.
+- `alter type ... add value` may run inside a transaction, but the new value
+  cannot be *used* until it commits. Since each migration file is one
+  transaction, enum extensions need their own file (`0002`).
+- Postgres parses SQL function bodies at creation time, so a function cannot be
+  defined before a column it reads. Ordering within a migration matters.
+- Mutation-tested, as with the browser suites: breaking the stock constraint,
+  the write-off guard, the order policy and the view's `security_invoker` each
+  produced exactly one failure naming the right assertion.
+- The skip-if-no-Postgres convenience was itself a hole — in CI a service
+  container that failed to start would have made the job pass silently. It now
+  refuses to skip when `CI` is set.
