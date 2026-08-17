@@ -32,6 +32,22 @@ jobs:
     # hang the job until GitHub's 6-hour default kills it, which reads as
     # "still running" rather than a failure.
     timeout-minutes: 20
+    # Job-level, not step-level, and that placement is the point.
+    #
+    # NEXT_PUBLIC_* is inlined at BUILD time, so the build step needs it — but
+    # the QA scripts also assert against it (the QR's payload, the sitemap's
+    # origin), so the test steps need the *same* value. Setting it once here
+    # makes them agree by construction; setting it per-step let them drift and
+    # the QR check compared a baked-in ci.garmentvibes.test against a default
+    # of localhost.
+    #
+    # RAZORPAY_WEBHOOK_SECRET is a dummy so the payment signature checks can
+    # run against a known key. Deliberately NOT NEXT_PUBLIC_RAZORPAY_KEY_ID:
+    # that one *is* inlined at build time and would switch the storefront to
+    # the real gateway, breaking the simulated checkout the suite drives.
+    env:
+      NEXT_PUBLIC_SITE_URL: https://ci.garmentvibes.test
+      RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,21 +58,12 @@ jobs:
       # playwright-core doesn't bundle a browser (kept out of node_modules on
       # purpose) — install just Chromium + its OS deps for this run.
       - run: npx playwright-core install --with-deps chromium
-      # NEXT_PUBLIC_* is inlined at BUILD time, so this has to be set here
-      # rather than when starting the server. Without it the build looks
-      # like an unconfigured deployment and robots.txt correctly returns a
-      # blanket Disallow — which is right in production and would make the
-      # SEO checks below assert nothing useful.
+      # Picks up NEXT_PUBLIC_SITE_URL from the job env above. Without it the
+      # build looks like an unconfigured deployment and robots.txt correctly
+      # returns a blanket Disallow — right in production, but it would make
+      # the SEO checks below assert nothing useful.
       - run: npm run build
-        env:
-          NEXT_PUBLIC_SITE_URL: https://ci.garmentvibes.test
       - name: Start production server in background
-        # A dummy webhook secret so the payment signature checks can run.
-        # Deliberately NOT NEXT_PUBLIC_RAZORPAY_KEY_ID: that is inlined at
-        # build time and would switch the storefront to the real gateway,
-        # breaking the simulated checkout flow the rest of the suite drives.
-        env:
-          RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
         run: nohup npm run start > server.log 2>&1 &
       - name: Wait for server to respond
         run: |
@@ -70,8 +77,6 @@ jobs:
           echo "Server did not start in time"; cat server.log; exit 1
       - run: npm run qa:routes
       - run: npm run qa:e2e
-        env:
-          RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
       - run: npm run qa:pwa
       - name: Server log (on failure)
         if: failure()

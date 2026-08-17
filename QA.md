@@ -264,9 +264,14 @@ had real bugs before it was trustworthy:
   throwaway navigation before asserting anything.
 - `NEXT_PUBLIC_*` variables are inlined at **build** time, not read at
   runtime. Setting `NEXT_PUBLIC_SITE_URL` when starting the server has no
-  effect whatsoever — the value baked in at `next build` is what ships. CI
-  therefore sets it on the build step, and a deployment platform must set it
-  as a build environment variable.
+  effect whatsoever — the value baked in at `next build` is what ships. A
+  deployment platform must set it as a build environment variable.
+  The corollary bit us a second time: a *check* that asserts against
+  `process.env.NEXT_PUBLIC_SITE_URL` compares the baked-in value to whatever
+  the test process happens to see, so setting it only on CI's build step made
+  the QR check compare `https://ci.garmentvibes.test` against a default of
+  `http://localhost:3000`. It is now declared once at the **job** level so the
+  build and the suites cannot drift apart.
 - Playwright's `waitUntil: "networkidle"` is a trap for a Next.js app. Once
   Next prefetches linked routes in the background, the mega-menu alone keeps
   RSC requests open and the network is never idle, so every navigation times
