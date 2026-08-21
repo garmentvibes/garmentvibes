@@ -19,6 +19,16 @@ import { JsonLd } from "@/components/shared/json-ld";
 import { breadcrumbSchema, retailProductSchema } from "@/lib/seo";
 import { formatPrice } from "@/lib/utils";
 
+// Anything not produced by generateStaticParams below is a 404, not a
+// server-rendered miss. Without this, an unknown slug still renders the
+// not-found page but answers HTTP 200 — a soft 404, which search engines
+// index as a real page.
+//
+// Correct while the catalogue is static. Once products come from the
+// database, adding one will need a revalidation (or this flipped back to
+// the default) before its page becomes reachable.
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return RETAIL_PRODUCTS.map((p) => ({ slug: p.slug }));
 }

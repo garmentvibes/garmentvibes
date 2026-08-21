@@ -2,7 +2,11 @@ import Link from "next/link";
 import { ContentPage } from "@/components/shared/content-page";
 import { BUSINESS_INFO } from "@/lib/business-info";
 
-export const metadata = { title: "Terms of Service" };
+export const metadata = {
+  title: "Terms of Service",
+  description:
+    "The terms you agree to when buying from GarmentVibes, covering orders, pricing, delivery and liability.",
+};
 
 export default function TermsPage() {
   return (

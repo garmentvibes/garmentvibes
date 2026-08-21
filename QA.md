@@ -382,3 +382,37 @@ reach for.
   was a security decision as much as a caching one: a route that reflects a
   label into an SVG is an XSS vector, because a browser opening an SVG directly
   will execute script inside it.
+
+## Lessons from the full-platform QA pass (2026-08)
+
+Every suite was green when this pass started. Everything below was found by
+looking at things the suites did not cover — which is the point: a suite only
+protects what someone thought to assert.
+
+- **`notFound()` does not imply a 404 status.** An unknown product slug rendered
+  the not-found page with **HTTP 200** — a soft 404. Fixed with
+  `dynamicParams = false` on the two product routes, which turns anything not in
+  `generateStaticParams` into a real 404.
+- The same fix is **inert on the category routes**, and understanding why took a
+  measurement rather than a guess: those pages read `searchParams`, which opts
+  them into dynamic rendering, so `generateStaticParams` no longer gates them.
+  The obvious remedy — moving the subcategory read into the client component
+  behind `Suspense` — was tried and **dropped every product link out of the
+  prerendered HTML** (0 links, down from 9). Reverted. Next injects
+  `<meta name="robots" content="noindex">` on a not-found render anyway, so the
+  soft 404 is not indexed; a worse SEO regression was not worth trading for it.
+- **`<Suspense fallback={null}>` ships an empty page.** Six pages wrapped their
+  entire body in one because a child called `useSearchParams()`. `/shop/login`
+  and `/shop/signup` prerendered with no heading and no form at all. Anything
+  static — headings, copy — belongs *outside* the boundary; only the part that
+  actually depends on the URL goes inside.
+- **Duplicate metadata is invisible page-by-page.** Four indexable pages shared
+  one `<title>` and twenty-seven shared one description, because pages that omit
+  metadata silently inherit the root layout's. Every page looked fine on its
+  own; only comparing them across the sitemap showed it. `"use client"` pages
+  are the usual cause, since they cannot export metadata — a sibling
+  `layout.tsx` is the fix. The e2e suite now walks the sitemap and asserts every
+  indexable page has a title and description, and that no two share either.
+- **Verify the audit before trusting it.** The first pass reported nine content
+  pages as 404 — they live under `/shop/*`, and the script had guessed
+  top-level paths. Checking before reporting saved filing nine imaginary bugs.

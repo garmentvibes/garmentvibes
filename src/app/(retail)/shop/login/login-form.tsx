@@ -37,10 +37,7 @@ export function LoginForm() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-neutral-900">Sign in</h1>
-      <p className="mt-1 text-sm text-neutral-500">Welcome back to GarmentVibes.</p>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
         <div>
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" {...register("email")} />

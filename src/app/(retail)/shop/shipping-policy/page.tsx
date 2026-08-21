@@ -1,6 +1,10 @@
 import { ContentPage } from "@/components/shared/content-page";
 
-export const metadata = { title: "Shipping Policy" };
+export const metadata = {
+  title: "Shipping Policy",
+  description:
+    "Delivery timelines, shipping charges, courier partners and tracking for GarmentVibes orders across India.",
+};
 
 export default function ShippingPolicyPage() {
   return (

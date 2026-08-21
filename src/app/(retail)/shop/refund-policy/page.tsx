@@ -2,7 +2,11 @@ import Link from "next/link";
 import { ContentPage } from "@/components/shared/content-page";
 import { BUSINESS_INFO } from "@/lib/business-info";
 
-export const metadata = { title: "Refund & Cancellation Policy" };
+export const metadata = {
+  title: "Refund & Cancellation Policy",
+  description:
+    "How to cancel an order, request a return or exchange, and when refunds are processed at GarmentVibes.",
+};
 
 export default function RefundPolicyPage() {
   return (

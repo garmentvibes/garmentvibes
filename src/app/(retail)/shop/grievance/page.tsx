@@ -2,7 +2,11 @@ import Link from "next/link";
 import { ContentPage } from "@/components/shared/content-page";
 import { BUSINESS_INFO } from "@/lib/business-info";
 
-export const metadata = { title: "Grievance Redressal" };
+export const metadata = {
+  title: "Grievance Redressal",
+  description:
+    "How to escalate an unresolved complaint to the GarmentVibes Grievance Officer, and the response times we commit to.",
+};
 
 export default function GrievancePage() {
   const { grievanceOfficer: officer } = BUSINESS_INFO;

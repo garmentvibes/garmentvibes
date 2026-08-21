@@ -1,6 +1,10 @@
 import { ContentPage } from "@/components/shared/content-page";
 
-export const metadata = { title: "Privacy Policy" };
+export const metadata = {
+  title: "Privacy Policy",
+  description:
+    "What personal data GarmentVibes collects, why we collect it, who we share it with, and how to have it removed.",
+};
 
 export default function PrivacyPage() {
   return (

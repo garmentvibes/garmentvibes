@@ -14,8 +14,11 @@ import { goto, appears } from "./_goto.mjs";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
 const results = [];
-function check(flow, name, cond) {
-  results.push({ flow, name, pass: !!cond });
+function check(flow, name, cond, detail) {
+  // `detail` is shown only on failure. For checks that compare many things at
+  // once — every page's title against every other's — "it failed" is not
+  // actionable without naming which ones collided.
+  results.push({ flow, name, pass: !!cond, detail });
 }
 
 async function withPage(browser, fn) {
@@ -1171,6 +1174,64 @@ allConsoleErrors.push(
       !sitemapBody.includes("<loc>") || !/\/admin</.test(sitemapBody)
     );
 
+    // Every indexable page needs its own title and description.
+    //
+    // Pages that omit them silently inherit the root layout's, which is how
+    // four pages ended up sharing one <title> and twenty-seven shared a single
+    // description — search engines cannot tell them apart, and every snippet
+    // reads the same. The failure is invisible page-by-page: each one looks
+    // fine on its own, and only comparing them across the sitemap shows it.
+    // Client-component pages are the usual culprit, since `"use client"`
+    // modules cannot export metadata at all.
+    const sitemapUrls = [...sitemapBody.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
+      // `|| "/"` because stripping the origin from the homepage URL leaves an
+      // empty string, which reads as a blank entry in any failure message.
+      (m) => m[1].replace(/^https?:\/\/[^/]+/, "") || "/"
+    );
+
+    const titles = new Map();
+    const descriptions = new Map();
+    const missing = [];
+    const duplicateTitles = [];
+    const duplicateDescriptions = [];
+
+    for (const path of sitemapUrls) {
+      const res = await fetch(`${BASE_URL}${path}`);
+      const html = await res.text();
+      const title = html.match(/<title>(.*?)<\/title>/s)?.[1];
+      const description = html.match(/<meta name="description" content="(.*?)"/s)?.[1];
+
+      if (!title || !description) {
+        missing.push(path);
+        continue;
+      }
+      if (titles.has(title)) duplicateTitles.push(`${path} = ${titles.get(title)}`);
+      else titles.set(title, path);
+
+      if (descriptions.has(description)) {
+        duplicateDescriptions.push(`${path} = ${descriptions.get(description)}`);
+      } else descriptions.set(description, path);
+    }
+
+    check(
+      "seo",
+      `every indexable page has a title and description (${sitemapUrls.length} checked)`,
+      missing.length === 0,
+      missing.slice(0, 5).join(", ")
+    );
+    check(
+      "seo",
+      "no two indexable pages share a title",
+      duplicateTitles.length === 0,
+      duplicateTitles.slice(0, 5).join("; ")
+    );
+    check(
+      "seo",
+      "no two indexable pages share a description",
+      duplicateDescriptions.length === 0,
+      duplicateDescriptions.slice(0, 5).join("; ")
+    );
+
     // OG images are generated routes — a runtime failure there returns 500
     // and social previews silently fall back to nothing.
     const og = await goto(page, `${BASE_URL}/opengraph-image`);
@@ -1187,7 +1248,10 @@ for (const flow of flows) {
   const flowResults = results.filter((r) => r.flow === flow);
   const flowFailed = flowResults.filter((r) => !r.pass);
   console.log(`\n${flow} (${flowResults.length - flowFailed.length}/${flowResults.length})`);
-  for (const r of flowResults) console.log(`  ${r.pass ? "✓" : "✗"} ${r.name}`);
+  for (const r of flowResults) {
+    console.log(`  ${r.pass ? "✓" : "✗"} ${r.name}`);
+    if (!r.pass && r.detail) console.log(`      ${r.detail}`);
+  }
 }
 
 if (allConsoleErrors.length > 0) {

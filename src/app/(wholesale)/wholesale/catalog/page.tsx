@@ -2,7 +2,11 @@ import { CatalogBrowser } from "@/components/wholesale/catalog-browser";
 import { PriceListExportButton } from "@/components/wholesale/price-list-export-button";
 import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 
-export const metadata = { title: "Wholesale Catalog" };
+export const metadata = {
+  title: "Wholesale Catalog",
+  description:
+    "The full GarmentVibes trade range by category — basics, denim, ethnic wear and fabric, with minimum order quantities and lead times.",
+};
 
 export default function WholesaleCatalogPage() {
   return (

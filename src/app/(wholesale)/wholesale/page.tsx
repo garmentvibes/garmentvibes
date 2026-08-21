@@ -2,7 +2,11 @@ import Link from "next/link";
 import { WholesaleProductCard } from "@/components/wholesale/product-card";
 import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 
-export const metadata = { title: "Wholesale Apparel Sourcing" };
+export const metadata = {
+  title: "Wholesale Apparel Sourcing",
+  description:
+    "Source apparel in bulk from GarmentVibes: quantity-break pricing, ready size runs and Net-30 terms for approved trade accounts.",
+};
 
 const CATEGORY_TILES = [
   { href: "/wholesale/catalog/women", label: "Women" },

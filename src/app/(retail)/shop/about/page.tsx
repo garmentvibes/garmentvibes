@@ -1,6 +1,10 @@
 import { ContentPage } from "@/components/shared/content-page";
 
-export const metadata = { title: "About Us" };
+export const metadata = {
+  title: "About Us",
+  description:
+    "How GarmentVibes started, who we make clothes for, and the standards we hold our manufacturing to.",
+};
 
 export default function AboutPage() {
   return (

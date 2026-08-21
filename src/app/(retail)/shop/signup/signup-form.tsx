@@ -37,10 +37,7 @@ export function SignupForm() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-neutral-900">Create account</h1>
-      <p className="mt-1 text-sm text-neutral-500">Join GarmentVibes to start shopping.</p>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
         <div>
           <Label htmlFor="name">Full name</Label>
           <Input id="name" {...register("name")} />

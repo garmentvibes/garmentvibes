@@ -3,7 +3,11 @@ import { ProductCard } from "@/components/retail/product-card";
 import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
 import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
 
-export const metadata = { title: "Shop Fashion Online" };
+export const metadata = {
+  title: "Shop Fashion Online",
+  description:
+    "Browse women's, men's and kids' clothing at GarmentVibes — kurtas, tees, denim and more, with free returns within 7 days.",
+};
 
 const CATEGORY_TILES = [
   { href: "/shop/women", label: "Women", from: "from-rose-500", to: "to-rose-700" },

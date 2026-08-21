@@ -1,7 +1,11 @@
 import { ContentPage } from "@/components/shared/content-page";
 import { BUSINESS_INFO } from "@/lib/business-info";
 
-export const metadata = { title: "Wholesale Terms" };
+export const metadata = {
+  title: "Wholesale Terms",
+  description:
+    "Trade terms for GarmentVibes wholesale accounts: payment terms, order confirmation, dispatch and short-shipment claims.",
+};
 
 export default function WholesaleTermsPage() {
   return (
