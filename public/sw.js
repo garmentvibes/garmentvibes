@@ -48,10 +48,18 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Immutable build output and icons — cache-first is safe because filenames
-  // are content-hashed (or the asset is stable).
+  // Immutable build output, icons and product art — cache-first is safe
+  // because filenames are content-hashed (or the asset is stable).
+  //
+  // /placeholders/ matters more than it looks. Product images used to be
+  // inlined into the HTML as data URIs, so they came along with any cached
+  // page for free. Now that they are real files they are separate requests,
+  // and without this a page served offline would render with every image
+  // broken.
   const isStaticAsset =
-    url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/");
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/placeholders/");
 
   if (isStaticAsset) {
     event.respondWith(

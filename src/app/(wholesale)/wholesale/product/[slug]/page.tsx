@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
 import { WholesaleBreadcrumbs } from "@/components/wholesale/breadcrumbs";
@@ -76,9 +77,16 @@ export default async function WholesaleProductPage({
       />
 
       <div className="mt-3 grid grid-cols-1 gap-10 md:grid-cols-2">
-        <div className="aspect-[3/4] overflow-hidden rounded-lg bg-slate-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
+        <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-slate-100">
+          <Image
+            src={product.images[0]}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            // LCP element on a trade product page, same as the retail gallery.
+            priority
+            className="object-cover"
+          />
         </div>
 
         <div>

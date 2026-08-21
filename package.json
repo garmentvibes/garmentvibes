@@ -15,20 +15,22 @@
     "qa:schema": "node scripts/qa/schema.mjs",
     "seed:generate": "node scripts/seed/generate.mjs",
     "seed:check": "node scripts/seed/generate.mjs --check",
-    "qa": "npm run lint && npm run test && npm run build && npm run qa:static && npm run seed:check && npm run qa:schema"
+    "qa": "npm run lint && npm run test && npm run build && npm run qa:static && npm run placeholders:check && npm run seed:check && npm run qa:schema",
+    "placeholders:generate": "node scripts/placeholders/generate.mjs",
+    "placeholders:check": "node scripts/placeholders/generate.mjs --check"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.4.0",
+    "@hookform/resolvers": "^5.9.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.23.0",
-    "next": "^16.3.1",
+    "lucide-react": "^1.33.0",
+    "next": "^16.3.2",
     "next-themes": "^0.4.6",
     "qrcode": "^1.5.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-hook-form": "^7.81.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
@@ -43,13 +45,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "^16.3.1",
+    "eslint-config-next": "^16.3.2",
     "jsqr": "^1.4.0",
     "playwright-core": "^1.62.1",
     "pngjs": "^7.0.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vite": "^8.2.1",
-    "vitest": "^4.1.10"
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
   }
 }

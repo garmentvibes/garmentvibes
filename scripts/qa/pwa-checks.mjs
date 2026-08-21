@@ -96,11 +96,43 @@ if (swState !== "activated") {
 } else {
   pass("service worker registers and activates");
 
+  // Visit a page with product art so the SW's cache-first path has actually
+  // stored some. Product images used to be inlined into the HTML as data
+  // URIs, so they came along with any cached page for free; now that they are
+  // real files under /placeholders/ they are separate requests, and the SW
+  // has to be caching them or an offline page renders with every image
+  // broken. That regression would be invisible to the navigation check below.
+  await goto(page, `${BASE_URL}/shop`);
+  const imageUrl = await page.evaluate(() => {
+    const img = document.querySelector('img[src*="/placeholders/"]');
+    if (!img) return null;
+    return new URL(img.getAttribute("src"), location.origin).href;
+  });
+
   // Give the SW a beat to finish precaching before cutting the network.
   await page.waitForTimeout(1000);
   await context.setOffline(true);
 
   try {
+    if (!imageUrl) {
+      fail("no product image found to test offline caching against");
+    } else {
+      // Fetched from inside the page so the request goes through the service
+      // worker, which is the thing under test.
+      const status = await page.evaluate(
+        (url) =>
+          fetch(url)
+            .then((r) => r.status)
+            .catch(() => 0),
+        imageUrl
+      );
+      if (status === 200) {
+        pass("product images are served from the cache when offline");
+      } else {
+        fail(`product image was not cached for offline use (fetch returned ${status})`);
+      }
+    }
+
     await page.goto(`${BASE_URL}/shop`, { waitUntil: "domcontentloaded", timeout: 15000 });
     const body = await page.textContent("body");
     if (body && body.includes("offline")) {

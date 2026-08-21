@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WishlistButton } from "@/components/retail/wishlist-button";
@@ -11,11 +12,16 @@ export function ProductCard({ product }: { product: RetailProduct }) {
   return (
     <Link href={`/shop/product/${product.slug}`} className="group block">
       <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-neutral-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={product.images[0]}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          fill
+          // Matches the grid this card sits in: two across on a phone, three
+          // from sm, four from md. Without it the browser assumes each image
+          // is viewport-wide and downloads roughly four times the pixels it
+          // needs on a phone.
+          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
         {product.tags?.includes("bestseller") && (
           <Badge variant="retail" className="absolute left-2 top-2">

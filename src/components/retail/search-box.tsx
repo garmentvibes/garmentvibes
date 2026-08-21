@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
@@ -115,10 +116,11 @@ export function SearchBox({
                       i === highlighted ? "bg-rose-50" : "hover:bg-neutral-50"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={product.images[0]}
                       alt=""
+                      width={32}
+                      height={40}
                       className="h-10 w-8 shrink-0 rounded object-cover"
                     />
                     <span className="min-w-0 flex-1">
