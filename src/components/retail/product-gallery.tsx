@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { WishlistButton } from "@/components/retail/wishlist-button";
 
@@ -18,8 +19,19 @@ export function ProductGallery({
   return (
     <div>
       <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-neutral-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[active]} alt={alt} className="h-full w-full object-cover" />
+        <Image
+          src={images[active]}
+          alt={alt}
+          fill
+          // Full width on a phone, half the row on desktop where the buying
+          // panel sits alongside.
+          sizes="(max-width: 768px) 100vw, 50vw"
+          // The largest thing above the fold on a product page, so it is the
+          // LCP element. Lazy-loading it — the default — would mean the page's
+          // headline metric waits on the browser discovering it.
+          priority
+          className="object-cover"
+        />
         <WishlistButton productId={productId} className="absolute right-3 top-3" />
       </div>
 
@@ -35,8 +47,15 @@ export function ProductGallery({
                 i === active ? "border-rose-600" : "border-transparent"
               )}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img} alt={`${alt} thumbnail ${i + 1}`} className="h-full w-full object-cover" />
+              <Image
+                src={img}
+                alt={`${alt} thumbnail ${i + 1}`}
+                // Fixed 56×64 in the layout; no `sizes` needed because the
+                // rendered size never varies with the viewport.
+                width={56}
+                height={64}
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>

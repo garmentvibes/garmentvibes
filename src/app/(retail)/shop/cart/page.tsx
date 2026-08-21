@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
@@ -34,8 +35,13 @@ export default function CartPage() {
         <div className="space-y-4 lg:col-span-2">
           {lines.map((line) => (
             <div key={line.key} className="flex gap-4 rounded-lg border border-neutral-200 bg-white p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={line.image} alt={line.name} className="h-24 w-20 rounded object-cover" />
+              <Image
+                src={line.image}
+                alt={line.name}
+                width={80}
+                height={96}
+                className="h-24 w-20 rounded object-cover"
+              />
               <div className="flex-1">
                 <p className="font-medium text-neutral-900">{line.name}</p>
                 <p className="text-sm text-neutral-500">

@@ -73,9 +73,10 @@ re-running updates rather than duplicating, and it is safe against a database
 that already has data. `qa:schema` proves that by loading it twice and checking
 the row count does not move.
 
-The images are data-URI SVG placeholders carried over verbatim, which is most
-of the file's 74KB. They belong in Supabase Storage once real photography
-exists: a bucket URL goes in the same column, no schema change needed.
+The `images` column holds paths to the placeholder SVGs under
+`public/placeholders/`, which are themselves generated — see
+`npm run placeholders:generate`. Real photography goes in Supabase Storage and
+a bucket URL goes in the same column; no schema change needed.
 
 `0002` contains nothing but `alter type ... add value` because Postgres will not
 let a new enum value be *used* in the transaction that adds it. Anything

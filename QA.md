@@ -16,7 +16,8 @@ npm run qa:routes    # visits every route: HTTP status, console errors, <title>,
 npm run qa:e2e       # drives real user flows end-to-end through the browser
 npm run qa:pwa       # manifest validity, SW registration, real offline fallback test
 npm run qa:schema    # applies the migrations to a scratch Postgres, tests the RLS policies
-npm run seed:check   # fails if supabase/seed.sql has fallen behind the mock catalogue
+npm run seed:check          # fails if supabase/seed.sql has fallen behind the catalogue
+npm run placeholders:check  # fails if public/placeholders/ has fallen behind it
 ```
 
 `qa:schema` needs a local Postgres rather than a running app. It skips itself
@@ -357,3 +358,27 @@ reach for.
   order" catches a permissive policy that "sees at least 1" would not — so each
   test file now truncates the seeded tables inside its own transaction and
   rolls back, rather than the assertions being loosened.
+
+## Lessons from the image migration (2026-08)
+
+- **Measure before claiming a win.** The `/shop` document was 111KB and the
+  data-URI product images looked like the obvious cause. Moving them to files
+  took it to 99KB — real, but 11%, not the bulk. Half of what remains is the
+  RSC flight payload, which carries the same product data a second time. The
+  case for `next/image` is layout stability, lazy loading and being ready for
+  real photography; page weight was the weakest of its reasons.
+- Moving images out of the HTML silently broke offline: as data URIs they came
+  along with any cached page for free, and as files they are separate requests
+  the service worker was not caching. The existing offline check passed
+  throughout, because it only tested navigation. Fixed in `sw.js`, and the PWA
+  suite now fetches a product image with the network cut — mutation-tested by
+  removing `/placeholders/` from the cache-first path, which fails the new
+  check while the old navigation check still passes.
+- `next/image` applies `unoptimized` automatically when `src` ends in `.svg`,
+  which is why the placeholders are served as real `.svg` files rather than
+  through a route with query parameters. The alternative, `dangerouslyAllowSVG`,
+  turns the optimiser into a way to serve arbitrary SVG from our own origin.
+- Generating the placeholders as static files rather than from a route handler
+  was a security decision as much as a caching one: a route that reflects a
+  label into an SVG is an XSS vector, because a browser opening an SVG directly
+  will execute script inside it.

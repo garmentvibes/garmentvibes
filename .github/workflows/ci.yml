@@ -23,9 +23,11 @@ jobs:
       - run: npm run test
       - run: npm run build
       - run: npm run qa:static
-      # supabase/seed.sql is generated from the mock catalogue. This fails if
-      # someone edits a price without regenerating, rather than letting the
-      # database ship last week's catalogue.
+      # Both of these are generated from the mock catalogue and committed, so
+      # both can fall behind it. A stale seed ships last week's prices; a
+      # missing placeholder is a broken image on a product page, and nothing
+      # else in the suite would notice either.
+      - run: npm run placeholders:check
       - run: npm run seed:check
 
   schema:

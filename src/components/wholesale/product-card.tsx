@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import type { WholesaleProduct } from "@/types/catalog";
@@ -12,11 +13,13 @@ export function WholesaleProductCard({ product }: { product: WholesaleProduct })
       className="group block overflow-hidden rounded-lg border border-slate-200 bg-white transition-shadow hover:shadow-md"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={product.images[0]}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          fill
+          // The trade catalogue grid is two across on a phone, three from sm.
+          sizes="(max-width: 640px) 50vw, 33vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
         {product.tags?.includes("bestseller") && (
           <Badge variant="wholesale" className="absolute left-2 top-2">
