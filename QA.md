@@ -16,6 +16,7 @@ npm run qa:routes    # visits every route: HTTP status, console errors, <title>,
 npm run qa:e2e       # drives real user flows end-to-end through the browser
 npm run qa:pwa       # manifest validity, SW registration, real offline fallback test
 npm run qa:schema    # applies the migrations to a scratch Postgres, tests the RLS policies
+npm run seed:check   # fails if supabase/seed.sql has fallen behind the mock catalogue
 ```
 
 `qa:schema` needs a local Postgres rather than a running app. It skips itself
@@ -347,3 +348,12 @@ reach for.
 - The skip-if-no-Postgres convenience was itself a hole — in CI a service
   container that failed to start would have made the job pass silently. It now
   refuses to skip when `CI` is set.
+- A generated file needs a staleness check or it is worse than no file: a seed
+  that quietly describes last week's prices is harder to spot than a missing
+  one. `seed:check` regenerates and compares, so editing the catalogue without
+  regenerating fails CI.
+- Loading the seed broke the RLS tests, which asserted exact row counts against
+  what had been an empty database. Exact counts are worth keeping — "sees 1
+  order" catches a permissive policy that "sees at least 1" would not — so each
+  test file now truncates the seeded tables inside its own transaction and
+  rolls back, rather than the assertions being loosened.

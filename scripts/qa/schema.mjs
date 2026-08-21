@@ -17,6 +17,7 @@ import { join } from "node:path";
 const DB = "garmentvibes_schema_check";
 const MIGRATIONS_DIR = "supabase/migrations";
 const TESTS_DIR = "supabase/tests";
+const SEED = "supabase/seed.sql";
 
 let failures = 0;
 
@@ -102,6 +103,88 @@ for (const file of migrations) {
     console.log("\nMigration failed — later checks would be meaningless. Stopping.");
     process.exit(1);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Seed
+// ---------------------------------------------------------------------------
+
+console.log("\nseed");
+
+let seedOk = true;
+try {
+  psql(["--single-transaction", "-f", SEED]);
+  check("supabase/seed.sql applies", true);
+} catch (error) {
+  seedOk = false;
+  const stderr = (error.stderr ?? "").toString().trim().split("\n").slice(0, 3).join(" | ");
+  check("supabase/seed.sql applies", false, stderr);
+}
+
+if (seedOk) {
+  // Upserts on the natural key, so loading twice must update rather than
+  // duplicate — otherwise re-seeding a live database doubles the catalogue.
+  const before = scalar("select count(*) from retail_products");
+  try {
+    psql(["--single-transaction", "-f", SEED]);
+    const after = scalar("select count(*) from retail_products");
+    check("the seed can be loaded twice without duplicating", before === after, `${before} → ${after}`);
+  } catch (error) {
+    check("the seed can be loaded twice without duplicating", false, (error.stderr ?? "").toString());
+  }
+
+  // A seed that inserts nothing would satisfy "it applies" perfectly.
+  check(
+    "it loads a catalogue",
+    Number(scalar("select count(*) from retail_products")) > 0 &&
+      Number(scalar("select count(*) from wholesale_products")) > 0
+  );
+
+  // Every product needs somewhere to put stock and something to charge; a
+  // product with no sizes cannot be bought, and one with no price tier cannot
+  // be quoted.
+  check(
+    "every retail product has at least one size",
+    scalar(`select count(*) from retail_products p
+            where not exists (select 1 from retail_product_sizes s where s.product_id = p.id)`) === "0"
+  );
+
+  check(
+    "every wholesale product has at least one price tier",
+    scalar(`select count(*) from wholesale_products p
+            where not exists (select 1 from wholesale_price_tiers t where t.product_id = p.id)`) === "0"
+  );
+
+  // The storefront strikes through the MRP, which reads as an insult when it
+  // is below the price being charged.
+  check(
+    "no product is priced above its MRP",
+    scalar("select count(*) from retail_products where price > mrp") === "0"
+  );
+
+  // Wholesale tiers are quantity breaks: ordering more has to cost less per
+  // unit, or the tier is a penalty for buying in bulk.
+  check(
+    "wholesale price tiers get cheaper as quantity rises",
+    scalar(`select count(*) from (
+              select price_per_unit,
+                     lag(price_per_unit) over (partition by product_id order by min_qty) as prev
+              from wholesale_price_tiers
+            ) t where prev is not null and price_per_unit >= prev`) === "0"
+  );
+
+  // The lowest tier must be reachable: a break that starts below the minimum
+  // order quantity is a price nobody can ever be charged.
+  check(
+    "the first price tier is reachable at the minimum order quantity",
+    scalar(`select count(*) from wholesale_products p
+            where (select min(min_qty) from wholesale_price_tiers t where t.product_id = p.id) > p.moq`) === "0"
+  );
+
+  check(
+    "the built-in promo codes are present",
+    scalar("select count(*) from promo_codes where built_in") === "2"
+  );
 }
 
 // Re-applying must be a no-op rather than an error: Supabase records applied

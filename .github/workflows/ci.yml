@@ -23,6 +23,10 @@ jobs:
       - run: npm run test
       - run: npm run build
       - run: npm run qa:static
+      # supabase/seed.sql is generated from the mock catalogue. This fails if
+      # someone edits a price without regenerating, rather than letting the
+      # database ship last week's catalogue.
+      - run: npm run seed:check
 
   schema:
     name: Migrations + RLS

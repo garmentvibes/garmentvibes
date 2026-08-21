@@ -17,6 +17,15 @@ set client_min_messages to notice;
 -- runner applies once outside any transaction.
 begin;
 
+-- Clear the seeded catalogue first.
+--
+-- The assertions below are exact counts, which is what makes them sharp — "a
+-- customer sees 1 order" catches a permissive policy that "sees at least 1"
+-- would not. That only works from a known-empty baseline, and the runner loads
+-- supabase/seed.sql before this point. Rolled back with everything else, so
+-- the seed checks upstream still ran against the real data.
+truncate retail_products, wholesale_products, promo_codes cascade;
+
 -- ---------------------------------------------------------------------------
 -- Fixture
 -- ---------------------------------------------------------------------------
