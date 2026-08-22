@@ -62,6 +62,12 @@ update profiles set role = 'admin' where email = 'you@example.com';
 Seeding an admin any other way would mean shipping a known account into every
 environment, which is a back door rather than a convenience.
 
+That row is what `/admin` checks. `src/lib/auth/dal.ts` verifies the session
+with `auth.getUser()` and then reads `profiles.role`; being signed in as a
+customer is not enough, and a customer who signs in at `/admin/login` is
+signed straight back out. The `is_staff()` policies are the layer underneath —
+even a mistake in the application gate leaves RLS refusing the rows.
+
 The files are ordered and each is applied in its own transaction. Every
 statement is guarded, so re-applying is a no-op rather than an error.
 

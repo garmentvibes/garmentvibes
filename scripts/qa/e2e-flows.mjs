@@ -350,7 +350,50 @@ allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
     // Gating: admin routes are unusable without an admin session.
     await goto(page, `${BASE_URL}/admin`);
-    check("admin", "admin gated when signed out", (await page.locator("text=Admin access required").count()) > 0);
+    check("admin", "admin redirects to login when signed out", page.url().endsWith("/admin/login"));
+
+    // The above only proves the browser ended up somewhere sensible, which a
+    // client-side redirect would also satisfy — and a client-side redirect
+    // means the admin markup was already delivered. These two check that the
+    // server refuses, by asking it directly with no JavaScript involved.
+    const raw = await fetch(`${BASE_URL}/admin`, { redirect: "manual" });
+    check(
+      "admin",
+      "server answers /admin with a redirect, not a page",
+      raw.status >= 300 && raw.status < 400 && (raw.headers.get("location") || "").includes("/admin/login"),
+      `status ${raw.status}, location ${raw.headers.get("location")}`
+    );
+
+    const followed = await fetch(`${BASE_URL}/admin`);
+    const followedBody = await followed.text();
+    check(
+      "admin",
+      "no admin panel markup reaches an unauthenticated request",
+      !followedBody.includes("Wholesale Accounts") && !followedBody.includes("Credit Ledger")
+    );
+
+    // The three checks above all pass if proxy.ts alone is doing the work —
+    // verified by deleting the layout's requireStaff() call, at which point
+    // they stayed green. So they do not test the control that matters.
+    //
+    // This one does. proxy.ts only checks that a session cookie is PRESENT,
+    // never that it is valid, so a garbage cookie walks straight past it and
+    // the only thing left standing between it and the panel is requireStaff()
+    // in the layout. With that call removed this request returns 200 and the
+    // full admin sidebar; with it in place, a redirect.
+    //
+    // That is the layer Next's proxy docs warn about — a matcher does not
+    // reliably cover Server Functions — so it is the layer worth pinning.
+    const forged = await fetch(`${BASE_URL}/admin`, {
+      headers: { cookie: "gv_demo_admin=not-a-valid-token" },
+    });
+    const forgedBody = await forged.text();
+    check(
+      "admin",
+      "a forged session cookie is rejected by the server-side gate, not just the proxy",
+      !forgedBody.includes("Wholesale Accounts") && !forgedBody.includes("Credit Ledger"),
+      `status ${forged.status}`
+    );
 
     await goto(page, `${BASE_URL}/admin/login`);
     await page.fill("#email", "staff@garmentvibes.com");
@@ -358,6 +401,26 @@ allConsoleErrors.push(
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/admin");
     check("admin", "admin login reaches dashboard", (await page.locator("text=Dashboard").count()) > 0);
+
+    // The session must be HttpOnly. If script can read it, script can forge
+    // it, and the whole point of moving the gate server-side is lost.
+    const scriptVisibleCookies = await page.evaluate(() => document.cookie);
+    check(
+      "admin",
+      "the admin session cookie is not readable from JavaScript",
+      !scriptVisibleCookies.includes("gv_demo_admin"),
+      scriptVisibleCookies
+    );
+
+    // Signing out must invalidate server-side, not just clear browser state.
+    const signedInCookies = await page.context().cookies();
+    await page.click('button:has-text("Sign out")');
+    await page.waitForURL("**/admin/login");
+    await goto(page, `${BASE_URL}/admin`);
+    check("admin", "signing out closes the panel", page.url().endsWith("/admin/login"));
+
+    // Restore the session for the rest of this flow.
+    await page.context().addCookies(signedInCookies);
 
     // The approval queue is the counterpart to the storefront's pending state.
     await goto(page, `${BASE_URL}/admin/accounts`);

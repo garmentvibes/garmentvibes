@@ -85,9 +85,18 @@ jobs:
     # run against a known key. Deliberately NOT NEXT_PUBLIC_RAZORPAY_KEY_ID:
     # that one *is* inlined at build time and would switch the storefront to
     # the real gateway, breaking the simulated checkout the suite drives.
+    #
+    # ALLOW_DEMO_ADMIN lets the suite reach the admin panel without a Supabase
+    # project. It is honoured ONLY when no Supabase project is configured (see
+    # demoAdminEnabled() in src/lib/auth/demo.ts, and the test that pins that
+    # behaviour) — so this cannot leak into a real deployment by being copied.
+    # The panel's data is still localStorage, so a database would buy the
+    # admin suite nothing but a login.
     env:
       NEXT_PUBLIC_SITE_URL: https://ci.garmentvibes.test
       RAZORPAY_WEBHOOK_SECRET: qa-test-webhook-secret
+      ALLOW_DEMO_ADMIN: "1"
+      DEMO_ADMIN_SECRET: qa-test-demo-admin-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
