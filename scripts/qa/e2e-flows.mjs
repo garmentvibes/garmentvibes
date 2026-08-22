@@ -867,13 +867,50 @@ allConsoleErrors.push(
     // ---- Shipment tracking ---------------------------------------------
     await goto(page, `${BASE_URL}/admin/orders/GV84213567`);
     await page.selectOption("#courier", "delhivery");
+
+    // A mistyped AWB must not reach the customer: it goes into the shipment
+    // email as a tracking link, and a link to "not found" is indistinguishable
+    // from a lost parcel. Delhivery issues digits only, so this is refused.
     await page.fill("#awb", "QA123456789");
     await page.click('button:has-text("Save tracking")');
     await page.waitForTimeout(300);
-    check("tracking", "admin can record courier and AWB", (await page.locator("text=QA123456789").count()) > 0);
+    check(
+      "tracking",
+      "an AWB that does not match the courier's format is refused",
+      (await page.locator("text=/does not look like a valid tracking number/").count()) > 0
+    );
+    check(
+      "tracking",
+      "the rejected AWB was not saved",
+      (await page.locator("text=QA123456789").count()) === 0
+    );
+
+    // Couriers print spaces into their own labels, so a pasted number keeps
+    // them. It should be cleaned up rather than rejected.
+    await page.fill("#awb", " 9876 5432 101 ");
+    await page.click('button:has-text("Save tracking")');
+    await page.waitForTimeout(300);
+    check("tracking", "admin can record courier and AWB", (await page.locator("text=98765432101").count()) > 0);
+
+    // No shipping account is configured, so booking must say so and leave the
+    // manual path intact rather than failing silently or half-saving. This is
+    // the only path through the Shiprocket adapter that can be exercised
+    // without an account — see the header of src/lib/shipping/shiprocket.ts.
+    await page.click('button:has-text("Book with courier")');
+    await page.waitForTimeout(500);
+    check(
+      "tracking",
+      "booking without a shipping account explains itself",
+      (await page.locator("text=/No shipping account is configured/").count()) > 0
+    );
+    check(
+      "tracking",
+      "a failed booking leaves the manually-entered AWB alone",
+      (await page.inputValue("#awb")) === "98765432101"
+    );
 
     await goto(page, `${BASE_URL}/shop/orders/GV84213567`);
-    check("tracking", "customer sees the tracking number", (await page.locator("text=QA123456789").count()) > 0);
+    check("tracking", "customer sees the tracking number", (await page.locator("text=98765432101").count()) > 0);
     check("tracking", "customer gets a courier tracking link", (await page.locator('a[href*="delhivery.com"]').count()) > 0);
 
     // ---- Promo codes ----------------------------------------------------
@@ -976,10 +1013,10 @@ allConsoleErrors.push(
     // ---- Consignment tracking -------------------------------------------
     await goto(page, `${BASE_URL}/admin/quotes/GVQ84190233`);
     await page.selectOption("#courier", "bluedart");
-    await page.fill("#awb", "QAWS55501");
+    await page.fill("#awb", "77712345601");
     await page.click('button:has-text("Save tracking")');
     await page.waitForTimeout(300);
-    check("wholesale-lifecycle", "admin records consignment tracking", (await page.locator("text=QAWS55501").count()) > 0);
+    check("wholesale-lifecycle", "admin records consignment tracking", (await page.locator("text=77712345601").count()) > 0);
 
     await page.click('button:text-is("Shipped")');
     await page.waitForTimeout(400);
@@ -991,7 +1028,7 @@ allConsoleErrors.push(
 
     // The buyer dashboard reads the same source, so this must appear there.
     await goto(page, `${BASE_URL}/wholesale/dashboard`);
-    check("wholesale-lifecycle", "buyer dashboard shows the tracking number", (await page.locator("text=QAWS55501").count()) > 0);
+    check("wholesale-lifecycle", "buyer dashboard shows the tracking number", (await page.locator("text=77712345601").count()) > 0);
     check("wholesale-lifecycle", "buyer gets a courier tracking link", (await page.locator('a[href*="bluedart"]').count()) > 0);
 
     // ---- Claims ----------------------------------------------------------

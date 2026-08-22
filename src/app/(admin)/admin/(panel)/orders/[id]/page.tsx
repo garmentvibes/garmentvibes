@@ -12,6 +12,8 @@ import { formatPrice } from "@/lib/utils";
 import { useAdminOrdersStore, useRetailOrder } from "@/lib/stores/admin-orders-store";
 import { notify } from "@/lib/stores/notification-store";
 import { COURIERS, trackingUrlFor } from "@/lib/couriers";
+import { checkAwb } from "@/lib/shipping/awb";
+import { bookShipment } from "@/lib/shipping/actions";
 import { RETAIL_ORDER_STATUSES, retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
 import type { NotificationTemplateId } from "@/types/notifications";
 
@@ -22,6 +24,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
   const setShipment = useAdminOrdersStore((s) => s.setShipment);
   const [courierId, setCourierId] = useState(order?.shipment?.courierId ?? COURIERS[0].id);
   const [awb, setAwb] = useState(order?.shipment?.awb ?? "");
+  const [booking, setBooking] = useState(false);
 
   if (!order) {
     return (
@@ -74,12 +77,64 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     toast.success(`Order marked as ${status}`);
   }
 
+  async function bookWithCourier() {
+    if (!order) return;
+    setBooking(true);
+    try {
+      // The address is passed from here because orders still live in the
+      // browser. Once they are in retail_orders this should send an order id
+      // and let the server read the address it is actually shipping to.
+      const result = await bookShipment({
+        orderId: order.id,
+        customerName: order.customerName,
+        phone: order.phone,
+        email: order.customerEmail,
+        addressLine1: order.shippingAddress,
+        city: "",
+        state: "",
+        pincode: "",
+        value: retailOrderTotal(order),
+        collectOnDelivery: order.paymentMethod === "cod" ? retailOrderTotal(order) : 0,
+        items: order.items.map((item) => ({
+          name: item.name,
+          sku: item.productId,
+          qty: item.qty,
+          price: item.price,
+        })),
+        // Placeholder until parcels are weighed. Volumetric weight is what
+        // the courier bills on, so this must be measured before real volume.
+        weightKg: 0.5,
+      });
+
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+
+      setCourierId(result.shipment.courierId);
+      setAwb(result.shipment.awb);
+      setShipment(order.id, result.shipment.courierId, result.shipment.awb);
+      toast.success(`Booked — AWB ${result.shipment.awb}`);
+    } finally {
+      setBooking(false);
+    }
+  }
+
   function saveShipment() {
-    if (!awb.trim()) {
-      toast.error("Enter the AWB / tracking number");
+    // Validated against the courier's own AWB format before it is stored,
+    // because this number goes straight into the shipment email as a tracking
+    // link. A transposed digit sends the customer to a "not found" page and
+    // support cannot tell that from a lost parcel.
+    const checked = checkAwb(courierId, awb);
+    if (!checked.valid) {
+      toast.error(checked.error);
       return;
     }
-    setShipment(id, courierId, awb.trim());
+    setShipment(id, courierId, checked.normalised);
+    // Show back what was actually stored. Leaving the field holding the raw
+    // typed text means the spaces someone pasted stay on screen while a
+    // different string went to the customer.
+    setAwb(checked.normalised);
     toast.success("Tracking saved — it now appears on the customer's order");
   }
 
@@ -190,6 +245,16 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
               <Button size="sm" onClick={saveShipment}>
                 Save tracking
               </Button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-3">
+              <Button size="sm" variant="outline" onClick={bookWithCourier} disabled={booking}>
+                {booking ? "Booking…" : "Book with courier"}
+              </Button>
+              <p className="text-xs text-neutral-500">
+                Books the pickup and fills the AWB automatically. Falls back to entering it by hand
+                — which is what happens today, since no shipping account is configured.
+              </p>
             </div>
 
             {order.shipment && (
