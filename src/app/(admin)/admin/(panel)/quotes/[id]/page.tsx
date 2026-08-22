@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/utils";
 import { useAdminOrdersStore, useWholesaleQuote } from "@/lib/stores/admin-orders-store";
 import { notify } from "@/lib/stores/notification-store";
 import { COURIERS, trackingUrlFor } from "@/lib/couriers";
+import { checkAwb } from "@/lib/shipping/awb";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -85,11 +86,14 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
   }
 
   function saveShipment() {
-    if (!awb.trim()) {
-      toast.error("Enter the AWB / tracking number");
+    // Same guard as the retail side — see the note there.
+    const checked = checkAwb(courierId, awb);
+    if (!checked.valid) {
+      toast.error(checked.error);
       return;
     }
-    setQuoteShipment(id, courierId, awb.trim());
+    setQuoteShipment(id, courierId, checked.normalised);
+    setAwb(checked.normalised);
     toast.success("Tracking saved — it now appears on the buyer's order");
   }
 
