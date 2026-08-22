@@ -157,7 +157,7 @@ export function CategoryBrowser({
       <aside className="space-y-6 md:col-span-1">
         {allSubcategories.length > 1 && (
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-neutral-900">Category</h3>
+            <h2 className="mb-2 text-sm font-semibold text-neutral-900">Category</h2>
             <div className="space-y-1.5 text-sm text-neutral-600">
               {allSubcategories.map((sub) => (
                 <label key={sub} className="flex items-center gap-2">
@@ -175,7 +175,7 @@ export function CategoryBrowser({
         )}
 
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-neutral-900">Price</h3>
+          <h2 className="mb-2 text-sm font-semibold text-neutral-900">Price</h2>
           <div className="space-y-1.5 text-sm text-neutral-600">
             {PRICE_BUCKETS.map((bucket, i) => (
               <label key={bucket.label} className="flex items-center gap-2">
@@ -197,7 +197,7 @@ export function CategoryBrowser({
 
         {allBrands.length > 1 && (
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-neutral-900">Brand</h3>
+            <h2 className="mb-2 text-sm font-semibold text-neutral-900">Brand</h2>
             <div className="space-y-1.5 text-sm text-neutral-600">
               {allBrands.map((brand) => (
                 <label key={brand} className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export function CategoryBrowser({
 
         {allColors.length > 1 && (
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-neutral-900">Colour</h3>
+            <h2 className="mb-2 text-sm font-semibold text-neutral-900">Colour</h2>
             <div className="space-y-1.5 text-sm text-neutral-600">
               {allColors.map((color) => (
                 <label key={color} className="flex items-center gap-2">
@@ -234,7 +234,7 @@ export function CategoryBrowser({
         )}
 
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-neutral-900">Discount</h3>
+          <h2 className="mb-2 text-sm font-semibold text-neutral-900">Discount</h2>
           <div className="space-y-1.5 text-sm text-neutral-600">
             {DISCOUNT_BUCKETS.map((pct) => (
               <label key={pct} className="flex items-center gap-2">
@@ -256,7 +256,7 @@ export function CategoryBrowser({
 
         {allSizes.length > 0 && (
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-neutral-900">Size</h3>
+            <h2 className="mb-2 text-sm font-semibold text-neutral-900">Size</h2>
             <div className="flex flex-wrap gap-2">
               {allSizes.map((size) => (
                 <button

@@ -2,7 +2,11 @@ import { ContentPage } from "@/components/shared/content-page";
 import { JsonLd } from "@/components/shared/json-ld";
 import { faqSchema } from "@/lib/seo";
 
-export const metadata = { title: "FAQ" };
+export const metadata = {
+  title: "FAQ",
+  description:
+    "Answers on sizing, delivery times, returns, exchanges and payment methods for GarmentVibes shoppers.",
+};
 
 const FAQS = [
   {

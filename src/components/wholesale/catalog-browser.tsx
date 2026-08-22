@@ -96,7 +96,7 @@ export function CatalogBrowser({
       <aside className="space-y-6 md:col-span-1">
         {showCategoryFilter && (
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-900">Category</h3>
+            <h2 className="mb-2 text-sm font-semibold text-slate-900">Category</h2>
             <div className="space-y-1.5 text-sm text-slate-600">
               {allCategories.map((cat) => (
                 <label key={cat} className="flex items-center gap-2">
@@ -115,7 +115,7 @@ export function CatalogBrowser({
 
         {allSubcategories.length > 1 && (
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-900">Product Type</h3>
+            <h2 className="mb-2 text-sm font-semibold text-slate-900">Product Type</h2>
             <div className="space-y-1.5 text-sm text-slate-600">
               {allSubcategories.map((sub) => (
                 <label key={sub} className="flex items-center gap-2">
@@ -133,7 +133,7 @@ export function CatalogBrowser({
         )}
 
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-slate-900">Max MOQ</h3>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">Max MOQ</h2>
           <div className="space-y-1.5 text-sm text-slate-600">
             {[60, 120, 240].map((moq) => (
               <label key={moq} className="flex items-center gap-2">

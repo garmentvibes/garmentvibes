@@ -1,6 +1,10 @@
 import { ContentPage } from "@/components/shared/content-page";
 
-export const metadata = { title: "How Wholesale Works" };
+export const metadata = {
+  title: "How Wholesale Works",
+  description:
+    "From account approval to quantity-break pricing, minimum order quantities and dispatch — how buying wholesale from GarmentVibes works.",
+};
 
 const STEPS = [
   {
