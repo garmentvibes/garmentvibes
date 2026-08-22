@@ -13,6 +13,34 @@ structural invariants, and then becomes several different users to check that
 the RLS policies actually isolate them. CI runs it against a `postgres:16`
 service container on every push.
 
+## The live project
+
+Created 2026-08-22, `ap-south-1` (Mumbai — the right region for Indian
+customers), Postgres 17.
+
+| | |
+| --- | --- |
+| Project ref | `wonfvwcznydnmyjfkacn` |
+| API URL | `https://wonfvwcznydnmyjfkacn.supabase.co` |
+| Dashboard | https://supabase.com/dashboard/project/wonfvwcznydnmyjfkacn |
+
+All eleven migrations and the catalogue seed are applied. Note the version
+difference from local: the harness tests against Postgres 16 and the project
+runs 17. Nothing here depends on a version-specific feature, and the applied
+result was verified against the same invariants the local suite asserts.
+
+Environment variables the app expects (see `.env.example`):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://wonfvwcznydnmyjfkacn.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key from the dashboard>
+SUPABASE_SERVICE_ROLE_KEY=<service role key from the dashboard>
+```
+
+The service role key bypasses RLS entirely and must never gain a
+`NEXT_PUBLIC_` prefix — that ships it to every browser along with the ability
+to read and write every table.
+
 ## Applying to a real project
 
 Once the Supabase project exists:
