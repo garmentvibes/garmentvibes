@@ -1,8 +1,7 @@
 # Database schema
 
-Migrations for the GarmentVibes Supabase project. **Nothing here has been
-applied to a live project yet** — there isn't one. They are verified against a
-throwaway Postgres instead:
+Migrations for the GarmentVibes Supabase project. They are applied to the live
+project (below) and verified on every change against a throwaway Postgres:
 
 ```bash
 npm run qa:schema
@@ -41,9 +40,9 @@ The service role key bypasses RLS entirely and must never gain a
 `NEXT_PUBLIC_` prefix — that ships it to every browser along with the ability
 to read and write every table.
 
-## Applying to a real project
+## Applying to a project
 
-Once the Supabase project exists:
+To bring a project up from nothing — the live one, or a second one for staging:
 
 ```bash
 supabase link --project-ref <ref>
