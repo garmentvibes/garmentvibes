@@ -416,3 +416,29 @@ protects what someone thought to assert.
 - **Verify the audit before trusting it.** The first pass reported nine content
   pages as 404 — they live under `/shop/*`, and the script had guessed
   top-level paths. Checking before reporting saved filing nine imaginary bugs.
+
+## Lessons from adding rate limiting (2026-08)
+
+- A limiter has **two** failure modes, and the obvious test only covers one.
+  "Order creation is rate limited" passes just as happily on a limiter that
+  refuses every request from the first one — which would break checkout for
+  every real customer. There is a second assertion that a normal number of
+  attempts succeeds first, and the mutation proving it: forcing the limiter to
+  always block fails six unrelated payment checks, loudly.
+- The burst test needs **its own caller key**. The payments section already
+  makes seven order requests and the security section makes an eighth after it,
+  all sharing one bucket — a burst on the shared key would 429 an unrelated
+  check further down the file. Each burst sends its own `x-forwarded-for`.
+- **`request.ip` no longer exists** — removed in Next 15, because the value
+  belongs to the host. The caller key comes from headers, and which header can
+  be trusted depends entirely on what sits in front of the app:
+  `x-vercel-forwarded-for` is set by the platform, while a bare
+  `x-forwarded-for` is whatever the client typed. That the e2e test can set it
+  freely is the same caveat, demonstrated.
+- The limiter is **itself a memory-exhaustion vector** without a cap on tracked
+  keys: forged caller keys each allocate an entry that lives for the window.
+  Capped, with least-recently-seen eviction, and asserted.
+- The webhook is deliberately **not** limited. Every call comes from Razorpay's
+  own infrastructure, so per-caller limiting buckets them together and starts
+  dropping real payment notifications during the traffic spike that makes them
+  matter. A dropped webhook is a paid order that never ships.

@@ -17,6 +17,16 @@ import { verifyWebhookSignature } from "@/lib/razorpay/signature";
 //   2. Always answer 2xx once the signature is valid, even if our own
 //      handling fails. A non-2xx makes Razorpay retry with backoff, and a
 //      bug in our fulfilment logic would turn into a retry storm.
+//
+// Deliberately NOT rate limited, unlike the order and verify routes.
+//
+// Every call here arrives from Razorpay's own infrastructure, so per-caller
+// limiting would bucket all of them under a handful of addresses and start
+// refusing real payment notifications during exactly the traffic spike that
+// makes them matter. A dropped webhook is a paid order that never ships.
+// The HMAC below is the gate — an unsigned flood is rejected before anything
+// expensive happens, and volume defence at that point belongs to the
+// platform, not to this handler.
 
 /** Events worth acting on; anything else is acknowledged and ignored. */
 const HANDLED_EVENTS = new Set([
