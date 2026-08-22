@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isRazorpayConfigured, razorpayKeySecret } from "@/lib/razorpay/config";
 import { verifyPaymentSignature } from "@/lib/razorpay/signature";
 import { fetchRazorpayPayment, RazorpayError } from "@/lib/razorpay/client";
+import { callerKey, createRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
 
 // Verifies the handoff Razorpay Checkout gives the browser after payment.
 //
@@ -10,7 +11,22 @@ import { fetchRazorpayPayment, RazorpayError } from "@/lib/razorpay/client";
 // claim credible, and the payment is then re-fetched from Razorpay so the
 // final word on status and amount comes from the gateway, not the client.
 
+// More generous than order creation because a legitimate payment can retry
+// this handoff a few times on a flaky connection, but still bounded: without a
+// cap this endpoint is an oracle for guessing signatures, and each call costs
+// us an outbound request to Razorpay.
+const LIMIT = 20;
+const limiter = createRateLimiter({ limit: LIMIT, windowMs: 60_000 });
+
 export async function POST(request: Request) {
+  const rate = limiter.check(callerKey(request.headers));
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Too many verification attempts. Try again shortly." },
+      { status: 429, headers: rateLimitHeaders(LIMIT, rate) }
+    );
+  }
+
   if (!isRazorpayConfigured()) {
     return NextResponse.json({ error: "not_configured" }, { status: 503 });
   }

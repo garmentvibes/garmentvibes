@@ -988,6 +988,60 @@ allConsoleErrors.push(
     });
     check("payments", "webhook rejects a signature from another secret", foreign.status === 400);
   }
+
+  // ---------------------------------------------------------------------
+  // Rate limiting on order creation
+  // ---------------------------------------------------------------------
+  //
+  // Each burst uses its own x-forwarded-for value, for two reasons. It keeps
+  // the burst out of the bucket every other check in this file shares —
+  // otherwise exhausting the limit here would 429 the security section's
+  // request further down, which asserts something unrelated. And it drives the
+  // header path the limiter actually keys on.
+  //
+  // That the header can be set from here at all is the caveat documented in
+  // lib/rate-limit.ts: nothing in front of a local server overwrites it. In
+  // production the platform does, which is what makes the key trustworthy.
+  const burst = async (ip, count) => {
+    const statuses = [];
+    for (let i = 0; i < count; i += 1) {
+      const res = await post(
+        "/api/razorpay/order",
+        JSON.stringify({ items: [{ productId: "r1", qty: 1 }] }),
+        { "x-forwarded-for": ip }
+      );
+      statuses.push(res.status);
+      if (res.status === 429) {
+        check(
+          "payments",
+          "a rate-limited response says when to retry",
+          Number(res.headers.get("retry-after")) > 0
+        );
+        break;
+      }
+    }
+    return statuses;
+  };
+
+  const attacker = await burst("203.0.113.99", 40);
+  check("payments", "order creation is rate limited", attacker.includes(429));
+
+  // The limit has to be reached, not tripped on the first request — a limiter
+  // that refuses everyone immediately would also "pass" the check above.
+  check(
+    "payments",
+    "the rate limit allows a normal number of attempts first",
+    attacker.filter((s) => s !== 429).length >= 5
+  );
+
+  // One abusive caller must not lock out everybody else, which is the failure
+  // mode of keying the limit on anything shared.
+  const bystander = await post(
+    "/api/razorpay/order",
+    JSON.stringify({ items: [{ productId: "r1", qty: 1 }] }),
+    { "x-forwarded-for": "198.51.100.7" }
+  );
+  check("payments", "one caller's limit does not affect another", bystander.status !== 429);
 }
 
 // ---------------------------------------------------------------------------
