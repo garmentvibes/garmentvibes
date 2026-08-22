@@ -127,7 +127,63 @@ allConsoleErrors.push(
     await page.waitForTimeout(200);
     check("retail-checkout", "promo code applied", (await page.locator("text=GARMENT10 applied").count()) > 0);
 
+    // Payment methods are individually selectable, not one "Pay Online"
+    // bucket, and UPI leads because that is how most Indian customers pay.
+    const methodLabels = await page.locator('[role="radio"] p.font-medium').allTextContents();
+    check(
+      "retail-checkout",
+      "every payment method is offered separately",
+      ["UPI", "Credit / Debit Card", "Net Banking", "Wallet", "EMI", "Cash on Delivery"].every((m) =>
+        methodLabels.includes(m)
+      ),
+      methodLabels.join(", ")
+    );
+    check("retail-checkout", "UPI is offered first", methodLabels[0] === "UPI");
+    check(
+      "retail-checkout",
+      "UPI is selected by default",
+      (await page.locator('[role="radio"][aria-checked="true"] p.font-medium').textContent()) === "UPI"
+    );
+
+    // This basket is well under the EMI floor, so EMI must be shown but
+    // disabled — a bank would refuse it, and offering it anyway sends the
+    // customer to a dead end inside the gateway.
+    check(
+      "retail-checkout",
+      "EMI is disabled below the bank minimum",
+      await page.locator('[role="radio"]:has-text("EMI")').isDisabled()
+    );
+
+    // The bug this replaced: the product page consulted the delivery estimate
+    // and said COD was unavailable for remote PIN codes, then checkout
+    // offered it anyway. Both now read the same rule.
+    await page.fill("#pincode", "790001");
+    await page.waitForTimeout(200);
+    check(
+      "retail-checkout",
+      "COD is withdrawn for a PIN code the delivery estimate excludes",
+      await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled()
+    );
+
+    await page.fill("#pincode", "400001");
+    await page.waitForTimeout(200);
+    check(
+      "retail-checkout",
+      "COD returns when the PIN code is serviceable",
+      !(await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled())
+    );
+
     await page.click("text=Cash on Delivery");
+    await page.waitForTimeout(200);
+
+    // Selecting COD must move the total, not just the label — the handling
+    // fee is real money and the customer has to see it before they commit.
+    check(
+      "retail-checkout",
+      "choosing COD adds its handling fee to the total",
+      (await page.locator("text=Cash on Delivery fee").count()) > 0
+    );
+
     await page.click('button:has-text("Place Order (COD)")');
     await page.waitForURL("**/shop/order-confirmation**");
     check("retail-checkout", "COD confirmation shows pay-on-delivery note", (await page.locator("text=Pay in cash when your order arrives").count()) > 0);
