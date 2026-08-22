@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/retail/breadcrumbs";
 import { ProductGallery } from "@/components/retail/product-gallery";
 import { AddToCartPanel } from "@/components/retail/add-to-cart-panel";
 import { ReviewSection } from "@/components/retail/review-section";
+import { FitFeedback } from "@/components/retail/fit-feedback";
 import { ProductCard } from "@/components/retail/product-card";
 import { RecentlyViewedTracker } from "@/components/retail/recently-viewed-tracker";
 import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
@@ -120,6 +121,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
           <div className="mt-6 border-t border-neutral-200 pt-6">
             <AddToCartPanel product={product} />
+          </div>
+
+          {/* Directly under the size picker, because that is the moment the
+              question is being asked. Fit is the top return reason in Indian
+              apparel, so this belongs beside the decision, not below the
+              reviews where most people never scroll. */}
+          <div className="mt-6">
+            <FitFeedback productId={product.id} />
           </div>
         </div>
       </div>

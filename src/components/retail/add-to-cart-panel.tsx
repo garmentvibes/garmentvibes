@@ -11,6 +11,9 @@ import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/lib/stores/cart-store";
 import { useStockStore, getStock, LOW_STOCK_THRESHOLD } from "@/lib/stores/stock-store";
 import { track } from "@/lib/analytics";
+import { useKeptSizes } from "@/lib/hooks/use-kept-sizes";
+import { useFitFeedbackStore, votesFor } from "@/lib/stores/fit-feedback-store";
+import { recommendSize, summariseFit } from "@/lib/fit";
 import type { RetailProduct } from "@/types/catalog";
 
 export function AddToCartPanel({ product }: { product: RetailProduct }) {
@@ -20,6 +23,15 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
   const decrementStock = useStockStore((s) => s.decrement);
   const stockOverrides = useStockStore((s) => s.overrides);
   const router = useRouter();
+
+  const keptSizes = useKeptSizes();
+  const ownFitVotes = useFitFeedbackStore((s) => s.votes);
+  const labels = product.sizes.map((s) => s.label);
+  const recommendation = recommendSize({
+    available: labels,
+    keptSizes,
+    fit: summariseFit(votesFor(product.id, ownFitVotes)),
+  });
 
   const selectedStock = size ? getStock(stockOverrides, product, size) : 0;
   const allOutOfStock = product.sizes.every((s) => getStock(stockOverrides, product, s.label) === 0);
@@ -88,8 +100,19 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <p className="text-sm font-medium text-neutral-700">Select Size</p>
-          <SizeGuideModal />
+          <SizeGuideModal sizes={labels} />
         </div>
+
+        {recommendation && (
+          <button
+            type="button"
+            onClick={() => setSize(recommendation.size)}
+            className="mb-2 flex w-full items-start gap-2 rounded-md border border-rose-200 bg-rose-50 p-2.5 text-left text-xs text-neutral-700 hover:border-rose-400"
+          >
+            <span className="font-medium text-rose-700">Try {recommendation.size}</span>
+            <span className="text-neutral-500">{recommendation.reason}</span>
+          </button>
+        )}
         <div className="flex flex-wrap gap-2">
           {product.sizes.map((s) => {
             const stock = getStock(stockOverrides, product, s.label);

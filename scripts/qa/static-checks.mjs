@@ -167,6 +167,58 @@ if (uncovered === 0) {
 }
 
 // ---------------------------------------------------------------------------
+// Every persisted store must be rehydrated by StoreHydrator.
+//
+// Stores use `skipHydration: true` so the first client render matches the SSR
+// output, which means something has to call rehydrate() after mount. A store
+// that nobody rehydrates works perfectly in the session that wrote it and is
+// empty on return — invisible in review, invisible in a fresh-page test, and
+// discovered by a customer whose saved data has vanished.
+//
+// This was not hypothetical: the fit-feedback store shipped without its line
+// in StoreHydrator and the only reason it was caught was an e2e check that
+// happened to reload the page.
+// ---------------------------------------------------------------------------
+
+const STORES_DIR = join(SRC_DIR, "lib/stores");
+const hydratorSource = readFileSync(
+  join(SRC_DIR, "components/shared/store-hydrator.tsx"),
+  "utf8"
+);
+
+let unhydrated = 0;
+let persistedStores = 0;
+
+for (const file of readdirSync(STORES_DIR)) {
+  if (!file.endsWith(".ts") || file.endsWith(".test.ts")) continue;
+
+  const source = readFileSync(join(STORES_DIR, file), "utf8");
+  if (!source.includes("skipHydration")) continue;
+  persistedStores++;
+
+  // The exported hook name, e.g. `export const useCartStore = create<...`.
+  const match = source.match(/export const (use\w+Store)\s*=/);
+  if (!match) {
+    fail(`${file} persists state but exports no use*Store hook to rehydrate`);
+    unhydrated++;
+    continue;
+  }
+
+  const hook = match[1];
+  if (!hydratorSource.includes(`${hook}.persist.rehydrate()`)) {
+    fail(
+      `${hook} (${file}) uses skipHydration but StoreHydrator never rehydrates it — ` +
+        "its persisted state will be silently dropped on every page load"
+    );
+    unhydrated++;
+  }
+}
+
+if (unhydrated === 0) {
+  pass(`All ${persistedStores} persisted stores are rehydrated by StoreHydrator`);
+}
+
+// ---------------------------------------------------------------------------
 
 console.log(`\n${failures === 0 ? "PASS" : "FAIL"}: ${failures} issue(s) found`);
 process.exit(failures === 0 ? 0 : 1);
