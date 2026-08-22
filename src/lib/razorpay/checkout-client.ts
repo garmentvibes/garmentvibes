@@ -4,6 +4,8 @@
 // and this stays about the gateway. Nothing here runs unless the server has
 // confirmed Razorpay is configured.
 
+import type { RazorpayMethod } from "@/lib/payment-methods";
+
 export interface RazorpayHandoff {
   orderId: string;
   amount: number;
@@ -83,6 +85,13 @@ export function openRazorpayCheckout(options: {
   keyId: string;
   handoff: RazorpayHandoff;
   customer: { name: string; email: string; contact: string };
+  /**
+   * Which tab Razorpay's modal opens on, from the choice already made on our
+   * own checkout page. Without it the customer picks UPI here and then has to
+   * pick it again inside the gateway, which is the sort of small friction
+   * that shows up as an abandoned basket.
+   */
+  method?: RazorpayMethod | null;
 }): Promise<{ paid: boolean; paymentId?: string }> {
   return new Promise((resolve, reject) => {
     if (!window.Razorpay) {
@@ -101,6 +110,9 @@ export function openRazorpayCheckout(options: {
         name: options.customer.name,
         email: options.customer.email,
         contact: options.customer.contact,
+        // Omitted rather than sent as null when there is no choice to carry
+        // over — Razorpay treats an unrecognised `method` as a hard error.
+        ...(options.method ? { method: options.method } : {}),
       },
       theme: { color: "#e11d48" },
       modal: {

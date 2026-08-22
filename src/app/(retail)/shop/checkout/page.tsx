@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Tag, Truck, Wallet } from "lucide-react";
+import { Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
 import { useAddressStore } from "@/lib/stores/address-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
-import { cn, formatPrice, generateReferenceId } from "@/lib/utils";
+import { formatPrice, generateReferenceId } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { notify } from "@/lib/stores/notification-store";
 import { usePromoStore, promoPercentFromStore } from "@/lib/stores/promo-store";
@@ -28,6 +28,14 @@ import {
   loadRazorpayScript,
   openRazorpayCheckout,
 } from "@/lib/razorpay/checkout-client";
+import {
+  codFee,
+  paymentMethods,
+  razorpayMethod,
+  resolveSelection,
+  type PaymentMethodId,
+} from "@/lib/payment-methods";
+import { PaymentMethodPicker } from "@/components/retail/payment-method-picker";
 
 // Public key id. Safe in the bundle — it identifies the merchant and cannot
 // authorise anything on its own. The secret stays server-side.
@@ -66,14 +74,23 @@ export default function CheckoutPage() {
 
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; percent: number } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CheckoutForm>({ resolver: zodResolver(checkoutSchema) });
+
+  // Availability depends on the PIN code, so it has to be watched rather than
+  // read at submit time: a customer who types a remote PIN code with COD
+  // selected must see the option withdrawn while they can still react to it.
+  //
+  // useWatch rather than watch(): watch() returns a fresh function on every
+  // render, which makes React Compiler skip memoising this entire component.
+  const pincode = useWatch({ control, name: "pincode" }) ?? "";
 
   function applyPromo() {
     const code = promoInput.trim().toUpperCase();
@@ -102,6 +119,19 @@ export default function CheckoutPage() {
   const discount = appliedPromo ? Math.round((totalPrice * appliedPromo.percent) / 100) : 0;
   const finalTotal = totalPrice - discount;
 
+  // Derived, not stored. Storing the resolved selection would mean keeping it
+  // in sync with the PIN code through an effect, and the window where it is
+  // stale is exactly the window where someone submits an order paid by a
+  // method we have just withdrawn.
+  const methodOptions = paymentMethods({
+    total: finalTotal,
+    pincode,
+    gatewayConfigured: Boolean(RAZORPAY_KEY_ID),
+  });
+  const selectedMethod = resolveSelection(methodOptions, paymentMethod);
+  const codCharge = selectedMethod === "cod" ? codFee(finalTotal) : 0;
+  const amountPayable = finalTotal + codCharge;
+
   // Prices already include GST, so this is the tax contained in what the
   // customer pays — shown for transparency, never added on top. A promo
   // reduces the amount charged, so it reduces the tax within it; each line
@@ -124,22 +154,24 @@ export default function CheckoutPage() {
 
   /** Shared tail of every successful order, however it was paid for. */
   function completeOrder(data: CheckoutForm, orderId: string) {
-    track({ name: "purchase", orderId, value: finalTotal, paymentMethod });
+    track({ name: "purchase", orderId, value: amountPayable, paymentMethod: selectedMethod });
     notify({
       templateId: "order_placed",
       recipientName: data.fullName,
       email: user?.email ?? "",
       phone: data.phone,
       relatedTo: orderId,
-      vars: { name: data.fullName, orderId, amount: formatPrice(finalTotal) },
+      // The amount the customer owes, which for COD includes the handling
+      // fee — the figure they will be asked for at the door.
+      vars: { name: data.fullName, orderId, amount: formatPrice(amountPayable) },
     });
     clear();
-    router.push(`/shop/order-confirmation?order=${orderId}&method=${paymentMethod}`);
+    router.push(`/shop/order-confirmation?order=${orderId}&method=${selectedMethod}`);
   }
 
   async function onSubmit(data: CheckoutForm) {
     // Cash on Delivery takes no payment now, so it never touches the gateway.
-    if (paymentMethod === "cod") {
+    if (selectedMethod === "cod") {
       completeOrder(data, generateReferenceId("GV"));
       return;
     }
@@ -176,6 +208,9 @@ export default function CheckoutPage() {
         keyId: RAZORPAY_KEY_ID,
         handoff,
         customer: { name: data.fullName, email: user?.email ?? "", contact: data.phone },
+        // Carries the choice already made above into the gateway, so the
+        // modal opens on UPI for someone who picked UPI.
+        method: razorpayMethod(selectedMethod),
       });
 
       if (!result.paid) {
@@ -289,47 +324,23 @@ export default function CheckoutPage() {
           </div>
 
           <h2 className="pt-2 font-semibold text-neutral-900">Payment Method</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("online")}
-              className={cn(
-                "flex items-center gap-3 rounded-md border p-3 text-left text-sm",
-                paymentMethod === "online" ? "border-rose-600 bg-rose-50" : "border-neutral-300"
-              )}
-            >
-              <Wallet className="h-5 w-5 text-rose-600" />
-              <div>
-                <p className="font-medium text-neutral-900">Pay Online</p>
-                <p className="text-xs text-neutral-500">UPI, Cards, Netbanking via Razorpay</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("cod")}
-              className={cn(
-                "flex items-center gap-3 rounded-md border p-3 text-left text-sm",
-                paymentMethod === "cod" ? "border-rose-600 bg-rose-50" : "border-neutral-300"
-              )}
-            >
-              <Truck className="h-5 w-5 text-rose-600" />
-              <div>
-                <p className="font-medium text-neutral-900">Cash on Delivery</p>
-                <p className="text-xs text-neutral-500">Pay when your order arrives</p>
-              </div>
-            </button>
-          </div>
+          <PaymentMethodPicker
+            options={methodOptions}
+            selected={selectedMethod}
+            onSelect={setPaymentMethod}
+          />
 
           <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-500">
-            {paymentMethod === "online"
-              ? RAZORPAY_KEY_ID
-                ? "You'll be taken to Razorpay to complete payment securely. Cards, UPI, net banking and wallets are supported."
-                : "Razorpay is integrated but no merchant keys are configured on this deployment, so placing an order here simulates a successful payment."
-              : "You'll pay in cash to the delivery agent when your order arrives."}
+            {selectedMethod === "cod"
+              ? "You'll pay the delivery agent in cash when your order arrives."
+              : RAZORPAY_KEY_ID
+                ? "You'll be taken to Razorpay to complete payment securely, opening on the method you chose."
+                : "Razorpay is integrated but no merchant keys are configured on this deployment, so placing an order here simulates a successful payment."}
           </div>
 
           <Button type="submit" variant="retail" size="lg" className="w-full" disabled={isSubmitting}>
-            {paymentMethod === "cod" ? "Place Order (COD)" : "Place Order"} &middot; {formatPrice(finalTotal)}
+            {selectedMethod === "cod" ? "Place Order (COD)" : "Place Order"} &middot;{" "}
+            {formatPrice(amountPayable)}
           </Button>
         </form>
 
@@ -381,12 +392,21 @@ export default function CheckoutPage() {
               <span>-{formatPrice(discount)}</span>
             </div>
           )}
+          {codCharge > 0 && (
+            <div className="mt-1 flex justify-between text-sm text-neutral-600">
+              <span>Cash on Delivery fee</span>
+              <span>+{formatPrice(codCharge)}</span>
+            </div>
+          )}
           <div className="mt-3 flex justify-between border-t border-neutral-200 pt-3 font-semibold text-neutral-900">
             <span>Total ({totalItems} items)</span>
-            <span>{formatPrice(finalTotal)}</span>
+            <span>{formatPrice(amountPayable)}</span>
           </div>
           <p className="mt-1 text-xs text-neutral-400">
-            Inclusive of GST {formatPrice(includedGst)}
+            {/* Scoped to the garments. The COD fee is a service charge with
+                its own rate, and quietly folding it into this figure would
+                misstate the tax on the invoice. */}
+            Includes GST {formatPrice(includedGst)} on items
           </p>
         </div>
       </div>
