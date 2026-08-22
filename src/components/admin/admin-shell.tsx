@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -18,10 +18,9 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useSessionStore } from "@/lib/stores/session-store";
-import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { signOutAdmin } from "@/lib/auth/actions";
+import type { StaffUser } from "@/lib/auth/dal";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -36,33 +35,16 @@ const NAV = [
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ];
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
-  const mounted = useHasMounted();
+/**
+ * `user` is resolved on the server by admin/(panel)/layout.tsx and passed in.
+ *
+ * That direction matters: this component no longer decides who is allowed to
+ * see it, so there is no client-side check to defeat. By the time this
+ * renders, the server has already established that the request is from staff.
+ */
+export function AdminShell({ user, children }: { user: StaffUser; children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [navOpen, setNavOpen] = useState(false);
-
-  const userRaw = useSessionStore((s) => s.user);
-  const user = mounted ? userRaw : null;
-  const logout = useSessionStore((s) => s.logout);
-
-  // The login page renders standalone, outside the authenticated shell.
-  const isLoginPage = pathname === "/admin/login";
-  if (isLoginPage) return <>{children}</>;
-
-  if (!mounted) return null;
-
-  if (!user || user.role !== "admin") {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-bold text-neutral-900">Admin access required</h1>
-        <p className="max-w-sm text-sm text-neutral-500">
-          Sign in with a staff account to manage products, orders and wholesale approvals.
-        </p>
-        <Button onClick={() => router.push("/admin/login")}>Go to Admin Sign In</Button>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
@@ -110,16 +92,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         <div className="absolute inset-x-0 bottom-0 border-t border-neutral-800 p-3">
           <p className="px-2 pb-2 text-xs text-neutral-500">Signed in as {user.email}</p>
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              router.push("/admin/login");
-            }}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800/60 hover:text-white"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
+          {/* A form posting to a Server Action, not an onClick: signing out
+              has to clear an HttpOnly cookie, which only the server can do. */}
+          <form action={signOutAdmin}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800/60 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
+          </form>
         </div>
       </aside>
 
@@ -149,6 +131,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           Demo mode — changes are saved to this browser only. They will write to the database once
           Supabase is connected, and are not yet visible on the live storefront.
         </div>
+
+        {user.demo && (
+          <div className="bg-red-50 px-4 py-2 text-center text-xs font-medium text-red-800 sm:px-6">
+            Demo sign-in — no password was checked. This deployment has no Supabase project, so
+            <code className="mx-1 rounded bg-red-100 px-1">ALLOW_DEMO_ADMIN</code>
+            let anyone through. Never serve this configuration publicly.
+          </div>
+        )}
 
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
