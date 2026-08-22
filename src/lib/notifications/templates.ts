@@ -31,6 +31,10 @@ export interface TemplateVars {
   /** Exchange: the size going out. Back-in-stock: the size that returned. */
   replacementSize?: string;
   productName?: string;
+  /** Cart reminder: how many lines are waiting. */
+  itemCount?: number;
+  /** Cart reminder: how long the bag has been sitting, e.g. "2 days". */
+  cartAge?: string;
 }
 
 interface TemplateDefinition {
@@ -127,6 +131,28 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateId, TemplateDefi
     email: (v) =>
       `Hi ${v.name},\n\n${v.productName ?? "An item on your wishlist"}${v.replacementSize ? ` in size ${v.replacementSize}` : ""} is available again.\n\nPopular sizes go quickly, so it's worth ordering soon if you still want it.\n\n${SIGNOFF}`,
     short: (v) => `GarmentVibes: ${v.productName ?? "An item you saved"} is back in stock.`,
+  },
+
+  // Marketing, not transactional, and the distinction has teeth: a customer
+  // who has not consented to marketing must not receive this, and on a
+  // DLT-registered Indian sender it needs a promotional template rather than
+  // a service one. Email only for that reason — adding SMS or WhatsApp is a
+  // compliance decision, not a copy change.
+  cart_reminder: {
+    label: "Cart reminder",
+    channels: ["email"],
+    subject: (v) =>
+      v.itemCount && v.itemCount > 1
+        ? `Your ${v.itemCount} saved items are waiting`
+        : "You left something in your bag",
+    email: (v) =>
+      `Hi ${v.name},\n\n${
+        v.productName ? `${v.productName} is` : "The items in your bag are"
+      } still saved${v.cartAge ? `, ${v.cartAge} on` : ""}${
+        v.amount ? ` — ${v.amount} in total` : ""
+      }.\n\nWe haven't held the stock, so popular sizes may go. Pick up where you left off any time from your bag.\n\nIf you've changed your mind, ignore this — we won't chase it again after a couple of nudges.\n\n${SIGNOFF}`,
+    short: (v) =>
+      `GarmentVibes: ${v.itemCount ?? "Some"} item${v.itemCount === 1 ? "" : "s"} still in your bag.`,
   },
 
   refund_initiated: {
