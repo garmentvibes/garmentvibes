@@ -1,30 +1,18 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useSessionStore } from "@/lib/stores/session-store";
 
-export default function AdminLoginPage() {
-  const router = useRouter();
-  const login = useSessionStore((s) => s.login);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+import { getStaffUser } from "@/lib/auth/dal";
+import { demoAdminEnabled, supabaseConfigured } from "@/lib/auth/demo";
+import { AdminLoginForm } from "@/components/admin/admin-login-form";
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email || password.length < 6) {
-      toast.error("Enter an email and a password of at least 6 characters");
-      return;
-    }
-    login({ name: email.split("@")[0], email, role: "admin" });
-    toast.success("Signed in to admin");
-    router.push("/admin");
-  }
+export const metadata = { title: "Sign in" };
+
+export default async function AdminLoginPage() {
+  // Already staff? Don't make them sign in again.
+  if (await getStaffUser()) redirect("/admin");
+
+  const configured = supabaseConfigured();
+  const demo = demoAdminEnabled();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-900 px-4">
@@ -36,30 +24,24 @@ export default function AdminLoginPage() {
           </h1>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="email">Staff email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button type="submit" className="w-full">
-            Sign in
-          </Button>
-        </form>
+        {configured || demo ? (
+          <AdminLoginForm />
+        ) : (
+          <p className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-3 text-sm text-neutral-600">
+            Admin sign-in is unavailable. This deployment has no Supabase project configured, so
+            there is nothing to authenticate against.
+          </p>
+        )}
 
-        <div className="mt-5 rounded-md border border-dashed border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-          <strong>Not a real login.</strong> Authentication is mocked until Supabase Auth is wired
-          up — any email works, and access is enforced in the browser only. Do not put real data
-          behind this or deploy it publicly as-is.
-        </div>
+        {demo && (
+          <div className="mt-5 rounded-md border border-dashed border-red-300 bg-red-50 p-3 text-xs text-red-800">
+            <strong>Demo sign-in is on.</strong> No Supabase project is configured and{" "}
+            <code className="rounded bg-red-100 px-1">ALLOW_DEMO_ADMIN=1</code> is set, so any
+            email and password will be accepted. This exists so the QA suite can drive the panel
+            without a database. It is ignored the moment a Supabase project is configured — but do
+            not serve this configuration publicly.
+          </div>
+        )}
       </div>
     </div>
   );
