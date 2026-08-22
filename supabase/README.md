@@ -203,6 +203,16 @@ promo codes, and inserts on stock alerts and wholesale applications.
 - **Invoice numbering** is enforced unique but not generated here. GST requires a
   consecutive series per financial year; that belongs in a server action, and a
   half-designed scheme in the schema would be worse than none.
+- **Abandoned-cart reminders have no trigger.** The rules — when each of the
+  three reminders is due, the cooldown between them, the 14-day expiry, and
+  every condition that stops a customer being messaged — are written and
+  tested in `src/lib/abandoned-cart.ts`. What is missing is something to run
+  them: the cart is `localStorage`, so it does not exist when the tab is
+  closed, which is exactly when a reminder would need to go out. Once
+  `cart_items` is the source of truth, a job that walks rows whose
+  `updated_at` is stale and calls `dueReminder()` is the whole of it. The
+  recovery prompt shown to a returning customer already works, because there
+  the customer is present.
 - **The seed covers the catalogue only.** No orders, customers, returns or
   invoices — the admin panel's demo data in `src/lib/mock/admin-data.ts` stays
   where it is. Loading fabricated orders into a real database would put

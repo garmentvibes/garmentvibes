@@ -25,6 +25,7 @@ export type NotificationTemplateId =
   | "return_rejected"
   | "exchange_shipped"
   | "back_in_stock"
+  | "cart_reminder"
   | "refund_initiated"
   | "wholesale_account_approved"
   | "wholesale_account_rejected"

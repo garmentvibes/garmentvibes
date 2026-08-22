@@ -17,6 +17,10 @@ export type AnalyticsEvent =
   | { name: "purchase"; orderId: string; value: number; paymentMethod: string }
   | { name: "search"; query: string; resultCount: number }
   | { name: "wishlist_add"; productId: string }
+  // Fired when a returning customer acts on the recovery prompt. The value
+  // is what the recovery is worth, which is the only way to tell whether the
+  // prompt earns its place on the page.
+  | { name: "cart_recovered"; itemCount: number; value: number }
   | { name: "quote_requested"; itemCount: number }
   | { name: "signup"; mode: "retail" | "wholesale" };
 

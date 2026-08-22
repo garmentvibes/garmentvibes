@@ -214,6 +214,106 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Retail: abandoned-cart recovery prompt
+//
+// The prompt keys off how long ago the cart last changed, so these drive it
+// by rewinding that timestamp in localStorage rather than by waiting an hour.
+// ---------------------------------------------------------------------------
+const PROMPT = "text=still in your bag";
+
+/** Moves the cart's last-changed time back by `hours` and reloads. */
+async function ageCart(page, hours) {
+  await page.evaluate((h) => {
+    const raw = localStorage.getItem("garmentvibes-retail-cart");
+    const parsed = JSON.parse(raw);
+    parsed.state.updatedAt = Date.now() - h * 60 * 60 * 1000;
+    localStorage.setItem("garmentvibes-retail-cart", JSON.stringify(parsed));
+  }, hours);
+  await page.reload();
+  await page.waitForTimeout(300);
+}
+
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
+    await page.click("text=Add to Bag");
+    await page.waitForTimeout(300);
+
+    // Someone who just added an item is shopping, not abandoning. Telling
+    // them they left something behind mid-session reads as a broken site.
+    check(
+      "cart-recovery",
+      "no prompt while the customer is still shopping",
+      (await page.locator(PROMPT).count()) === 0
+    );
+
+    await ageCart(page, 3);
+    check("cart-recovery", "prompt appears for a cart left hours ago", (await page.locator(PROMPT).count()) > 0);
+    check(
+      "cart-recovery",
+      "prompt reports how long the bag has been waiting",
+      (await page.locator("text=/saved 3 hours ago/").count()) > 0
+    );
+
+    // Dismissing is a decision about this cart, not this page load.
+    await page.click('button[aria-label="Dismiss"]');
+    await page.waitForTimeout(200);
+    check("cart-recovery", "dismissing hides the prompt", (await page.locator(PROMPT).count()) === 0);
+
+    await page.reload();
+    await page.waitForTimeout(300);
+    check(
+      "cart-recovery",
+      "dismissal survives a reload",
+      (await page.locator(PROMPT).count()) === 0
+    );
+
+    // Touching the cart restarts the abandonment clock — the customer is
+    // demonstrably back, so the old dismissal no longer applies and neither
+    // does the old age.
+    await goto(page, `${BASE_URL}/shop/product/satin-cami-top`);
+    await page.click("text=Add to Bag");
+    await page.waitForTimeout(300);
+    check(
+      "cart-recovery",
+      "editing the cart resets the clock rather than re-prompting",
+      (await page.locator(PROMPT).count()) === 0
+    );
+
+    await ageCart(page, 5);
+    check(
+      "cart-recovery",
+      "a freshly-edited cart can be abandoned again later",
+      (await page.locator(PROMPT).count()) > 0
+    );
+
+    // Two products were added, and the prompt has to count what is actually
+    // there rather than the number of times Add to Bag was pressed.
+    check(
+      "cart-recovery",
+      "prompt counts the items in the bag",
+      (await page.locator("text=2 items still in your bag").count()) > 0
+    );
+
+    // A recovered cart is only recovered if the link goes to the bag.
+    //
+    // Guarded rather than a bare click: an unconditional page.click on a
+    // missing element throws a 30s TimeoutError that takes down the whole
+    // suite, so a regression here would read as "QA crashed" instead of
+    // naming the check that broke. Proven by mutating the reset in
+    // cart-store.ts, which hid the prompt and hung the run.
+    const viewBag = page.locator('a:has-text("View bag")');
+    if ((await viewBag.count()) > 0) {
+      await viewBag.click();
+      await page.waitForURL("**/shop/cart");
+      check("cart-recovery", "the prompt links to the bag", page.url().endsWith("/shop/cart"));
+    } else {
+      check("cart-recovery", "the prompt links to the bag", false, "no View bag link rendered");
+    }
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Retail: stock levels, delivery estimate, review submission
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
