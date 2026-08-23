@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Star, BadgeCheck, PenLine } from "lucide-react";
+import { Star, BadgeCheck, PenLine, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,13 @@ import { cn } from "@/lib/utils";
 import { useReviewsStore, useProductReviews } from "@/lib/stores/reviews-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { usePurchasedProductIds } from "@/lib/hooks/use-purchased-products";
+import {
+  MAX_PHOTOS,
+  downscaleToDataUrl,
+  remainingSlots,
+  validatePhotoFile,
+} from "@/lib/review-photos";
 import type { RetailReview } from "@/lib/mock/retail-reviews";
 
 function StarRating({
@@ -63,8 +70,49 @@ export function ReviewSection({
   const [rating, setRating] = useState(0);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const signedIn = mounted && user?.role === "retail";
+
+  // Whether this reviewer actually received the product. Derived, never
+  // asserted by the reviewer — a badge the writer can set is not a badge.
+  const purchased = usePurchasedProductIds();
+  const hasPurchased = purchased.has(productId);
+
+  async function addPhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    const slots = remainingSlots(photos.length);
+    if (slots === 0) {
+      toast.error(`Up to ${MAX_PHOTOS} photos per review`);
+      return;
+    }
+
+    const accepted: string[] = [];
+    // Only as many as there is room for. Silently dropping the rest would be
+    // worse than saying so, so the count is reported below.
+    for (const file of Array.from(files).slice(0, slots)) {
+      const check = validatePhotoFile(file);
+      if (!check.ok) {
+        toast.error(check.error);
+        continue;
+      }
+      try {
+        accepted.push(await downscaleToDataUrl(file));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "That photo could not be read");
+      }
+    }
+
+    if (accepted.length > 0) setPhotos((current) => [...current, ...accepted]);
+    if (files.length > slots) {
+      toast.info(`Added ${accepted.length} — a review can carry ${MAX_PHOTOS} photos.`);
+    }
+
+    // Reset so re-picking the same file fires a change event again.
+    if (fileInput.current) fileInput.current.value = "";
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,13 +132,18 @@ export function ReviewSection({
       date: new Date().toISOString().slice(0, 10),
       title: title.trim(),
       body: body.trim(),
-      verified: false, // no purchase verification until orders live in the DB
+      // Real now: the order history says whether this customer received it.
+      // This was hardcoded false with a note that verification had to wait for
+      // the database, but delivered orders were readable all along.
+      verified: hasPurchased,
+      photos: photos.length > 0 ? photos : undefined,
     });
     toast.success("Thanks for your review!");
     setWriting(false);
     setRating(0);
     setTitle("");
     setBody("");
+    setPhotos([]);
   }
 
   // Averages should reflect what's actually displayed.
@@ -165,6 +218,63 @@ export function ReviewSection({
             />
           </div>
 
+          <div>
+            <Label htmlFor="review-photos">Photos (optional)</Label>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              A photo of the garment as it actually arrived is the most useful thing you can add.
+              Up to {MAX_PHOTOS}.
+            </p>
+
+            {photos.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {photos.map((src, i) => (
+                  <div key={src.slice(-32)} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a
+                        data: URL has nothing for next/image to optimise, and
+                        routing it through the optimiser would only re-encode
+                        an image we have already downscaled. */}
+                    <img
+                      src={src}
+                      alt={`Your photo ${i + 1}`}
+                      className="h-16 w-16 rounded-md object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Remove photo ${i + 1}`}
+                      onClick={() => setPhotos(photos.filter((p) => p !== src))}
+                      className="absolute -right-1.5 -top-1.5 rounded-full bg-neutral-900 p-0.5 text-white"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {remainingSlots(photos.length) > 0 && (
+              <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:border-neutral-400">
+                <ImagePlus className="h-4 w-4" />
+                Add photo
+                <input
+                  id="review-photos"
+                  ref={fileInput}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => addPhotos(e.target.files)}
+                />
+              </label>
+            )}
+          </div>
+
+          {!hasPurchased && (
+            <p className="text-xs text-neutral-500">
+              We can&apos;t match this to a delivered order, so your review won&apos;t carry a
+              verified-purchase badge.
+            </p>
+          )}
+
           <div className="flex gap-2">
             <Button type="submit" variant="retail" size="sm">
               Submit review
@@ -186,6 +296,24 @@ export function ReviewSection({
               <p className="text-sm font-medium text-neutral-900">{review.title}</p>
             </div>
             <p className="mt-1.5 text-sm text-neutral-600">{review.body}</p>
+
+            {review.photos && review.photos.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {review.photos.map((src, i) => (
+                  // A data: URL has nothing for next/image to optimise, and
+                  // routing it through the optimiser would re-encode an image
+                  // already downscaled in the browser.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={src.slice(-32)}
+                    src={src}
+                    alt={`Customer photo ${i + 1} for ${productName}`}
+                    className="h-20 w-20 rounded-md object-cover"
+                    loading="lazy"
+                  />
+                ))}
+              </div>
+            )}
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400">
               <span>{review.author}</span>
               <span>&middot;</span>

@@ -5,7 +5,17 @@ export interface RetailReview {
   date: string;
   title: string;
   body: string;
+  /**
+   * True when the reviewer received this product. Derived from the order
+   * history at submission time, not asserted by the reviewer.
+   */
   verified: boolean;
+  /**
+   * Customer photos, as data URLs while reviews live in localStorage. Becomes
+   * Supabase Storage URLs when reviews move to the database — the field does
+   * not change shape.
+   */
+  photos?: string[];
 }
 
 const REVIEW_POOL: Omit<RetailReview, "id">[] = [
