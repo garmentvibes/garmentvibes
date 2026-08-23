@@ -7,6 +7,7 @@ import { ProductGallery } from "@/components/retail/product-gallery";
 import { AddToCartPanel } from "@/components/retail/add-to-cart-panel";
 import { ReviewSection } from "@/components/retail/review-section";
 import { FitFeedback } from "@/components/retail/fit-feedback";
+import { ProductQuestions } from "@/components/retail/product-questions";
 import { ProductCard } from "@/components/retail/product-card";
 import { RecentlyViewedTracker } from "@/components/retail/recently-viewed-tracker";
 import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
@@ -132,6 +133,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       </div>
+
+      <ProductQuestions productId={product.id} productName={product.name} />
 
       <ReviewSection
         productId={product.id}

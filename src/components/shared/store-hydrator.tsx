@@ -21,6 +21,7 @@ import { useStockAlertsStore } from "@/lib/stores/stock-alerts-store";
 import { useClaimsStore } from "@/lib/stores/claims-store";
 import { useCreditStore } from "@/lib/stores/credit-store";
 import { useFitFeedbackStore } from "@/lib/stores/fit-feedback-store";
+import { useQuestionsStore } from "@/lib/stores/questions-store";
 
 // All persisted stores use `skipHydration: true` so the first client render
 // matches the server-rendered HTML (both show default/empty state) — then we
@@ -58,6 +59,7 @@ export function StoreHydrator() {
     useClaimsStore.persist.rehydrate();
     useCreditStore.persist.rehydrate();
     useFitFeedbackStore.persist.rehydrate();
+    useQuestionsStore.persist.rehydrate();
 
     // Signals "React has hydrated and persisted state is live". The QA suite
     // waits on this instead of Playwright's `networkidle`, which never

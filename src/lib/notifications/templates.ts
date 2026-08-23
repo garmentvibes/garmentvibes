@@ -35,6 +35,9 @@ export interface TemplateVars {
   itemCount?: number;
   /** Cart reminder: how long the bag has been sitting, e.g. "2 days". */
   cartAge?: string;
+  /** Question answered: what they asked, and what we said. */
+  question?: string;
+  answer?: string;
 }
 
 interface TemplateDefinition {
@@ -153,6 +156,19 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateId, TemplateDefi
       }.\n\nWe haven't held the stock, so popular sizes may go. Pick up where you left off any time from your bag.\n\nIf you've changed your mind, ignore this — we won't chase it again after a couple of nudges.\n\n${SIGNOFF}`,
     short: (v) =>
       `GarmentVibes: ${v.itemCount ?? "Some"} item${v.itemCount === 1 ? "" : "s"} still in your bag.`,
+  },
+
+  // Transactional, not marketing: they asked us a direct question and this is
+  // the reply. Email only because the answer is prose — an SMS long enough to
+  // carry it would be several messages, and a DLT template cannot hold
+  // free-form text anyway.
+  question_answered: {
+    label: "Question answered",
+    channels: ["email"],
+    subject: (v) => `Your question about ${v.productName ?? "a product"}`,
+    email: (v) =>
+      `Hi ${v.name},\n\nYou asked about ${v.productName ?? "one of our products"}:\n\n"${v.question ?? ""}"\n\nOur answer:\n\n${v.answer ?? ""}\n\nIt is now on the product page for other customers too.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: we've answered your question about ${v.productName ?? "your item"}.`,
   },
 
   refund_initiated: {
