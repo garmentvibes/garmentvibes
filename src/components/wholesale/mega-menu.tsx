@@ -14,7 +14,11 @@ export function WholesaleMegaMenu() {
         Catalog
       </Link>
 
-      <div className="invisible absolute left-0 top-full z-50 flex gap-8 rounded-lg border border-slate-200 bg-white p-6 opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100">
+          {/* `hidden`, not `invisible` — see the note in the retail
+              mega-menu. visibility:hidden keeps this ~980px panel in the
+              layout, which made every wholesale page scroll sideways on a
+              1024px-wide tablet. */}
+      <div className="absolute left-0 top-full z-50 hidden gap-8 rounded-lg border border-slate-200 bg-white p-6 shadow-lg group-hover:flex">
         {CATEGORIES.map((category) => (
           <div key={category} className="min-w-40">
             <Link
