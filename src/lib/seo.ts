@@ -6,6 +6,9 @@
 // visible content (which is itself a Google policy requirement).
 
 import { BUSINESS_INFO } from "@/lib/business-info";
+// Re-exported so existing callers keep their import, while next.config.ts
+// can reach the same rule without pulling this module's dependencies in.
+export { shouldAllowIndexing } from "@/lib/indexing";
 import type { RetailProduct, WholesaleProduct } from "@/types/catalog";
 import { wholesalePriceForQty } from "@/types/catalog";
 
@@ -43,19 +46,6 @@ export function siteUrl() {
  * previews, but relying on someone else's default for something this
  * expensive to undo is not worth it.
  */
-export function shouldAllowIndexing(env: {
-  vercelEnv?: string;
-  siteUrl?: string;
-}) {
-  // Explicitly deployed as production on Vercel: index it.
-  if (env.vercelEnv === "production") return true;
-  // Any other Vercel environment is a preview: never index.
-  if (env.vercelEnv) return false;
-  // Off Vercel entirely (local, or self-hosted): index only when a real
-  // site URL has been configured deliberately.
-  return Boolean(env.siteUrl);
-}
-
 export function absoluteUrl(path: string) {
   return `${siteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 }

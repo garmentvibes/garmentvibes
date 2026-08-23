@@ -1936,6 +1936,26 @@ allConsoleErrors.push(
   check("security", "allows the Razorpay checkout script", header("content-security-policy").includes("checkout.razorpay.com"));
   check("security", "allows the Razorpay payment frame", header("content-security-policy").includes("frame-src") && header("content-security-policy").includes("api.razorpay.com"));
 
+  // The indexing headers and robots.txt answer the same question and must
+  // never disagree — a deployment serving "Disallow: /" while its headers say
+  // it is indexable is one Google resolves in whichever direction it likes.
+  //
+  // Both are derived from shouldAllowIndexing() in src/lib/indexing.ts, so
+  // this asserts the agreement rather than either value: the suite runs with
+  // NEXT_PUBLIC_SITE_URL set and no VERCEL_ENV, which is the indexable case,
+  // but a preview build has to hold the same invariant.
+  {
+    const robots = await (await fetch(`${BASE_URL}/robots.txt`)).text();
+    const blanketDisallow = /User-Agent: \*\s*\nDisallow: \/\s*$/i.test(robots.trim());
+    const noindexHeader = header("x-robots-tag").includes("noindex");
+    check(
+      "security",
+      "robots.txt and X-Robots-Tag agree about whether this deployment is indexable",
+      blanketDisallow === noindexHeader,
+      `robots.txt blanket-disallow=${blanketDisallow}, X-Robots-Tag=${header("x-robots-tag") || "(absent)"}`
+    );
+  }
+
   check("security", "sends HSTS", header("strict-transport-security").includes("max-age="));
   check("security", "sends nosniff", header("x-content-type-options") === "nosniff");
   check("security", "sends X-Frame-Options", header("x-frame-options") === "DENY");
