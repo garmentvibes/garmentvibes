@@ -13,6 +13,13 @@ import { goto, appears } from "./_goto.mjs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
+// Smallest thing that decodes as an image: a 2x2 PNG. Used to drive the review
+// photo pipeline without shipping a fixture file.
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR4nGP8z8Dwn4GBgYGJAQoAFVwCAvsDIhAAAAAASUVORK5CYII=",
+  "base64"
+);
+
 const results = [];
 function check(flow, name, cond, detail) {
   // `detail` is shown only on failure. For checks that compare many things at
@@ -443,6 +450,84 @@ allConsoleErrors.push(
     await page.click('button:has-text("Submit review")');
     await page.waitForTimeout(400);
     check("retail-product", "submitted review appears on the product", (await page.locator("text=QA review title").count()) > 0);
+
+    // Verified-purchase badges are DERIVED from delivered orders, never
+    // asserted by the reviewer. floral-anarkali-kurta is not in any delivered
+    // order in the seed data, so this review must not carry a badge — and the
+    // form has to say so up front rather than surprising them afterwards.
+    // Asserted against the stored record rather than the DOM: `has-text`
+    // matches ancestors, so a container holding this review plus a seeded
+    // verified one satisfies any selector written that way. The store is
+    // where "verified" actually lives.
+    const unverified = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-reviews");
+      const reviews = raw ? JSON.parse(raw).state.reviews : [];
+      return reviews.find((r) => r.title === "QA review title");
+    });
+    check(
+      "review-trust",
+      "a review with no matching delivery is not marked verified",
+      unverified?.verified === false,
+      JSON.stringify(unverified?.verified)
+    );
+
+    // classic-crew-neck-tee (r23) IS in a delivered order in the seed data.
+    await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
+    await page.click('button:has-text("Write a review")');
+    check(
+      "review-trust",
+      "the form warns when a review will not be verifiable",
+      (await page.locator("text=/won't carry a verified-purchase badge/").count()) === 0
+    );
+
+    await page.click('button[aria-label="4 stars"]');
+    await page.fill("#review-title", "QA verified review");
+    await page.fill("#review-body", "Bought and delivered, per the seeded order history.");
+
+    // A 2x2 PNG is enough to prove the pipeline decodes, downscales and
+    // stores an image; the bytes are not the point.
+    await page.setInputFiles("#review-photos", {
+      name: "kurta.png",
+      mimeType: "image/png",
+      buffer: TINY_PNG,
+    });
+    await page.waitForTimeout(400);
+    check(
+      "review-trust",
+      "an uploaded photo previews before submitting",
+      (await page.locator('img[alt="Your photo 1"]').count()) > 0
+    );
+
+    await page.click('button:has-text("Submit review")');
+    await page.waitForTimeout(500);
+    check(
+      "review-trust",
+      "a review matching a delivered order shows the verified badge",
+      (await page.locator("text=Verified Purchase").count()) > 0
+    );
+    check(
+      "review-trust",
+      "the customer photo is shown on the review",
+      (await page.locator('img[alt^="Customer photo 1"]').count()) > 0
+    );
+
+    // Photos are stored as downscaled JPEG data URLs, not the original bytes.
+    const stored = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-reviews");
+      return raw ? JSON.parse(raw).state.reviews : [];
+    });
+    const withPhoto = stored.find((r) => r.title === "QA verified review");
+    check(
+      "review-trust",
+      "the stored photo is a downscaled JPEG, not the uploaded PNG",
+      Boolean(withPhoto?.photos?.[0]?.startsWith("data:image/jpeg")),
+      withPhoto?.photos?.[0]?.slice(0, 24)
+    );
+    check(
+      "review-trust",
+      "verified is stored as true, not merely rendered",
+      withPhoto?.verified === true
+    );
   }))
 );
 
