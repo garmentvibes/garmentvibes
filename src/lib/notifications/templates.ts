@@ -38,6 +38,9 @@ export interface TemplateVars {
   /** Question answered: what they asked, and what we said. */
   question?: string;
   answer?: string;
+  /** Support reply: the ticket's reference and subject. */
+  reference?: string;
+  subject?: string;
 }
 
 interface TemplateDefinition {
@@ -169,6 +172,18 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateId, TemplateDefi
     email: (v) =>
       `Hi ${v.name},\n\nYou asked about ${v.productName ?? "one of our products"}:\n\n"${v.question ?? ""}"\n\nOur answer:\n\n${v.answer ?? ""}\n\nIt is now on the product page for other customers too.\n\n${SIGNOFF}`,
     short: (v) => `GarmentVibes: we've answered your question about ${v.productName ?? "your item"}.`,
+  },
+
+  // Transactional: a reply to a conversation they started. Email only —
+  // support replies are prose, and an SMS long enough to carry one would be
+  // several messages against a DLT template that cannot hold free text.
+  support_reply: {
+    label: "Support reply",
+    channels: ["email"],
+    subject: (v) => `Re: ${v.subject ?? "your support request"} (${v.reference ?? ""})`.trim(),
+    email: (v) =>
+      `Hi ${v.name},\n\nWe've replied to your support request ${v.reference ?? ""}${v.subject ? ` about "${v.subject}"` : ""}:\n\n${v.answer ?? ""}\n\nYou can reply from My Account, and the whole conversation stays there.\n\n${SIGNOFF}`,
+    short: (v) => `GarmentVibes: we've replied to your support request ${v.reference ?? ""}.`,
   },
 
   refund_initiated: {

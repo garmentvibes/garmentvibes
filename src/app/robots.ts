@@ -31,6 +31,10 @@ export default function robots(): MetadataRoute.Robots {
         "/shop/orders",
         "/shop/addresses",
         "/shop/wishlist", // per-user state, nothing to index
+        // A customer's own support correspondence. Nothing here is public,
+        // and it is the one page on the site that would leak a private
+        // conversation if it ever were.
+        "/shop/support",
         // Internal search results are thin, near-duplicate pages — Google
         // explicitly discourages indexing them.
         "/shop/search",

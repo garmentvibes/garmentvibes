@@ -239,6 +239,136 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Retail + admin: order-linked support threads
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    await goto(page, `${BASE_URL}/shop/support`);
+    check(
+      "support",
+      "support requires an account",
+      await appears(page, "text=Sign in to get help")
+    );
+
+    await goto(page, `${BASE_URL}/shop/login`);
+    await page.fill("#email", "helpme@qa.test");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/shop");
+
+    // The seeded threads belong to other people and must not be visible.
+    await goto(page, `${BASE_URL}/shop/support`);
+    check(
+      "support",
+      "one customer cannot see another's support thread",
+      (await page.locator("text=Parcel marked delivered but not received").count()) === 0
+    );
+
+    // Raising it FROM an order is the point of the feature: the thread should
+    // arrive already attached, with no "which order?" round trip.
+    await goto(page, `${BASE_URL}/shop/orders/GV84213567`);
+    await page.click('a:has-text("Get help with this order")');
+    await page.waitForURL("**/shop/support?order=GV84213567");
+    check(
+      "support",
+      "raising help from an order carries the order with it",
+      await appears(page, "text=GV84213567")
+    );
+
+    await page.fill("#support-subject", "Wrong colour delivered");
+    await page.fill("#support-body", "The kurta that arrived is navy, but I ordered the rose one.");
+    await page.click('button:has-text("Send request")');
+    await page.waitForTimeout(400);
+    check(
+      "support",
+      "the thread appears in the customer's list",
+      await appears(page, "#support-tickets >> text=Wrong colour delivered")
+    );
+    check(
+      "support",
+      "a new thread is waiting on us, not on the customer",
+      (await page.locator("#support-tickets >> text=With our team").count()) > 0
+    );
+
+    // Staff answer it.
+    await goto(page, `${BASE_URL}/admin/login`);
+    await page.fill("#email", "support-staff@garmentvibes.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/admin");
+
+    await goto(page, `${BASE_URL}/admin/support`);
+    await appears(page, "#support-queue > li");
+    check(
+      "support",
+      "the thread reaches the staff queue",
+      (await page.locator("#support-queue >> text=Wrong colour delivered").count()) > 0
+    );
+
+    // The seeded 29-hour-old thread is past the 24-hour target and must sort
+    // above a request raised seconds ago.
+    const firstInQueue = await page.locator("#support-queue > li").first().innerText();
+    check(
+      "support",
+      "the longest-waiting thread is at the top of the queue",
+      firstInQueue.includes("Parcel marked delivered"),
+      firstInQueue.slice(0, 60)
+    );
+    check(
+      "support",
+      "a thread past the response target is flagged overdue",
+      (await page.locator("#support-queue >> text=/\\d+h/").count()) > 0
+    );
+
+    const mine = page.locator("#support-queue > li", { hasText: "Wrong colour delivered" });
+    await mine.locator("textarea").fill("Apologies — we'll collect it and send the rose one out today.");
+    await mine.locator('button:has-text("Reply")').click();
+    await page.waitForTimeout(400);
+
+    const outbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check(
+      "support",
+      "replying emails the customer",
+      outbox.some((m) => m.templateId === "support_reply")
+    );
+
+    await goto(page, `${BASE_URL}/shop/support`);
+    check(
+      "support",
+      "the customer sees the reply on their thread",
+      await appears(page, "text=/we'll collect it and send the rose one out today/")
+    );
+    check(
+      "support",
+      "answering moves the thread to waiting on the customer",
+      (await page.locator("#support-tickets >> text=Waiting on you").count()) > 0
+    );
+
+    // The transition every support system gets wrong: replying to a resolved
+    // thread must reopen it, not leave the message in a queue nobody reads.
+    await goto(page, `${BASE_URL}/admin/support`);
+    const again = page.locator("#support-queue > li", { hasText: "Parcel marked delivered" });
+    await again.locator('button:has-text("Mark resolved")').click();
+    await page.waitForTimeout(300);
+
+    await goto(page, `${BASE_URL}/shop/support`);
+    const thread = page.locator("#support-tickets > li", { hasText: "Wrong colour delivered" });
+    await thread.locator('button:has-text("Reply")').click();
+    await thread.locator("textarea").fill("It still has not been collected — any update?");
+    await thread.locator('button:has-text("Send reply")').click();
+    await page.waitForTimeout(400);
+    check(
+      "support",
+      "a customer reply puts the thread back with our team",
+      (await page.locator("#support-tickets >> text=With our team").count()) > 0
+    );
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Retail: referrals and promo redemption caps
 //
 // The abuse cases are the point: self-referral, reusing a one-per-customer

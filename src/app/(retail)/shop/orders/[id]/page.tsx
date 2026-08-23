@@ -327,7 +327,19 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
 
           <div className="rounded-lg border border-neutral-200 bg-white p-5 text-sm">
             <h2 className="mb-2 font-semibold text-neutral-900">Need help?</h2>
-            <Link href="/shop/contact" className="block text-rose-600 underline underline-offset-4">
+            {/* Carries the order id, so the thread arrives already attached to
+                it and nobody has to ask "which order?" and wait a day for the
+                answer. That round trip is the whole cost this saves. */}
+            <Link
+              href={`/shop/support?order=${order.id}`}
+              className="block text-rose-600 underline underline-offset-4"
+            >
+              Get help with this order
+            </Link>
+            <Link
+              href="/shop/contact"
+              className="mt-1 block text-rose-600 underline underline-offset-4"
+            >
               Contact support
             </Link>
             <Link
