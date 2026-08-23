@@ -4,12 +4,27 @@ import { createRazorpayOrder, RazorpayError } from "@/lib/razorpay/client";
 import { priceOrder, PricingError } from "@/lib/pricing";
 import { generateReferenceId } from "@/lib/utils";
 import { callerKey, createRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
+import { createClient } from "@/lib/supabase/server";
+import { supabaseConfigured } from "@/lib/auth/demo";
 
 // Creates the Razorpay order the browser then pays against.
 //
-// The request body says only WHAT is being bought. The amount is computed
-// here from the catalog — see lib/pricing.ts for why accepting a
-// client-supplied total would be a way to buy anything for a rupee.
+// Two ways in, and the first is the real one:
+//
+//   1. `{ reference }` — the order already exists in the database, placed by
+//      place_retail_order() with its stock taken and every amount checked. The
+//      gateway order is created for THAT row's total and keyed on ITS receipt,
+//      so a payment can always be reconciled against an order that exists.
+//      The row is read as the signed-in customer, so RLS is what proves the
+//      order is theirs; there is no ownership check to get wrong here.
+//
+//   2. `{ items, promoCode }` — the fallback for a deployment with no Supabase
+//      project, where there is nowhere to place an order first. Prices from
+//      the catalogue exactly as before. Kept because it is the state this
+//      repository is in and what the test suite exercises.
+//
+// Neither accepts an amount from the browser. That is the whole point of the
+// route: see lib/pricing.ts for what a client-supplied total buys you.
 
 // Ten a minute. A customer reaching checkout creates one order, retries once
 // or twice at worst; a script creating hundreds is either probing our pricing
@@ -37,12 +52,67 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const { items, promoCode } = (body ?? {}) as {
+  const { items, promoCode, reference } = (body ?? {}) as {
     items?: Array<{ productId: string; qty: number }>;
     promoCode?: string;
+    reference?: string;
   };
 
   try {
+    // ---------------------------------------------------------------
+    // 1. A placed order
+    // ---------------------------------------------------------------
+    if (reference && supabaseConfigured()) {
+      const supabase = await createClient();
+      const { data: order, error } = await supabase
+        .from("retail_orders")
+        .select("reference, total, status")
+        .eq("reference", reference)
+        .maybeSingle();
+
+      // RLS scopes this to the caller's own orders, so "not found" covers both
+      // a bad reference and somebody else's — deliberately indistinguishable.
+      if (error || !order) {
+        return NextResponse.json(
+          { error: "unknown_order", message: "That order could not be found." },
+          { status: 404 }
+        );
+      }
+
+      // Only an unpaid order is payable. A confirmed one has been paid for
+      // already, and creating a second gateway order against it is how a
+      // customer gets charged twice for one basket.
+      if (order.status !== "pending") {
+        return NextResponse.json(
+          { error: "not_payable", message: "That order is not awaiting payment." },
+          { status: 409 }
+        );
+      }
+
+      if (!isRazorpayConfigured()) {
+        return NextResponse.json(
+          { error: "not_configured", message: "Razorpay keys are not set on this deployment." },
+          { status: 503 }
+        );
+      }
+
+      const gatewayOrder = await createRazorpayOrder({
+        amount: order.total,
+        receipt: order.reference,
+        notes: { receipt: order.reference },
+      });
+
+      return NextResponse.json({
+        orderId: gatewayOrder.id,
+        amount: gatewayOrder.amount,
+        currency: gatewayOrder.currency,
+        receipt: order.reference,
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // 2. No database to place into
+    // ---------------------------------------------------------------
     // Priced before the configuration check on purpose: whether the request
     // is well-formed doesn't depend on whether keys happen to be set, and
     // validating first keeps this gate exercised by the test suite even on a

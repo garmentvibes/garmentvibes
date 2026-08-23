@@ -73,5 +73,14 @@ export async function fetchRazorpayPayment(paymentId: string) {
   if (!response.ok) {
     throw new RazorpayError(`Could not fetch payment ${paymentId}`, 502);
   }
-  return (await response.json()) as { id: string; status: string; amount: number; order_id: string };
+  // `notes` is copied onto the payment from the order it belongs to, which is
+  // how the receipt travels back to us — the browser's handoff carries the
+  // gateway order id, and that is not something we can look an order up by.
+  return (await response.json()) as {
+    id: string;
+    status: string;
+    amount: number;
+    order_id: string;
+    notes?: Record<string, string>;
+  };
 }

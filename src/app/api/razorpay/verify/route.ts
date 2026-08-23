@@ -3,6 +3,7 @@ import { isRazorpayConfigured, razorpayKeySecret } from "@/lib/razorpay/config";
 import { verifyPaymentSignature } from "@/lib/razorpay/signature";
 import { fetchRazorpayPayment, RazorpayError } from "@/lib/razorpay/client";
 import { callerKey, createRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
+import { recordPayment } from "@/lib/supabase/admin";
 
 // Verifies the handoff Razorpay Checkout gives the browser after payment.
 //
@@ -57,6 +58,24 @@ export async function POST(request: Request) {
     // from Razorpay; this proves the payment actually captured.
     const payment = await fetchRazorpayPayment(paymentId);
     const paid = payment.status === "captured" || payment.status === "authorized";
+
+    // Confirm the order here as well as in the webhook.
+    //
+    // The webhook is the authoritative record and will arrive, but it can lag
+    // by seconds, and the customer is looking at a spinner right now. Doing it
+    // in both places means the confirmation page shows a confirmed order
+    // rather than a pending one; the database makes the second call a no-op,
+    // so whichever loses the race changes nothing.
+    //
+    // Keyed on the receipt Razorpay echoes back from the order we created,
+    // and checked against the order's own total on the way in.
+    if (paid && payment.notes?.receipt) {
+      await recordPayment({
+        reference: String(payment.notes.receipt),
+        paymentId,
+        amount: payment.amount,
+      });
+    }
 
     return NextResponse.json({
       verified: true,

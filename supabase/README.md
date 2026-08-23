@@ -86,6 +86,7 @@ statement is guarded, so re-applying is a no-op rather than an error.
 | `0011_advisor_fixes.sql` | Two findings from Supabase's database linter |
 | `0012_payment_method_values.sql` | The six methods checkout offers — alone, see below |
 | `0013_order_placement.sql` | `place_retail_order()`, and closing the direct INSERT |
+| `0014_order_lifecycle.sql` | Releasing an unpaid order, and marking a paid one |
 
 `seed.sql` sits alongside them and is **generated**, not hand-written:
 
@@ -145,6 +146,34 @@ follow a rename.
 `supabase/tests/40_order_placement.sql` runs 53 assertions against the whole
 thing, including that a refused order leaves no stock taken and no header
 behind.
+
+### The order of operations
+
+The checkout places the order **before** taking any money. That is what makes a
+payment reconcilable: the gateway order is created against a row that already
+exists, keyed on its `reference` and for its stored `total`, so a payment can
+never arrive for something we have no record of.
+
+The cost is that stock is taken before the customer has paid, which is why
+`0014` exists:
+
+- `release_retail_order(id)` — the customer's own `pending` order only. Puts
+  the stock back and marks it cancelled. Every failure path in the checkout
+  calls it: a dismissed gateway modal, a failed card, a gateway that would not
+  start. Without it, opening the payment window and walking away takes the last
+  unit of something out of the catalogue permanently.
+- `mark_retail_order_paid(reference, payment_id, amount)` — **service_role
+  only**. Called from the Razorpay webhook and from the browser's verify
+  handoff, both after Razorpay's HMAC has been checked. The amount is verified
+  against the order's own total, because a real notification for a partial or
+  different payment must not confirm an order. Idempotent, because Razorpay
+  sends `payment.captured` and `order.paid` for one payment and retries
+  anything it does not get a 2xx for.
+
+One failure path deliberately does *not* release: an exception thrown around
+the gateway call. That throw could have come after the money moved, and
+restoring stock for an order that was in fact paid for is worse than leaving a
+pending order for the webhook to confirm.
 
 Two things it deliberately does not do. It does not decide which GST slab a
 product falls in — that is `src/lib/gst.ts`, tested there, and a second

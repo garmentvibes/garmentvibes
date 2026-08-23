@@ -26,6 +26,7 @@ import { checkReferral, rewardCodeFor, REFERRAL_FRIEND_PERCENT } from "@/lib/ref
 import { useNow } from "@/lib/hooks/use-now";
 import { computeGst } from "@/lib/gst";
 import { isServerPriceable } from "@/lib/pricing";
+import { placeRetailOrder, releaseRetailOrder } from "@/lib/orders/actions";
 import { getRetailProductById } from "@/lib/mock/retail-products";
 import { reportError } from "@/lib/analytics";
 import {
@@ -260,36 +261,79 @@ export default function CheckoutPage() {
     router.push(`/shop/order-confirmation?order=${orderId}&method=${selectedMethod}`);
   }
 
+  /**
+   * Writes the order to the database before any money moves.
+   *
+   * This is the ordering that makes a payment reconcilable: a gateway order
+   * is created against a row that already exists, so a payment can never
+   * arrive for something we have no record of. The cost is that stock is
+   * taken before the customer has paid, which is why every failure path below
+   * releases it again.
+   *
+   * Returns null when there is no database to place into — the state this
+   * deployment is in — and the caller then runs the local-only flow exactly
+   * as before.
+   */
+  async function placeServerSide(data: CheckoutForm) {
+    const result = await placeRetailOrder({
+      lines,
+      address: data,
+      customerEmail: user?.email ?? "",
+      paymentMethod: selectedMethod,
+      promo: appliedPromo ? { code: appliedPromo.code, percent: appliedPromo.percent } : null,
+      reference: generateReferenceId("GV"),
+    });
+
+    if (result.ok) return result;
+
+    // No Supabase project: not a failure, just the older path.
+    if (result.reason === "not_configured") return null;
+
+    toast.error(result.error);
+    return { failed: true } as const;
+  }
+
   async function onSubmit(data: CheckoutForm) {
+    const placed = await placeServerSide(data);
+    if (placed && "failed" in placed) return;
+
     // Cash on Delivery takes no payment now, so it never touches the gateway.
+    // place_retail_order() already wrote it as confirmed.
     if (selectedMethod === "cod") {
-      completeOrder(data, generateReferenceId("GV"));
+      completeOrder(data, placed?.reference ?? generateReferenceId("GV"));
       return;
     }
 
-    // Online payment. The server prices the order and creates the Razorpay
-    // order; a 503 means no keys are configured on this deployment, which is
-    // the current state, so we fall back to the simulated flow rather than
-    // dead-ending the customer.
+    // Online payment. When the order was placed above, the gateway order is
+    // created against it by reference and for its stored total; otherwise the
+    // route prices from the catalogue as it always did.
     let handoff;
     try {
-      handoff = await createPaymentOrder({
-        items: lines.map((line) => ({ productId: line.productId, qty: line.qty })),
-        promoCode: appliedPromo?.code,
-      });
+      handoff = placed
+        ? await createPaymentOrder({ reference: placed.reference })
+        : await createPaymentOrder({
+            items: lines.map((line) => ({ productId: line.productId, qty: line.qty })),
+            promoCode: appliedPromo?.code,
+          });
     } catch (error) {
       reportError(error, "razorpay-create-order");
+      // The order exists and holds stock, but there is no payment to wait for.
+      if (placed) await releaseRetailOrder(placed.orderId);
       toast.error(error instanceof Error ? error.message : "Could not start the payment");
       return;
     }
 
+    // 503: no merchant keys on this deployment, so the payment is simulated.
+    // The order stands and is left pending — it has not been paid for, and
+    // saying otherwise would put invented revenue in the admin panel.
     if (!handoff) {
-      completeOrder(data, generateReferenceId("GV"));
+      completeOrder(data, placed?.reference ?? generateReferenceId("GV"));
       return;
     }
 
     const scriptReady = await loadRazorpayScript();
     if (!scriptReady) {
+      if (placed) await releaseRetailOrder(placed.orderId);
       toast.error("Could not reach the payment provider. Check your connection and try again.");
       return;
     }
@@ -306,7 +350,10 @@ export default function CheckoutPage() {
 
       if (!result.paid) {
         // Covers both a dismissed modal and a payment the server would not
-        // verify. Nothing is cleared, so the cart survives a retry.
+        // verify. The stock goes back — otherwise closing the gateway window
+        // would quietly take the last unit of something out of the catalogue
+        // for good. Nothing is cleared, so the cart survives a retry.
+        if (placed) await releaseRetailOrder(placed.orderId);
         toast.error("Payment was not completed. Your bag is still here.");
         return;
       }
@@ -314,6 +361,10 @@ export default function CheckoutPage() {
       completeOrder(data, handoff.receipt);
     } catch (error) {
       reportError(error, "razorpay-checkout");
+      // Deliberately NOT released. The throw could have come after the money
+      // moved, and releasing here would restore stock for an order that was
+      // in fact paid for. A pending order with a webhook still to arrive is
+      // recoverable; stock invented back onto the shelf is not.
       toast.error("Something went wrong during payment. You have not been charged twice.");
     }
   }
