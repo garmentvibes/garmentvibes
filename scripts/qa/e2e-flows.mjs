@@ -43,7 +43,21 @@ function check(flow, name, cond, detail) {
  */
 const EXPECTED_CONSOLE_ERROR_URLS = [/\/api\/razorpay\/order$/];
 
-async function withPage(browser, fn) {
+/**
+ * Runs one flow on its own page, and does not let it take the run down with it.
+ *
+ * Playwright's waiting calls throw on timeout, and this file has twenty
+ * `waitForURL`s in it. An unguarded one turns a regression in the flow it
+ * belongs to — checkout stopped navigating, say — into an uncaught
+ * TimeoutError that kills the process before any results are printed. What
+ * reaches the reader is a stack trace, not "the referral order never reached
+ * confirmation", and none of the other flows run at all.
+ *
+ * Catching here converts that into a failed check for the flow that threw, and
+ * lets the remaining flows report. The run still fails; it just says what
+ * broke, and everything else still gets measured.
+ */
+async function withPage(browser, fn, flowName = "flow") {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -53,8 +67,15 @@ async function withPage(browser, fn) {
     if (EXPECTED_CONSOLE_ERROR_URLS.some((pattern) => pattern.test(url))) return;
     errors.push(msg.text());
   });
-  await fn(page);
-  await page.close();
+
+  try {
+    await fn(page);
+  } catch (error) {
+    const detail = String(error?.message ?? error).split("\n")[0];
+    check(flowName, `flow ran to completion — ${detail}`, false);
+  }
+
+  await page.close().catch(() => {});
   return errors;
 }
 
@@ -420,6 +441,17 @@ allConsoleErrors.push(
       "referrals",
       "a friend's referral code applies a first-order discount",
       (await page.locator("text=/Referral applied/").count()) > 0
+    );
+
+    // A referral code is generated in the browser, so /api/razorpay/order
+    // cannot price it — it would create the gateway order at full list and
+    // charge back the whole discount. The online methods therefore withdraw
+    // and COD carries the order instead. Asserted here rather than trusted,
+    // because the flow below reaches the confirmation page either way.
+    check(
+      "referrals",
+      "online payment withdraws for a code the payment route cannot price",
+      (await page.locator("text=/Not available with this discount code/").count()) > 0
     );
 
     await page.fill("#fullName", "QA Friend");

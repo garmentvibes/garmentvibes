@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { phoneField, pincodeField } from "@/lib/validation/address";
 import { toast } from "sonner";
 import { Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { evaluatePromo } from "@/lib/promo-eligibility";
 import { checkReferral, rewardCodeFor, REFERRAL_FRIEND_PERCENT } from "@/lib/referrals";
 import { useNow } from "@/lib/hooks/use-now";
 import { computeGst } from "@/lib/gst";
+import { isServerPriceable } from "@/lib/pricing";
 import { getRetailProductById } from "@/lib/mock/retail-products";
 import { reportError } from "@/lib/analytics";
 import {
@@ -46,11 +48,11 @@ const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Enter your full name"),
-  phone: z.string().min(10, "Enter a valid phone number"),
+  phone: phoneField,
   addressLine1: z.string().min(5, "Enter your address"),
   city: z.string().min(2, "Enter your city"),
   state: z.string().min(2, "Enter your state"),
-  pincode: z.string().min(4, "Enter a valid PIN code"),
+  pincode: pincodeField,
 });
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
@@ -178,8 +180,17 @@ export default function CheckoutPage() {
     total: finalTotal,
     pincode,
     gatewayConfigured: Boolean(RAZORPAY_KEY_ID),
+    // Admin-created and referral codes are quoted here but cannot be priced
+    // by the payment route, so the gateway would charge full list. Rather
+    // than dropping the discount or overcharging, online payment steps aside
+    // and COD collects the figure on the screen.
+    promoBlocksOnline: Boolean(appliedPromo) && !isServerPriceable(appliedPromo?.code),
   });
   const selectedMethod = resolveSelection(methodOptions, paymentMethod);
+  // resolveSelection returns a method even when none is available, so that its
+  // return type stays honest. Whether anything is actually selectable is a
+  // separate question, and it gates the submit button.
+  const hasSelectableMethod = methodOptions.some((option) => option.available);
   const codCharge = selectedMethod === "cod" ? codFee(finalTotal) : 0;
   const amountPayable = finalTotal + codCharge;
 
@@ -411,14 +422,26 @@ export default function CheckoutPage() {
           />
 
           <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-500">
-            {selectedMethod === "cod"
-              ? "You'll pay the delivery agent in cash when your order arrives."
-              : RAZORPAY_KEY_ID
-                ? "You'll be taken to Razorpay to complete payment securely, opening on the method you chose."
-                : "Razorpay is integrated but no merchant keys are configured on this deployment, so placing an order here simulates a successful payment."}
+            {!hasSelectableMethod
+              ? "There is no way to pay for this order as it stands. Removing the discount code will bring online payment back."
+              : selectedMethod === "cod"
+                ? "You'll pay the delivery agent in cash when your order arrives."
+                : RAZORPAY_KEY_ID
+                  ? "You'll be taken to Razorpay to complete payment securely, opening on the method you chose."
+                  : "Razorpay is integrated but no merchant keys are configured on this deployment, so placing an order here simulates a successful payment."}
           </div>
 
-          <Button type="submit" variant="retail" size="lg" className="w-full" disabled={isSubmitting}>
+          {/* Disabled when nothing is selectable, which happens on an order
+              above the COD ceiling carrying a code the payment route cannot
+              price. Leaving it enabled would send the customer into a payment
+              the server is about to refuse. */}
+          <Button
+            type="submit"
+            variant="retail"
+            size="lg"
+            className="w-full"
+            disabled={isSubmitting || !hasSelectableMethod}
+          >
             {selectedMethod === "cod" ? "Place Order (COD)" : "Place Order"} &middot;{" "}
             {formatPrice(amountPayable)}
           </Button>

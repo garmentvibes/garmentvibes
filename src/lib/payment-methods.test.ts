@@ -167,3 +167,69 @@ describe("razorpayMethod", () => {
     expect(razorpayMethod("cod")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// A discount the gateway will not honour
+//
+// The checkout page applies codes from the admin panel and from referrals.
+// The payment route can price neither, so it created the Razorpay order at
+// full list — the customer was quoted ₹1,039.20 and charged ₹1,299.
+//
+// The way out is not to drop their discount and not to overcharge them: the
+// online methods withdraw, and COD collects the figure on the screen.
+// ---------------------------------------------------------------------------
+
+describe("a promo code the payment route cannot price", () => {
+  const base = { total: 100000, pincode: "400001", gatewayConfigured: true };
+
+  it("withdraws every online method", () => {
+    const options = paymentMethods({ ...base, promoBlocksOnline: true });
+    for (const option of options.filter((o) => o.id !== "cod")) {
+      expect(option.available).toBe(false);
+    }
+  });
+
+  it("leaves cash on delivery available, so the order can still be placed", () => {
+    const options = paymentMethods({ ...base, promoBlocksOnline: true });
+    expect(options.find((o) => o.id === "cod")?.available).toBe(true);
+  });
+
+  it("says why, rather than leaving the customer to guess", () => {
+    const options = paymentMethods({ ...base, promoBlocksOnline: true });
+    expect(options.find((o) => o.id === "upi")?.unavailableReason)
+      .toMatch(/discount code/i);
+  });
+
+  it("moves a selection that was on an online method", () => {
+    const options = paymentMethods({ ...base, promoBlocksOnline: true });
+    expect(resolveSelection(options, "upi")).toBe("cod");
+  });
+
+  it("charges the COD fee on the discounted total, as any COD order does", () => {
+    const options = paymentMethods({ ...base, promoBlocksOnline: true });
+    expect(options.find((o) => o.id === "cod")?.fee).toBe(codFee(base.total));
+  });
+
+  it("changes nothing when the code is one the route can price", () => {
+    const options = paymentMethods({ ...base, promoBlocksOnline: false });
+    expect(options.find((o) => o.id === "upi")?.available).toBe(true);
+  });
+
+  it("changes nothing when no code is applied at all", () => {
+    const options = paymentMethods(base);
+    expect(options.find((o) => o.id === "upi")?.available).toBe(true);
+  });
+
+  // COD is refused above the ceiling regardless. A code that blocks online
+  // payment on such an order leaves nothing selectable, and the page must not
+  // pretend otherwise.
+  it("can leave nothing available on a high-value order, and says so", () => {
+    const options = paymentMethods({
+      ...base,
+      total: PAYMENT_POLICY.codMaxOrderValue + 1,
+      promoBlocksOnline: true,
+    });
+    expect(options.every((o) => !o.available)).toBe(true);
+    expect(options.find((o) => o.id === "cod")?.unavailableReason).toBeTruthy();
+  });
+});
