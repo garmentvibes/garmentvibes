@@ -111,3 +111,44 @@ begin
   end;
 end;
 $$;
+
+/**
+ * Runs a statement as a signed-in user and returns the error it raised, or
+ * null if it succeeded.
+ *
+ * is_denied() answers "was this refused?" for the two errors RLS and grants
+ * produce. A function that validates its own arguments raises for many more
+ * reasons than that, and "it was rejected" is the weak half of what matters —
+ * a price check that rejects an oversell for the *wrong reason* is a check
+ * that will pass its test while failing its job. Returning the message lets a
+ * test name which guard it expects to fire.
+ */
+create or replace function as_user_error(as_user uuid, statement text)
+returns text language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', coalesce(as_user::text, ''), true);
+  set local role authenticated;
+  begin
+    execute statement;
+    reset role;
+    return null;
+  exception when others then
+    reset role;
+    return sqlerrm;
+  end;
+end;
+$$;
+
+/** Runs a query as a signed-in user and returns its first column as text. */
+create or replace function as_user_scalar(as_user uuid, query text)
+returns text language plpgsql as $$
+declare
+  result text;
+begin
+  perform set_config('request.jwt.claim.sub', coalesce(as_user::text, ''), true);
+  set local role authenticated;
+  execute query into result;
+  reset role;
+  return result;
+end;
+$$;
