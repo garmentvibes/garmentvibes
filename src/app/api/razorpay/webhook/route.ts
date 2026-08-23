@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { razorpayWebhookSecret } from "@/lib/razorpay/config";
 import { verifyWebhookSignature } from "@/lib/razorpay/signature";
+import { recordPayment } from "@/lib/supabase/admin";
 
 // Razorpay webhook receiver.
 //
@@ -36,6 +37,15 @@ const HANDLED_EVENTS = new Set([
   "refund.processed",
 ]);
 
+/** The subset that means money arrived and an order should be confirmed. */
+const PAID_EVENTS = new Set(["payment.captured", "order.paid"]);
+
+interface PaymentPayload {
+  payment?: {
+    entity?: { id: string; amount: number; notes?: Record<string, string> };
+  };
+}
+
 export async function POST(request: Request) {
   const secret = razorpayWebhookSecret();
   if (!secret) {
@@ -59,12 +69,33 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (event.event && HANDLED_EVENTS.has(event.event)) {
-      // Fulfilment lands here once orders live in Supabase: look the order up
-      // by the receipt echoed in notes, then move its status. Doing it now
-      // would mean writing to a client-side store from the server, which is
-      // not something a webhook can reach.
-      console.warn(`[razorpay] received ${event.event} — no order store to update yet`);
+    if (event.event && PAID_EVENTS.has(event.event)) {
+      // The receipt travels in the payment's notes, copied there from the
+      // order we created. It is what `retail_orders.reference` holds.
+      const payment = (event.payload as PaymentPayload | undefined)?.payment?.entity;
+      const receipt = payment?.notes?.receipt;
+
+      if (payment && receipt) {
+        // Safe to call for every retry and for both events: Razorpay sends
+        // payment.captured and order.paid for one payment, and the browser's
+        // verify handoff may already have recorded it. The database turns a
+        // repeat into a no-op.
+        await recordPayment({
+          reference: receipt,
+          paymentId: payment.id,
+          amount: payment.amount,
+        });
+      } else {
+        // A paid event we cannot attribute is money we have taken against an
+        // order we cannot find. Nothing to retry — it needs a person.
+        console.error(`[razorpay] ${event.event} carried no receipt to match an order`);
+      }
+    } else if (event.event && HANDLED_EVENTS.has(event.event)) {
+      // payment.failed and refund.processed are acknowledged but not acted
+      // on. A failed payment leaves the order pending, which the checkout
+      // already releases; a refund is a decision someone makes in the admin
+      // panel, not something a gateway notification should apply on its own.
+      console.warn(`[razorpay] ${event.event} acknowledged, no action taken`);
     }
   } catch (error) {
     // Swallowed deliberately, per rule 2 above.

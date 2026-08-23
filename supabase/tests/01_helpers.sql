@@ -152,3 +152,28 @@ begin
   return result;
 end;
 $$;
+
+/**
+ * The error a statement raised, or null if it succeeded.
+ *
+ * as_user_error()'s counterpart for statements that run as the owner rather
+ * than as a request role — a service_role-only function, for instance, which
+ * `authenticated` cannot even reach, so probing it as a user would report a
+ * permission error instead of the check being tested.
+ *
+ * violates_constraint() is not a substitute: it catches only the handful of
+ * SQLSTATEs a table constraint produces, so a function that validates its own
+ * arguments and raises 22023 falls straight through it and the test reads as
+ * passing.
+ */
+create or replace function raises(statement text)
+returns text language plpgsql as $$
+begin
+  begin
+    execute statement;
+    return null;
+  exception when others then
+    return sqlerrm;
+  end;
+end;
+$$;

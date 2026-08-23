@@ -21,7 +21,7 @@ import { buildOrderPayload, OrderPayloadError, type BuildOrderInput } from "./pa
 // ---------------------------------------------------------------------------
 
 export type PlaceOrderResult =
-  | { ok: true; orderId: string }
+  | { ok: true; orderId: string; reference: string; total: number }
   | { ok: false; error: string; reason: PlaceOrderFailure };
 
 export type PlaceOrderFailure =
@@ -120,5 +120,50 @@ export async function placeRetailOrder(input: BuildOrderInput): Promise<PlaceOrd
     return { ok: false, ...classify(error.message) };
   }
 
-  return { ok: true, orderId: data as string };
+  return {
+    ok: true,
+    orderId: data as string,
+    // Both are echoed back rather than recomputed by the caller: the
+    // gateway order must be created for the amount the database accepted,
+    // and keyed on the receipt it stored, or the two cannot be reconciled.
+    reference: payload.p_reference,
+    total: payload.p_total,
+  };
+}
+
+/**
+ * Cancels an unpaid order and puts its stock back.
+ *
+ * Called when a payment does not complete — a dismissed gateway modal, a
+ * failed card, a customer who closes the tab. Without it, opening the payment
+ * window and walking away would take the last unit of something out of the
+ * catalogue permanently: placement takes stock, and nothing was giving it
+ * back.
+ *
+ * Never throws and never reports failure to the customer. It runs on paths
+ * where something has already gone wrong, and a second error about the
+ * cleanup helps nobody. The database refuses to release anything that is not
+ * the caller's own pending order, so the worst case is a no-op.
+ */
+export async function releaseRetailOrder(orderId: string): Promise<boolean> {
+  if (!supabaseConfigured()) return false;
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("release_retail_order", {
+      p_order_id: orderId,
+    });
+
+    if (error) {
+      // Worth logging loudly: stock is now held by an order nobody will pay
+      // for, and it will not free itself.
+      console.error("release_retail_order failed", { orderId, message: error.message });
+      return false;
+    }
+
+    return data === true;
+  } catch (error) {
+    console.error("release_retail_order threw", { orderId, error });
+    return false;
+  }
 }

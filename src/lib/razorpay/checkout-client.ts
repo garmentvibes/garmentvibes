@@ -55,10 +55,13 @@ export function loadRazorpayScript(): Promise<boolean> {
 }
 
 /** Asks the server to create an order. Null means "fall back to simulated". */
-export async function createPaymentOrder(input: {
-  items: Array<{ productId: string; qty: number }>;
-  promoCode?: string;
-}): Promise<RazorpayHandoff | null> {
+export async function createPaymentOrder(
+  input:
+    // A placed order: the route reads its total from the database.
+    | { reference: string }
+    // No database to place into — the route prices from the catalogue.
+    | { items: Array<{ productId: string; qty: number }>; promoCode?: string }
+): Promise<RazorpayHandoff | null> {
   const response = await fetch("/api/razorpay/order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
