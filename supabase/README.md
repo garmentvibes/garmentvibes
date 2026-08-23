@@ -132,7 +132,10 @@ mapping to replace it with, store by store:
 | `returns-store` | `return_requests` + `return_items` |
 | `claims-store` | `wholesale_claims` + `wholesale_claim_lines` |
 | `credit-store` | `credit_invoices` + `credit_payments` |
-| `promo-store` | `promo_codes` |
+| `promo-store` | `promo_codes` + `promo_redemptions` |
+| `referral-store` | `referrals` (unique on `friend_email`) |
+| `questions-store` | `product_questions` |
+| `fit-feedback-store` | `product_fit_votes` (unique on product + user) |
 | `notification-store` | `notifications` |
 | `team-store` | `wholesale_account_members` |
 | `ship-to-store` | `wholesale_ship_to_addresses` |
@@ -197,9 +200,15 @@ promo codes, and inserts on stock alerts and wholesale applications.
 
 ## Known gaps
 
-- **Promo codes have no redemption cap** or per-customer limit, because the app
-  has no concept of one. A percentage code with no cap can be shared publicly
-  and used without limit, so anything beyond a private code needs that first.
+- **Promo redemption caps are enforced in the browser only.** The app now has
+  the concept — `promo_codes` needs `max_redemptions`, `max_per_customer` and
+  `issued_to`, plus a `promo_redemptions` table — and `evaluatePromo()` in
+  `src/lib/promo-eligibility.ts` holds the rules as pure functions ready to run
+  server-side. What is missing is the part only the database can do: a unique
+  constraint on `(code, user_id)` for one-per-customer codes and a counter
+  checked in the same transaction as the order. Until then a determined person
+  with two browsers can exceed a cap. The same applies to referrals, where the
+  constraint belongs on `referrals.friend_email`.
 - **Invoice numbering** is enforced unique but not generated here. GST requires a
   consecutive series per financial year; that belongs in a server action, and a
   half-designed scheme in the schema would be worse than none.

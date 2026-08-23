@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePromoStore } from "@/lib/stores/promo-store";
+import { totalRedemptions } from "@/lib/promo-eligibility";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 
@@ -15,6 +16,7 @@ export default function AdminPromosPage() {
   const mounted = useHasMounted();
   const now = useNow();
   const codes = usePromoStore((s) => s.codes);
+  const redemptions = usePromoStore((s) => s.redemptions);
   const add = usePromoStore((s) => s.add);
   const toggle = usePromoStore((s) => s.toggle);
   const remove = usePromoStore((s) => s.remove);
@@ -22,6 +24,11 @@ export default function AdminPromosPage() {
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
   const [expiresOn, setExpiresOn] = useState("");
+  // Default to a capped code. An uncapped percentage code can be posted
+  // publicly and used without end — the safer default is the one that costs
+  // a deliberate act to remove, not one to add.
+  const [maxRedemptions, setMaxRedemptions] = useState("100");
+  const [maxPerCustomer, setMaxPerCustomer] = useState("1");
 
   if (!mounted || now === null) return null;
 
@@ -45,7 +52,26 @@ export default function AdminPromosPage() {
       return;
     }
 
-    add({ code: normalised, percent: pct, active: true, expiresOn: expiresOn || undefined });
+    const total = maxRedemptions.trim() === "" ? undefined : Number(maxRedemptions);
+    const perCustomer = maxPerCustomer.trim() === "" ? undefined : Number(maxPerCustomer);
+
+    if (total !== undefined && (!Number.isFinite(total) || total < 1)) {
+      toast.error("Total uses must be a whole number of at least 1, or blank for unlimited");
+      return;
+    }
+    if (perCustomer !== undefined && (!Number.isFinite(perCustomer) || perCustomer < 1)) {
+      toast.error("Uses per customer must be at least 1, or blank for unlimited");
+      return;
+    }
+
+    add({
+      code: normalised,
+      percent: pct,
+      active: true,
+      expiresOn: expiresOn || undefined,
+      maxRedemptions: total,
+      maxPerCustomer: perCustomer,
+    });
     setCode("");
     setExpiresOn("");
     toast.success(`${normalised} created`);
@@ -97,6 +123,30 @@ export default function AdminPromosPage() {
               className="mt-1"
             />
           </div>
+          <div>
+            <Label htmlFor="promo-max-total">Total uses</Label>
+            <Input
+              id="promo-max-total"
+              type="number"
+              min={1}
+              value={maxRedemptions}
+              onChange={(e) => setMaxRedemptions(e.target.value)}
+              placeholder="blank = unlimited"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="promo-max-each">Uses per customer</Label>
+            <Input
+              id="promo-max-each"
+              type="number"
+              min={1}
+              value={maxPerCustomer}
+              onChange={(e) => setMaxPerCustomer(e.target.value)}
+              placeholder="blank = unlimited"
+              className="mt-1"
+            />
+          </div>
           <Button size="sm" onClick={create}>
             Create
           </Button>
@@ -119,6 +169,10 @@ export default function AdminPromosPage() {
                   </span>
                   <span className="text-sm text-neutral-600">{promo.percent}% off</span>
                   {promo.builtIn && <Badge variant="outline">Built-in</Badge>}
+                  {promo.issuedTo && <Badge variant="outline">Referral reward</Badge>}
+                  {promo.maxRedemptions === undefined && promo.maxPerCustomer === undefined && (
+                    <Badge variant="warning">Uncapped</Badge>
+                  )}
                   {expired ? (
                     <Badge variant="destructive">Expired</Badge>
                   ) : (
@@ -132,6 +186,15 @@ export default function AdminPromosPage() {
                     {expired ? "Expired on" : "Expires"} {promo.expiresOn}
                   </p>
                 )}
+                <p className="mt-1 text-xs text-neutral-400">
+                  Used {totalRedemptions(redemptions, promo.code)}
+                  {promo.maxRedemptions !== undefined
+                    ? ` of ${promo.maxRedemptions}`
+                    : " times · no total cap"}
+                  {promo.maxPerCustomer !== undefined
+                    ? ` · ${promo.maxPerCustomer} per customer`
+                    : " · unlimited per customer"}
+                </p>
               </div>
 
               <div className="flex shrink-0 gap-2">
