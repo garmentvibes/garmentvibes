@@ -145,6 +145,23 @@ mapping to replace it with, store by store:
 | `admin-catalog-store` | `retail_products` / `wholesale_products` |
 | `recently-viewed-store` | **stays local** — see below |
 
+`supabase/tests/30_store_queries.sql` runs the reads and writes each of these
+will need, as the role that will run them, so the migration is a mechanical
+rewrite rather than a discovery exercise. Two findings from it that change how
+the data access layer must be written:
+
+**A refused read is not an empty read.** `anon` has no SELECT privilege at all
+on the user-scoped tables or on `wholesale_price_tiers` — the request is
+rejected before any policy is consulted. Through PostgREST that surfaces as a
+**403, not an empty array**. So embedding price tiers in the public wholesale
+catalogue query fails the *whole* request for signed-out visitors and renders
+nothing, rather than degrading to "price on request". Fetch tiers as a
+separate authenticated query instead of embedding them.
+
+**Read `in_stock`, do not derive it.** It is a generated column, and computing
+availability in the app is how a size shows as buyable and the order then
+fails.
+
 `recently-viewed-store` is deliberately not in the database. It is a per-device
 browsing convenience with no server-side consumer, and storing it would turn a
 harmless UI nicety into a retained record of what every customer looked at.
