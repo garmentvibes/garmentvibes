@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useReferralStore } from "@/lib/stores/referral-store";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Enter your name"),
@@ -23,6 +24,7 @@ export function SignupForm() {
   const router = useRouter();
   const redirect = useSearchParams().get("redirect") || "/shop";
   const login = useSessionStore((s) => s.login);
+  const rememberCustomer = useReferralStore((s) => s.rememberCustomer);
   const {
     register,
     handleSubmit,
@@ -31,6 +33,10 @@ export function SignupForm() {
 
   function onSubmit(data: SignupForm) {
     login({ name: data.name, email: data.email, role: "retail" });
+    // A referral code is a hash of an email and cannot be reversed, so a
+    // code is resolved by checking it against the customers we know about.
+    // Becomes a lookup on `profiles` once accounts are in the database.
+    rememberCustomer(data.email);
     toast.success("Account created");
     router.push(redirect);
   }

@@ -18,7 +18,10 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { formatPrice, generateReferenceId } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { notify } from "@/lib/stores/notification-store";
-import { usePromoStore, promoPercentFromStore } from "@/lib/stores/promo-store";
+import { usePromoStore } from "@/lib/stores/promo-store";
+import { useReferralStore, referralsUsedBy } from "@/lib/stores/referral-store";
+import { evaluatePromo } from "@/lib/promo-eligibility";
+import { checkReferral, rewardCodeFor, REFERRAL_FRIEND_PERCENT } from "@/lib/referrals";
 import { useNow } from "@/lib/hooks/use-now";
 import { computeGst } from "@/lib/gst";
 import { getRetailProductById } from "@/lib/mock/retail-products";
@@ -60,6 +63,13 @@ export default function CheckoutPage() {
   const clear = useCartStore((s) => s.clear);
   const addresses = useAddressStore((s) => s.addresses);
   const promoCodes = usePromoStore((s) => s.codes);
+  const promoRedemptions = usePromoStore((s) => s.redemptions);
+  const redeemPromo = usePromoStore((s) => s.redeem);
+  const issuePromo = usePromoStore((s) => s.add);
+  const referrals = useReferralStore((s) => s.referrals);
+  const knownEmails = useReferralStore((s) => s.knownEmails);
+  const recordReferral = useReferralStore((s) => s.record);
+  const markRewarded = useReferralStore((s) => s.markRewarded);
   const now = useNow();
   const { totalItems, totalPrice } = cartTotals(lines);
 
@@ -73,7 +83,12 @@ export default function CheckoutPage() {
   }, [mounted, lines.length, totalItems, totalPrice]);
 
   const [promoInput, setPromoInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<{ code: string; percent: number } | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string;
+    percent: number;
+    /** Set when the code was a referral rather than a campaign code. */
+    referrer?: string;
+  } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId | null>(null);
 
   const {
@@ -94,15 +109,51 @@ export default function CheckoutPage() {
 
   function applyPromo() {
     const code = promoInput.trim().toUpperCase();
-    // Reads the managed list, so a code deactivated or expired in admin stops
-    // working immediately rather than at the next deploy.
-    const percent = promoPercentFromStore(promoCodes, code, now ?? 0);
-    if (!percent) {
-      toast.error("Invalid or expired promo code");
+
+    // A referral code is not a promo code — it identifies a person rather
+    // than a campaign — so it is resolved first and, if it matches, applied
+    // on its own terms.
+    const referral = checkReferral({
+      code,
+      customerEmail: user?.email ?? "",
+      knownCustomerEmails: knownEmails,
+      alreadyUsed: referralsUsedBy(referrals, user?.email ?? ""),
+      // The mock order history is shared, so nobody looks like a first-time
+      // buyer. Treated as new here; the real check is `exists(select 1 from
+      // retail_orders where user_id = ...)` once orders are in the database.
+      hasOrderedBefore: false,
+    });
+
+    if (referral.ok && referral.referrerEmail) {
+      setAppliedPromo({ code, percent: REFERRAL_FRIEND_PERCENT, referrer: referral.referrerEmail });
+      toast.success(`Referral applied — ${REFERRAL_FRIEND_PERCENT}% off your first order`);
       return;
     }
-    setAppliedPromo({ code, percent });
-    toast.success(`${code} applied — ${percent}% off`);
+
+    // A code that looks like a referral but was refused should say why,
+    // rather than falling through to "we don't recognise that code".
+    if (referral.reason && referral.reason !== "unknown") {
+      toast.error(referral.error);
+      return;
+    }
+
+    // Reads the managed list, so a code deactivated or expired in admin stops
+    // working immediately rather than at the next deploy.
+    const result = evaluatePromo({
+      input: code,
+      codes: promoCodes,
+      redemptions: promoRedemptions,
+      customerEmail: user?.email,
+      now: now ?? Date.now(),
+    });
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    setAppliedPromo({ code, percent: result.percent });
+    toast.success(`${code} applied — ${result.percent}% off`);
   }
 
   function fillFromSavedAddress(id: string) {
@@ -152,8 +203,37 @@ export default function CheckoutPage() {
           ""
         ).totalTax;
 
+  /**
+   * Settles whatever code was applied, at order time rather than at "Apply".
+   *
+   * Recording a redemption when the code is typed would burn a
+   * one-per-customer code for anyone who changes their mind and abandons the
+   * checkout — the commonest thing that happens on this page.
+   */
+  function settlePromo() {
+    if (!appliedPromo || !user?.email) return;
+
+    if (appliedPromo.referrer) {
+      recordReferral({
+        referrerEmail: appliedPromo.referrer,
+        friendEmail: user.email,
+        code: appliedPromo.code,
+      });
+
+      // The referrer earns their reward now, because the referral is only
+      // worth anything once the invited customer actually orders.
+      const reward = rewardCodeFor(appliedPromo.referrer, user.email);
+      issuePromo(reward);
+      markRewarded(user.email, reward.code);
+      return;
+    }
+
+    redeemPromo(appliedPromo.code, user.email);
+  }
+
   /** Shared tail of every successful order, however it was paid for. */
   function completeOrder(data: CheckoutForm, orderId: string) {
+    settlePromo();
     track({ name: "purchase", orderId, value: amountPayable, paymentMethod: selectedMethod });
     notify({
       templateId: "order_placed",

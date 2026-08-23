@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useReferralStore } from "@/lib/stores/referral-store";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -22,6 +23,7 @@ export function LoginForm() {
   const router = useRouter();
   const redirect = useSearchParams().get("redirect") || "/shop";
   const login = useSessionStore((s) => s.login);
+  const rememberCustomer = useReferralStore((s) => s.rememberCustomer);
   const {
     register,
     handleSubmit,
@@ -31,6 +33,10 @@ export function LoginForm() {
   function onSubmit(data: LoginForm) {
     // Placeholder session until Supabase Auth is wired up (Phase 1).
     login({ name: data.email.split("@")[0], email: data.email, role: "retail" });
+    // A referral code is a hash of an email and cannot be reversed, so a
+    // code is resolved by checking it against the customers we know about.
+    // Becomes a lookup on `profiles` once accounts are in the database.
+    rememberCustomer(data.email);
     toast.success("Signed in");
     router.push(redirect);
   }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { ReferralCard } from "@/components/retail/referral-card";
 
 export default function RetailAccountPage() {
   const router = useRouter();
@@ -77,6 +78,10 @@ export default function RetailAccountPage() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="mt-4">
+        <ReferralCard email={user.email} />
       </div>
 
       <div className="mt-4 space-y-2">
