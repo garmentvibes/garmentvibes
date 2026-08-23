@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Heart, MapPin, Package, Pencil } from "lucide-react";
+import { Heart, LifeBuoy, MapPin, Package, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,6 +96,12 @@ export default function RetailAccountPage() {
           className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm font-medium text-neutral-800 hover:border-rose-200"
         >
           <MapPin className="h-5 w-5 text-neutral-400" /> My Addresses
+        </Link>
+        <Link
+          href="/shop/support"
+          className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm font-medium text-neutral-800 hover:border-rose-200"
+        >
+          <LifeBuoy className="h-5 w-5 text-neutral-400" /> Help &amp; Support
         </Link>
         <Link
           href="/shop/wishlist"

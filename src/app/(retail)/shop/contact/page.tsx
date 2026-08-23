@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BUSINESS_INFO } from "@/lib/business-info";
@@ -43,7 +44,17 @@ export default function ContactPage() {
 
         {submitted ? (
           <div className="rounded-lg border border-green-200 bg-green-50 p-5 text-sm text-green-800">
-            Thanks for reaching out — our team will respond by email shortly.
+            <p>Thanks for reaching out — our team will respond by email shortly.</p>
+            {/* This form goes nowhere trackable. A signed-in customer gets a
+                real thread with a reference and a reply they can see, so say
+                so rather than leaving them to wonder. */}
+            <p className="mt-2">
+              For anything about an order,{" "}
+              <Link href="/shop/support" className="font-medium underline">
+                raise it from Help &amp; Support
+              </Link>{" "}
+              instead — you will get a reference and can follow the reply in your account.
+            </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
