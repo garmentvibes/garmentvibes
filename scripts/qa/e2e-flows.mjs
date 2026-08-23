@@ -214,6 +214,91 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Retail: fit confidence — per-system size charts, buyer fit feedback
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    // The defect this fixes: one S/M/L/XL chart was shown on every product, so
+    // a customer buying 32" jeans or a 4-5Y frock saw a chart with no row for
+    // their size — worse than no chart, because it looks like an answer.
+    await goto(page, `${BASE_URL}/shop/product/high-rise-straight-jeans`);
+    await page.click("text=Size Guide");
+    await page.waitForTimeout(200);
+    check(
+      "fit",
+      "jeans get a waist chart, not the S/M/L/XL one",
+      (await page.locator('[role="dialog"] th:has-text("Inseam")').count()) > 0 &&
+        (await page.locator('[role="dialog"] th:has-text("Chest")').count()) === 0
+    );
+    check(
+      "fit",
+      "the chart contains the size being bought",
+      (await page.locator('[role="dialog"] td:text-is("32")').count()) > 0
+    );
+    await page.keyboard.press("Escape");
+    await page.click('[role="dialog"] button[aria-label="Close"]');
+    await page.waitForTimeout(200);
+
+    await goto(page, `${BASE_URL}/shop/product/unicorn-print-frock`);
+    await page.click("text=Size Guide");
+    await page.waitForTimeout(200);
+    check(
+      "fit",
+      "kids' sizes get a height chart",
+      (await page.locator('[role="dialog"] th:has-text("Height")').count()) > 0 &&
+        (await page.locator('[role="dialog"] td:text-is("4-5Y")').count()) > 0
+    );
+    await page.click('[role="dialog"] button[aria-label="Close"]');
+    await page.waitForTimeout(200);
+
+    // Free size has no measurements table to show, and says so rather than
+    // rendering an empty one.
+    await goto(page, `${BASE_URL}/shop/product/banarasi-silk-saree`);
+    await page.click("text=Size Guide");
+    await page.waitForTimeout(200);
+    check(
+      "fit",
+      "free size explains itself instead of showing an empty table",
+      (await page.locator('[role="dialog"] table').count()) === 0 &&
+        (await page.locator("text=/free size/i").count()) > 0
+    );
+    await page.click('[role="dialog"] button[aria-label="Close"]');
+
+    // Fit feedback: the seeded votes are above the reporting floor, so every
+    // product should show a verdict rather than "not enough to call it".
+    await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
+    await page.waitForTimeout(300);
+    check(
+      "fit",
+      "product page reports how the garment runs",
+      (await page.locator("text=/% of \\d+ buyers said/").count()) > 0
+    );
+    check(
+      "fit",
+      "the verdict comes with advice",
+      (await page.locator("text=/take your usual|sizing up|sizing down/").count()) > 0
+    );
+
+    // Voting is the customer's contribution to that number.
+    await page.click('button:has-text("Runs small")');
+    await page.waitForTimeout(300);
+    check(
+      "fit",
+      "a fit vote is recorded and shown back",
+      (await page.locator('button[aria-pressed="true"]:has-text("Runs small")').count()) > 0
+    );
+
+    await page.reload();
+    await page.waitForTimeout(400);
+    check(
+      "fit",
+      "the vote survives a reload",
+      (await page.locator('button[aria-pressed="true"]:has-text("Runs small")').count()) > 0
+    );
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Retail: abandoned-cart recovery prompt
 //
 // The prompt keys off how long ago the cart last changed, so these drive it

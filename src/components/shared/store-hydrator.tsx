@@ -20,6 +20,7 @@ import { usePromoStore } from "@/lib/stores/promo-store";
 import { useStockAlertsStore } from "@/lib/stores/stock-alerts-store";
 import { useClaimsStore } from "@/lib/stores/claims-store";
 import { useCreditStore } from "@/lib/stores/credit-store";
+import { useFitFeedbackStore } from "@/lib/stores/fit-feedback-store";
 
 // All persisted stores use `skipHydration: true` so the first client render
 // matches the server-rendered HTML (both show default/empty state) — then we
@@ -27,6 +28,14 @@ import { useCreditStore } from "@/lib/stores/credit-store";
 // reads localStorage synchronously on store creation and the very first
 // client paint diverges from the SSR output, causing React hydration
 // mismatches (see e.g. the wishlist heart icon, cart/order badge counts).
+//
+// Every store listed here must also BE listed here, which is a sentence that
+// only makes sense once you have forgotten one. A store with
+// `skipHydration: true` that nothing rehydrates silently loses its persisted
+// state on every page load — it works in the session that wrote it and is
+// empty on return. `npm run qa:static` now fails when a persisted store is
+// missing from this file, because the failure is otherwise invisible until a
+// customer notices their saved data has gone.
 export function StoreHydrator() {
   useEffect(() => {
     useCartStore.persist.rehydrate();
@@ -48,6 +57,7 @@ export function StoreHydrator() {
     useStockAlertsStore.persist.rehydrate();
     useClaimsStore.persist.rehydrate();
     useCreditStore.persist.rehydrate();
+    useFitFeedbackStore.persist.rehydrate();
 
     // Signals "React has hydrated and persisted state is live". The QA suite
     // waits on this instead of Playwright's `networkidle`, which never

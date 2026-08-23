@@ -3,15 +3,19 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 
-const SIZE_CHART = [
-  { size: "S", chest: "34-36", waist: "28-30", length: "27" },
-  { size: "M", chest: "38-40", waist: "32-34", length: "28" },
-  { size: "L", chest: "42-44", waist: "36-38", length: "29" },
-  { size: "XL", chest: "46-48", waist: "40-42", length: "30" },
-];
+import { sizeChartFor } from "@/lib/fit";
 
-export function SizeGuideModal() {
+/**
+ * The size guide for one product's own sizing system.
+ *
+ * `sizes` is required rather than optional on purpose. This used to render a
+ * fixed S/M/L/XL chest/waist/length table on every product, so a customer
+ * buying 32" jeans or a 4-5Y frock was shown a chart with no row for their
+ * size — which is worse than no chart, because it looks like an answer.
+ */
+export function SizeGuideModal({ sizes }: { sizes: string[] }) {
   const [open, setOpen] = useState(false);
+  const chart = sizeChartFor(sizes);
 
   return (
     <>
@@ -36,34 +40,48 @@ export function SizeGuideModal() {
             aria-label="Size guide"
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-neutral-900">Size Guide (inches)</h2>
+              <h2 className="font-semibold text-neutral-900">
+                Size Guide{chart.rows.length > 0 ? " (inches)" : ""}
+              </h2>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close">
                 <X className="h-5 w-5 text-neutral-500" />
               </button>
             </div>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-neutral-400">
-                <tr>
-                  <th className="py-1">Size</th>
-                  <th className="py-1">Chest</th>
-                  <th className="py-1">Waist</th>
-                  <th className="py-1">Length</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {SIZE_CHART.map((row) => (
-                  <tr key={row.size}>
-                    <td className="py-1.5 font-medium">{row.size}</td>
-                    <td className="py-1.5">{row.chest}</td>
-                    <td className="py-1.5">{row.waist}</td>
-                    <td className="py-1.5">{row.length}</td>
+
+            {chart.rows.length > 0 && (
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase text-neutral-400">
+                  <tr>
+                    <th className="py-1">Size</th>
+                    {chart.headings.map((heading) => (
+                      <th key={heading} className="py-1">
+                        {heading}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-3 text-xs text-neutral-400">
-              Measurements are approximate and may vary slightly by style.
-            </p>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {chart.rows.map((row) => (
+                    <tr
+                      key={row.size}
+                      // Rows for sizes this product does not carry are dimmed
+                      // rather than removed, so the chart still reads as a
+                      // range and a customer can see where their size sits.
+                      className={sizes.includes(row.size) ? "" : "text-neutral-300"}
+                    >
+                      <td className="py-1.5 font-medium">{row.size}</td>
+                      {row.values.map((value, i) => (
+                        <td key={chart.headings[i]} className="py-1.5">
+                          {value}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <p className="mt-4 text-xs text-neutral-500">{chart.note}</p>
           </div>
         </div>
       )}
