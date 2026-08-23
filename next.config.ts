@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { shouldAllowIndexing } from "./src/lib/indexing";
 
 // ---------------------------------------------------------------------------
 // Content Security Policy
@@ -73,6 +74,44 @@ const securityHeaders = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Keeping a not-yet-launched shop out of the index
+//
+// robots.txt already returns a blanket Disallow for anything that is not a
+// production deployment (see src/app/robots.ts and shouldAllowIndexing). That
+// is not enough on its own for two reasons:
+//
+//   1. robots.txt is a request, not an instruction. Well-behaved crawlers
+//      honour it; not every crawler is well-behaved, and a URL that is linked
+//      from somewhere else can still be indexed by reference even when
+//      crawling is disallowed.
+//   2. Vercel adds its own noindex header to *.vercel.app preview URLs — but
+//      not to a custom domain pointed at one. Attaching garmentvibes.com to a
+//      non-production deployment therefore loses that protection at exactly
+//      the moment the site becomes findable.
+//
+// `X-Robots-Tag: noindex` is the stronger form: it tells a crawler not to
+// index the page it just fetched, and unlike a <meta> tag it covers non-HTML
+// responses too. Applied on the same predicate as robots.txt, so the two can
+// never disagree about whether this deployment is public.
+//
+// Evaluated at build time, which is when VERCEL_ENV is available and when
+// Next resolves the headers() config. A deployment therefore carries the
+// decision it was built with — changing the variable means redeploying, which
+// is the right amount of friction for "make the shop indexable".
+function noIndexHeader() {
+  const indexable = shouldAllowIndexing({
+    vercelEnv: process.env.VERCEL_ENV,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+  });
+
+  if (indexable) return [];
+
+  return [
+    { key: "X-Robots-Tag", value: "noindex, nofollow" },
+  ];
+}
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -88,7 +127,7 @@ const nextConfig: NextConfig = {
       {
         // Every route, including API responses.
         source: "/:path*",
-        headers: securityHeaders,
+        headers: [...securityHeaders, ...noIndexHeader()],
       },
       {
         source: "/manifest.webmanifest",
