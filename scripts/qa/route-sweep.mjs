@@ -189,6 +189,65 @@ for (const route of [...routes].sort()) {
   checked++;
 }
 
+// ---------------------------------------------------------------------------
+// Horizontal overflow at tablet widths.
+//
+// The sweep above runs at 1280x900, and that is exactly why this was missed:
+// both mega-menu dropdowns were `invisible` rather than `hidden`, so their
+// ~720px and ~980px panels stayed in the layout and pushed the document wider
+// than the viewport on anything narrower than a desktop. Every retail page
+// scrolled sideways on an iPad in portrait, with nothing visible to explain
+// why — the offending element was, by definition, invisible.
+//
+// A page that scrolls sideways has no single failing element to assert on, so
+// the check is the symptom itself: scrollWidth must not exceed clientWidth.
+// ---------------------------------------------------------------------------
+
+const TABLET_VIEWPORTS = [
+  { name: "tablet portrait", width: 768, height: 1024 },
+  { name: "tablet landscape", width: 1024, height: 768 },
+];
+
+// A representative page from each area rather than all 70-odd: overflow comes
+// from shared chrome (header, nav, footer), so one page per layout catches it
+// without tripling the sweep's runtime.
+const OVERFLOW_ROUTES = [
+  "/",
+  "/shop",
+  "/shop/cart",
+  "/shop/product/classic-crew-neck-tee",
+  "/wholesale",
+  "/wholesale/catalog",
+];
+
+for (const viewport of TABLET_VIEWPORTS) {
+  const tabletPage = await browser.newPage({
+    viewport: { width: viewport.width, height: viewport.height },
+  });
+
+  for (const route of OVERFLOW_ROUTES) {
+    try {
+      await goto(tabletPage, `${BASE_URL}${route}`);
+      const overflow = await tabletPage.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+      );
+      if (overflow > 0) {
+        fail(`${route} — scrolls sideways at ${viewport.name} (${viewport.width}px) by ${overflow}px`);
+      }
+    } catch (e) {
+      fail(`${route} — could not measure overflow at ${viewport.name}: ${e.message}`);
+    }
+  }
+
+  await tabletPage.close();
+}
+
+if (failures === 0) {
+  pass(
+    `No horizontal overflow on ${OVERFLOW_ROUTES.length} pages at ${TABLET_VIEWPORTS.length} tablet widths`
+  );
+}
+
 await browser.close();
 
 if (failures === 0) pass(`All ${checked} routes passed (status, console, title, basic a11y)`);

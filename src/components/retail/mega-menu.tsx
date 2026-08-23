@@ -16,7 +16,13 @@ export function MegaMenu() {
             {CATEGORY_LABELS[category]}
           </Link>
 
-          <div className="invisible absolute left-0 top-full z-50 flex gap-8 rounded-lg border border-neutral-200 bg-white p-6 opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100">
+          {/* `hidden`, not `invisible`. visibility:hidden keeps the element in
+              the layout, and this panel is ~720px wide — so on a tablet in
+              portrait it pushed the document to 962px and every retail page
+              scrolled sideways, with nothing visible to explain why.
+              display:none takes it out of the flow entirely. The cost is the
+              opacity fade, which is not worth a horizontal scrollbar. */}
+          <div className="absolute left-0 top-full z-50 hidden gap-8 rounded-lg border border-neutral-200 bg-white p-6 shadow-lg group-hover:flex">
             {RETAIL_TAXONOMY[category].map((dept) => (
               <div key={dept.label} className="min-w-36">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
