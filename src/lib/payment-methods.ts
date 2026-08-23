@@ -79,6 +79,20 @@ export interface PaymentMethodInput {
   pincode: string;
   /** False when no Razorpay keys are configured on this deployment. */
   gatewayConfigured: boolean;
+  /**
+   * True when the applied promo code is one the payment route cannot price.
+   *
+   * The gateway is charged an amount the server computes, and the server can
+   * only price the built-in codes — not ones created in the admin panel, and
+   * not referral codes. Quoting a discount the gateway will not apply is how
+   * a customer gets shown ₹1,039.20 and charged ₹1,299.
+   *
+   * So rather than dropping their discount or overcharging them, the online
+   * methods withdraw and COD stays: cash on delivery collects the figure on
+   * the screen, whatever produced it. The customer keeps the code, or removes
+   * it and pays online.
+   */
+  promoBlocksOnline?: boolean;
 }
 
 /**
@@ -146,6 +160,14 @@ export function codAvailability(input: {
  */
 export function paymentMethods(input: PaymentMethodInput): PaymentMethodOption[] {
   const online: PaymentMethodOption[] = ONLINE_METHODS.map((method) => {
+    if (input.promoBlocksOnline) {
+      return {
+        ...method,
+        available: false,
+        unavailableReason: "Not available with this discount code — pay on delivery instead",
+        fee: 0,
+      };
+    }
     if (method.id === "emi" && input.total < PAYMENT_POLICY.emiMinOrderValue) {
       return {
         ...method,

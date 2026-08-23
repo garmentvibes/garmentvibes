@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { phoneField, pincodeField } from "@/lib/validation/address";
 import { toast } from "sonner";
 import { MapPin, Star, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,11 +15,11 @@ import { useAddressStore } from "@/lib/stores/address-store";
 const addressSchema = z.object({
   label: z.string().min(2, "Give this address a label"),
   fullName: z.string().min(2, "Enter a full name"),
-  phone: z.string().min(10, "Enter a valid phone number"),
+  phone: phoneField,
   addressLine1: z.string().min(5, "Enter the address"),
   city: z.string().min(2, "Enter a city"),
   state: z.string().min(2, "Enter a state"),
-  pincode: z.string().min(4, "Enter a valid PIN code"),
+  pincode: pincodeField,
 });
 
 type AddressForm = z.infer<typeof addressSchema>;

@@ -13,9 +13,34 @@ export const PROMO_CODES: Record<string, number> = {
   WELCOME5: 5,
 };
 
-export function promoPercent(code: string | undefined | null) {
+/**
+ * What a code is worth here, or null if this module cannot price it.
+ *
+ * The null matters. This used to return 0 for anything outside the map above,
+ * which reads like a safe default and is the opposite: the checkout page
+ * applies codes from the admin panel and from referrals, neither of which is
+ * in this list, so a customer shown "₹1,039.20 after WELCOME20" had a Razorpay
+ * order created for the full ₹1,299 — silently charged the whole discount back.
+ *
+ * A code we cannot price is not a code worth nothing. It is a code this
+ * process has no opinion about, and the only safe thing to do with it is
+ * refuse to take the payment.
+ */
+export function promoPercent(code: string | undefined | null): number | null {
   if (!code) return 0;
-  return PROMO_CODES[code.trim().toUpperCase()] ?? 0;
+  return PROMO_CODES[code.trim().toUpperCase()] ?? null;
+}
+
+/**
+ * Whether the payment route can price this code, and therefore whether the
+ * gateway will charge what the basket says.
+ *
+ * The checkout page uses this to decide which payment methods to offer. It is
+ * the same question `promoPercent` answers, named for the decision it drives
+ * so that the call site reads as what it means.
+ */
+export function isServerPriceable(code: string | undefined | null): boolean {
+  return promoPercent(code) !== null;
 }
 
 export interface OrderLineInput {
@@ -58,7 +83,16 @@ export function priceOrder(
   });
 
   const subtotal = lines.reduce((sum, l) => sum + l.qty * l.price, 0);
+
   const percent = promoPercent(promoCode);
+  if (percent === null) {
+    // Refusing is the whole point. Charging full price for a discount the
+    // customer was quoted is worse than any error message.
+    throw new PricingError(
+      `${promoCode} cannot be applied to an online payment. Remove it, or pay by cash on delivery.`
+    );
+  }
+
   const discount = Math.round((subtotal * percent) / 100);
 
   return { subtotal, discount, total: subtotal - discount, lines };
