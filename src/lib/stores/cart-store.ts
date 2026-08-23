@@ -13,6 +13,19 @@ export interface CartLine {
   size: string;
   color: string;
   qty: number;
+  /**
+   * Carried purely so the order line gets the right HSN code.
+   *
+   * `hsnFor()` maps subcategory to tariff heading, and without one it falls
+   * back to 6211, "other garments" — so every T-shirt would be invoiced under
+   * the catch-all instead of 6109. A wrong HSN on a tax invoice is worse than
+   * a missing one, and the subcategory is on the product right where the line
+   * is built, so there is no reason to lose it.
+   *
+   * Optional because carts persisted before this existed do not carry it;
+   * those fall back exactly as they did before.
+   */
+  subcategory?: string;
 }
 
 interface CartState {

@@ -83,6 +83,9 @@ statement is guarded, so re-applying is a no-op rather than an error.
 | `0008_credit_ledger.sql` | Net-terms invoices, payments, balances view |
 | `0009_promos_and_notifications.sql` | Promo codes, notification outbox |
 | `0010_grants.sql` | Table privileges for `anon` / `authenticated` / `service_role` |
+| `0011_advisor_fixes.sql` | Two findings from Supabase's database linter |
+| `0012_payment_method_values.sql` | The six methods checkout offers — alone, see below |
+| `0013_order_placement.sql` | `place_retail_order()`, and closing the direct INSERT |
 
 `seed.sql` sits alongside them and is **generated**, not hand-written:
 
@@ -111,9 +114,46 @@ The `images` column holds paths to the placeholder SVGs under
 `npm run placeholders:generate`. Real photography goes in Supabase Storage and
 a bucket URL goes in the same column; no schema change needed.
 
-`0002` contains nothing but `alter type ... add value` because Postgres will not
-let a new enum value be *used* in the transaction that adds it. Anything
-referencing those values has to live in a later file.
+`0002` and `0012` contain nothing but `alter type ... add value` because
+Postgres will not let a new enum value be *used* in the transaction that adds
+it. Anything referencing those values has to live in a later file.
+
+## Placing an order
+
+`place_retail_order()` is the only supported way a retail order is written.
+`0013` revokes the INSERT grant on `retail_orders` and `retail_order_items`
+from `authenticated` and drops the two customer INSERT policies, so the
+function is the only door rather than the preferred one.
+
+The reason is that an RLS policy on an INSERT can check ownership and very
+little else — certainly not the catalogue. The policy `0001` shipped accepted
+any total a signed-in customer cared to name, which is the same ₹1-saree hole
+`/api/razorpay/order` takes care to avoid, reopened at a different door. The
+function re-derives item prices, the promo discount, the tax split and the
+total, and refuses the call if the submitted figures disagree. It also takes
+stock and writes the order in one transaction, which a client issuing three
+separate PostgREST requests cannot do.
+
+Lines are addressed by **slug**, not id. `src/lib/mock/` numbers products
+`r1`, `r10`; the database generates uuids and the seed joins them by slug, so
+the slug is the only identifier both sides share. The resolved uuid is what
+gets stored on the line, because a slug is editable and an order must not
+follow a rename.
+
+`src/lib/orders/payload.ts` builds the arguments and is pure and unit-tested;
+`src/lib/orders/actions.ts` is the server action around it.
+`supabase/tests/40_order_placement.sql` runs 53 assertions against the whole
+thing, including that a refused order leaves no stock taken and no header
+behind.
+
+Two things it deliberately does not do. It does not decide which GST slab a
+product falls in — that is `src/lib/gst.ts`, tested there, and a second
+implementation in PL/pgSQL would be a second thing to keep correct. It checks
+that the rate is one GST actually has, and recomputes the split that follows
+from it. And it does not let staff insert orders either, because grants are
+per-role: a phone order typed in by hand should be priced by the same code as
+every other order, and that flow gets its own function with a staff check when
+it is built.
 
 ## Where each store lands
 
@@ -184,7 +224,20 @@ would be tidier and wrong.
 **Tax is stored, not recomputed.** Per-line, because apparel is 5% up to ₹2,500
 a piece and 18% above, so one order routinely mixes both. Two constraints
 enforce what GST requires: a supply carries either CGST+SGST or IGST but never
-both, and CGST always equals SGST.
+both, and CGST and SGST are halves of the same tax.
+
+**CGST and SGST are equal to within one paise, not exactly equal.** `0004`
+asserted exact equality, which is right in spirit and impossible in integer
+paise whenever the tax is an odd number of them — `src/lib/gst.ts` splits an
+odd total as floor/remainder so the pair still sums to the tax actually
+charged. Nothing had ever hit it because nothing had ever written an order,
+and it is not a rare edge: over a thousand consecutive price points, **504
+produce an odd total tax**. A ₹1,999 kurta is one of them — CGST 47.59, SGST
+47.60. Roughly every second order would have been rejected by its own schema
+the first time the storefront tried to save one. `0013` widens the constraint
+to one paise, which still catches the whole tax landing in CGST or the two
+halves drifting apart, and filing is in rupees so the asymmetry never reaches
+a return. The same defect was on `wholesale_quotes` and is fixed alongside it.
 
 **Invoice status is derived by trigger.** `credit_invoices.status` is recomputed
 from its payments on every insert, update and delete, so it cannot disagree with
@@ -217,15 +270,24 @@ promo codes, and inserts on stock alerts and wholesale applications.
 
 ## Known gaps
 
-- **Promo redemption caps are enforced in the browser only.** The app now has
-  the concept — `promo_codes` needs `max_redemptions`, `max_per_customer` and
-  `issued_to`, plus a `promo_redemptions` table — and `evaluatePromo()` in
-  `src/lib/promo-eligibility.ts` holds the rules as pure functions ready to run
-  server-side. What is missing is the part only the database can do: a unique
-  constraint on `(code, user_id)` for one-per-customer codes and a counter
-  checked in the same transaction as the order. Until then a determined person
-  with two browsers can exceed a cap. The same applies to referrals, where the
-  constraint belongs on `referrals.friend_email`.
+- **Promo redemption *caps* are still enforced in the browser only.** The
+  code's *percent* is now checked server-side — `place_retail_order()` looks
+  the code up, refuses one that is inactive or out of its date window, and
+  rejects a discount that is not what the code is worth. So a code invented in
+  the browser no longer discounts anything, and one created in the admin panel
+  finally works end to end. What is still missing is the part only the database
+  can do about *how many times* a code is used: `promo_codes` needs
+  `max_redemptions`, `max_per_customer` and `issued_to`, plus a
+  `promo_redemptions` table with a unique constraint on `(code, user_id)` and a
+  counter checked in the same transaction as the order. Until then a determined
+  person with two accounts can exceed a cap. The same applies to referrals,
+  where the constraint belongs on `referrals.friend_email`.
+- **A customer cannot cancel their own order yet.** There is no customer UPDATE
+  policy on `retail_orders` — deliberately, since one would also let them
+  rewrite a total — so the cancellation flow in `/shop/orders/[id]` still only
+  touches local state. It needs the same treatment as placement: a function
+  that checks the order belongs to the caller, that it has not shipped, puts
+  the stock back and sets the status, all in one transaction.
 - **Invoice numbering** is enforced unique but not generated here. GST requires a
   consecutive series per financial year; that belongs in a server action, and a
   half-designed scheme in the schema would be worse than none.

@@ -53,6 +53,7 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
       image: product.images[0],
       price: product.price,
       currency: product.currency,
+      subcategory: product.subcategory,
       size,
       color,
       qty: 1,
