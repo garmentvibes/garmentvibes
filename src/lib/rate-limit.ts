@@ -87,6 +87,31 @@ export function createRateLimiter({ limit, windowMs, maxKeys = DEFAULT_MAX_KEYS 
       return { allowed: true, remaining: limit - recent.length, retryAfterSeconds: 0 };
     },
 
+    /**
+     * Reports whether a request WOULD be permitted, without recording it.
+     *
+     * For endpoints where only some outcomes should count against the budget.
+     * Sign-in is the case that needed it: the limit exists to stop password
+     * guessing, and a successful sign-in is not a guess — counting it locks
+     * out someone who legitimately signs in on a phone, a laptop and a tablet
+     * inside a minute. So the action peeks first, and only records a failure.
+     */
+    peek(key: string, now: number = Date.now()): RateLimitResult {
+      const cutoff = now - windowMs;
+      const recent = (hits.get(key) ?? []).filter((t) => t > cutoff);
+
+      if (recent.length >= limit) {
+        const retryAfterMs = recent[0] + windowMs - now;
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
+        };
+      }
+
+      return { allowed: true, remaining: limit - recent.length, retryAfterSeconds: 0 };
+    },
+
     /** Distinct callers currently tracked. Exposed for tests and diagnostics. */
     size() {
       return hits.size;

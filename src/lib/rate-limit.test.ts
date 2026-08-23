@@ -147,3 +147,65 @@ describe("rateLimitHeaders", () => {
     expect(headers["Retry-After"]).toBe("42");
   });
 });
+
+describe("peek", () => {
+  // Added for sign-in: the budget exists to stop password guessing, so a
+  // successful attempt must not consume it. peek() answers "would this be
+  // allowed" without charging for the question.
+  it("does not consume the budget", () => {
+    const limiter = createRateLimiter({ limit: 2, windowMs: 1000 });
+
+    for (let i = 0; i < 10; i += 1) {
+      expect(limiter.peek("caller", 0).allowed).toBe(true);
+    }
+
+    // Ten peeks later, both real attempts are still available.
+    expect(limiter.check("caller", 0).allowed).toBe(true);
+    expect(limiter.check("caller", 0).allowed).toBe(true);
+    expect(limiter.check("caller", 0).allowed).toBe(false);
+  });
+
+  it("agrees with check about whether the next request is allowed", () => {
+    const limiter = createRateLimiter({ limit: 2, windowMs: 1000 });
+
+    expect(limiter.peek("caller", 0).allowed).toBe(true);
+    limiter.check("caller", 0);
+    expect(limiter.peek("caller", 0).allowed).toBe(true);
+    limiter.check("caller", 0);
+    expect(limiter.peek("caller", 0).allowed).toBe(false);
+  });
+
+  it("reports the same retry delay as check would", () => {
+    const limiter = createRateLimiter({ limit: 1, windowMs: 10_000 });
+    limiter.check("caller", 0);
+
+    const peeked = limiter.peek("caller", 3_000);
+    expect(peeked.allowed).toBe(false);
+    expect(peeked.retryAfterSeconds).toBe(7);
+  });
+
+  it("reports remaining allowance without changing it", () => {
+    const limiter = createRateLimiter({ limit: 3, windowMs: 1000 });
+    limiter.check("caller", 0);
+
+    expect(limiter.peek("caller", 0).remaining).toBe(2);
+    expect(limiter.peek("caller", 0).remaining).toBe(2);
+  });
+
+  it("forgets an expired window, same as check", () => {
+    const limiter = createRateLimiter({ limit: 1, windowMs: 1000 });
+    limiter.check("caller", 0);
+
+    expect(limiter.peek("caller", 999).allowed).toBe(false);
+    expect(limiter.peek("caller", 1001).allowed).toBe(true);
+  });
+
+  // peek must not create an entry, or a stream of peeks for unseen keys would
+  // fill the LRU map and evict callers who are actually being limited.
+  it("does not register a key it has never seen", () => {
+    const limiter = createRateLimiter({ limit: 2, windowMs: 1000 });
+    limiter.peek("never-seen", 0);
+    expect(limiter.size()).toBe(0);
+  });
+});
+

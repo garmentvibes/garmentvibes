@@ -23,12 +23,36 @@ const Credentials = z.object({
   password: z.string().min(6, { error: "Enter your password" }),
 });
 
-// Sign-in is the one endpoint where guessing is the attack. Five attempts a
-// minute is generous for someone who mistyped their own password and useless
-// for anyone working through a word list. Keyed by caller rather than by
-// email, so an attacker cannot get a fresh allowance per address tried.
-const LIMIT = 5;
-const signInLimiter = createRateLimiter({ limit: LIMIT, windowMs: 60_000 });
+// Sign-in is the one endpoint where guessing is the attack, so it is limited
+// on two axes rather than one.
+//
+// The first version keyed on the caller alone, reasoning that an attacker
+// should not get a fresh allowance per address tried. True, but it made the
+// budget SHARED: callerKey() returns "unidentified" when no forwarding header
+// is present, so every staff member behind a deployment without a reverse
+// proxy — and every browser in the QA suite — draws from one bucket of five a
+// minute. A three-person team hits that during a normal morning, and it is
+// not hypothetical: adding a fourth admin login to the e2e suite is what
+// exposed it, with the second attempt already refused.
+//
+// Two tiers fix it without weakening the defence:
+//
+//   Per caller AND email — the tight one. Password guessing against a single
+//   account is the actual threat, and this is unchanged at five a minute for
+//   that case.
+//
+//   Per caller — the loose one. Catches spraying, where one source tries many
+//   addresses. Set high enough that a shared office IP, or a test suite, does
+//   not trip it.
+const PER_ACCOUNT_LIMIT = 5;
+const PER_CALLER_LIMIT = 30;
+
+const perAccountLimiter = createRateLimiter({ limit: PER_ACCOUNT_LIMIT, windowMs: 60_000 });
+const perCallerLimiter = createRateLimiter({ limit: PER_CALLER_LIMIT, windowMs: 60_000 });
+
+const tooMany = (seconds: number) => ({
+  error: `Too many sign-in attempts. Try again in ${seconds} seconds.`,
+});
 
 // One message for "no such account" and "wrong password" alike. Distinguishing
 // them turns the login form into an oracle for which staff emails exist.
@@ -47,22 +71,42 @@ export async function signInAdmin(
     return { error: parsed.error.issues[0]?.message ?? "Check the details and try again" };
   }
 
-  const requestHeaders = await headers();
-  const limit = signInLimiter.check(callerKey(requestHeaders));
-  if (!limit.allowed) {
-    return {
-      error: `Too many sign-in attempts. Try again in ${limit.retryAfterSeconds} seconds.`,
-    };
-  }
-
   const { email, password } = parsed.data;
+
+  const requestHeaders = await headers();
+  const caller = callerKey(requestHeaders);
+
+  // Lower-cased so Staff@ and staff@ cannot be used as two budgets against
+  // the same account.
+  const accountKey = `${caller}:${email.toLowerCase()}`;
+
+  // peek, not check: only FAILURES are recorded, below. The budget exists to
+  // stop password guessing, and a correct password is not a guess — charging
+  // successes for it locks out someone signing in on a phone, a laptop and a
+  // tablet inside a minute, which is a legitimate morning.
+  const account = perAccountLimiter.peek(accountKey);
+  if (!account.allowed) return tooMany(account.retryAfterSeconds);
+
+  const spray = perCallerLimiter.peek(caller);
+  if (!spray.allowed) return tooMany(spray.retryAfterSeconds);
+
+  /** Charges one attempt against both budgets. Called only when sign-in failed. */
+  const recordFailure = () => {
+    perAccountLimiter.check(accountKey);
+    perCallerLimiter.check(caller);
+  };
 
   if (supabaseConfigured()) {
     const failure = await signInWithSupabase(email, password);
-    if (failure) return { error: failure };
+    if (failure) {
+      recordFailure();
+      return { error: failure };
+    }
   } else if (demoAdminEnabled()) {
     await startDemoSession(email);
   } else {
+    // Not a credential failure — there is nothing to guess against — so this
+    // does not consume anyone's budget.
     return {
       error: "Admin sign-in is unavailable: this deployment has no Supabase project configured.",
     };

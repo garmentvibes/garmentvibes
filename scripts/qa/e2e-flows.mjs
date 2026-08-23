@@ -221,6 +221,113 @@ allConsoleErrors.push(
 );
 
 // ---------------------------------------------------------------------------
+// Retail + admin: product Q&A
+//
+// The rule under test is a privacy rule as much as a product one: a question
+// is private to its asker until staff answer it, so "does customer B see
+// customer A's pending question" is the check that matters most.
+// ---------------------------------------------------------------------------
+allConsoleErrors.push(
+  ...(await withPage(browser, async (page) => {
+    const PRODUCT = `${BASE_URL}/shop/product/classic-crew-neck-tee`;
+
+    await goto(page, PRODUCT);
+    // appears(), not count(): hydration marks the document ready before every
+    // client island has necessarily re-rendered, so a bare count() straight
+    // after a navigation is a race. count() stays correct for the ABSENCE
+    // checks below, which must not wait for something that should never show.
+    check(
+      "qa",
+      "answered questions are public",
+      await appears(page, "text=Does this shrink after the first wash?")
+    );
+    check(
+      "qa",
+      "asking requires an account",
+      await appears(page, 'a:has-text("Sign in to ask")')
+    );
+
+    // The seeded pending question is on the saree, and belongs to someone
+    // else — a signed-out visitor must not see it anywhere.
+    await goto(page, `${BASE_URL}/shop/product/banarasi-silk-saree`);
+    check(
+      "qa",
+      "another customer's pending question is not public",
+      (await page.locator("text=unstitched blouse piece").count()) === 0
+    );
+
+    await goto(page, `${BASE_URL}/shop/login`);
+    await page.fill("#email", "asker@example.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/shop");
+
+    await goto(page, PRODUCT);
+    await page.click('button:has-text("Ask a question")');
+
+    // A question with a link in it is an advert, and is refused before it can
+    // reach the staff queue.
+    await page.fill("#question-body", "Nice tee, cheaper at spamshop.com though");
+    await page.click('button:has-text("Send question")');
+    await page.waitForTimeout(300);
+    check("qa", "a question containing a link is refused", (await page.locator("text=/can't contain links/").count()) > 0);
+
+    await page.fill("#question-body", "size?");
+    await page.click('button:has-text("Send question")');
+    await page.waitForTimeout(300);
+    check("qa", "a one-word question is refused", (await page.locator("text=/write a bit more/i").count()) > 0);
+
+    await page.fill("#question-body", "Is the neckline ribbed or plain hemmed?");
+    await page.click('button:has-text("Send question")');
+    await page.waitForTimeout(400);
+    check(
+      "qa",
+      "the asker sees their own question waiting",
+      await appears(page, "text=Waiting for an answer")
+    );
+
+    // Staff answer it, which is what publishes it.
+    await goto(page, `${BASE_URL}/admin/login`);
+    await page.fill("#email", "staff@garmentvibes.com");
+    await page.fill("#password", "password123");
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/admin");
+
+    await goto(page, `${BASE_URL}/admin/questions`);
+    await appears(page, "#question-queue > li");
+    const queued = await page.locator("#question-queue > li").count();
+    check("qa", "the new question reaches the staff queue", queued > 0);
+
+    // Scoped to OUR question, not nth=0: the queue is oldest-first by design,
+    // and the seeded pending question about the saree is older. Answering
+    // whatever happens to be at the top put the reply on the wrong product.
+    const mine = page.locator("#question-queue > li", {
+      hasText: "Is the neckline ribbed or plain hemmed?",
+    });
+    await mine.locator("textarea").fill("Ribbed, in the same cotton.");
+    await mine.locator('button:has-text("Publish answer")').click();
+    await page.waitForTimeout(400);
+
+    const outbox = await page.evaluate(() => {
+      const raw = localStorage.getItem("garmentvibes-notifications");
+      return raw ? JSON.parse(raw).state.messages : [];
+    });
+    check(
+      "qa",
+      "answering emails the person who asked",
+      outbox.some((m) => m.templateId === "question_answered")
+    );
+
+    await goto(page, PRODUCT);
+    check(
+      "qa",
+      "the answer is published on the product page",
+      await appears(page, "text=Ribbed, in the same cotton.")
+    );
+  }))
+);
+
+// ---------------------------------------------------------------------------
 // Retail: fit confidence — per-system size charts, buyer fit feedback
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
