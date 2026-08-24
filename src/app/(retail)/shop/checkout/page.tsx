@@ -23,6 +23,7 @@ import { notify } from "@/lib/stores/notification-store";
 import { usePromoStore } from "@/lib/stores/promo-store";
 import { useReferralStore, referralsUsedBy } from "@/lib/stores/referral-store";
 import { evaluatePromo } from "@/lib/promo-eligibility";
+import { evaluatePromoOnServer } from "@/lib/promos/actions";
 import { checkReferral, rewardCodeFor, REFERRAL_FRIEND_PERCENT } from "@/lib/referrals";
 import { useNow } from "@/lib/hooks/use-now";
 import { computeGst } from "@/lib/gst";
@@ -110,7 +111,7 @@ export default function CheckoutPage() {
   // render, which makes React Compiler skip memoising this entire component.
   const pincode = useWatch({ control, name: "pincode" }) ?? "";
 
-  function applyPromo() {
+  async function applyPromo() {
     const code = promoInput.trim().toUpperCase();
 
     // A referral code is not a promo code — it identifies a person rather
@@ -140,15 +141,36 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Reads the managed list, so a code deactivated or expired in admin stops
-    // working immediately rather than at the next deploy.
-    const result = evaluatePromo({
-      input: code,
-      codes: promoCodes,
-      redemptions: promoRedemptions,
-      customerEmail: user?.email,
-      now: now ?? Date.now(),
-    });
+    // The database first, when there is one. Its redemption ledger is the only
+    // count the customer cannot edit — the local one below lives in the
+    // localStorage of the person being counted, so a one-per-customer code
+    // resets with Clear Site Data and a capped code is uncapped in a second
+    // browser.
+    //
+    // Null means there was nobody to ask: no Supabase project, nobody signed
+    // in, or the call failed. Distinct from a rejection, and it has to be,
+    // or every code would be refused on a deployment without a database.
+    //
+    // One consequence worth naming: a code created in the admin panel exists
+    // only in the browser store, so on a deployment WITH a database the server
+    // will not know it and will say so here. That is not a regression — the
+    // same code is already refused by place_retail_order at the moment the
+    // customer presses Pay. This moves the refusal to Apply, which is where a
+    // customer can still do something about it. Admin codes reaching the
+    // database is part of the store-to-database migration, not of this.
+    const server = await evaluatePromoOnServer(code);
+
+    const result =
+      server ??
+      // Reads the managed list, so a code deactivated or expired in admin
+      // stops working immediately rather than at the next deploy.
+      evaluatePromo({
+        input: code,
+        codes: promoCodes,
+        redemptions: promoRedemptions,
+        customerEmail: user?.email,
+        now: now ?? Date.now(),
+      });
 
     if (!result.ok) {
       toast.error(result.error);
@@ -552,7 +574,7 @@ export default function CheckoutPage() {
                   onChange={(e) => setPromoInput(e.target.value)}
                   className="h-9"
                 />
-                <Button type="button" variant="outline" size="sm" onClick={applyPromo}>
+                <Button type="button" variant="outline" size="sm" onClick={() => void applyPromo()}>
                   Apply
                 </Button>
               </div>
