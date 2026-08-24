@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useSignOut } from "@/lib/hooks/use-sign-out";
 import { ReferralCard } from "@/components/retail/referral-card";
 
 export default function RetailAccountPage() {
   const router = useRouter();
   const user = useSessionStore((s) => s.user);
-  const logout = useSessionStore((s) => s.logout);
+  const signOut = useSignOut();
   const updateProfile = useSessionStore((s) => s.updateProfile);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
@@ -114,8 +115,8 @@ export default function RetailAccountPage() {
       <Button
         variant="outline"
         className="mt-4 w-full"
-        onClick={() => {
-          logout();
+        onClick={async () => {
+          await signOut();
           toast.success("Signed out");
           router.push("/shop");
         }}

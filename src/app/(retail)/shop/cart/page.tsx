@@ -4,13 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCartStore, cartTotals } from "@/lib/stores/cart-store";
+import { cartTotals } from "@/lib/stores/cart-store";
+import { useCart } from "@/lib/hooks/use-cart";
 import { formatPrice } from "@/lib/utils";
 
 export default function CartPage() {
-  const lines = useCartStore((s) => s.lines);
-  const setQty = useCartStore((s) => s.setQty);
-  const removeLine = useCartStore((s) => s.removeLine);
+  const { lines, setQty, removeLine } = useCart();
   const { totalItems, totalPrice } = cartTotals(lines);
 
   if (lines.length === 0) {

@@ -46,12 +46,37 @@ interface CartState {
   /** Set when the recovery prompt has been shown and dismissed. */
   promptDismissedAt?: number;
 
+  /**
+   * The customer whose stored cart this bag has already been reconciled with,
+   * or undefined if it has not been.
+   *
+   * Sign-in merges the local bag into the stored one, and that merge must not
+   * repeat on a device that has already done it. The reason is removals: a
+   * customer who deletes a line on their phone leaves this device holding a
+   * bag that still has it, and merging again would put it back. Once this is
+   * set for the signed-in customer, later loads pull rather than merge, so a
+   * deletion made anywhere sticks everywhere.
+   *
+   * It holds a user id, in that user's own browser. Order uuids are kept off
+   * the client deliberately — they address a record support and the customer
+   * both quote — but this addresses nobody but the person already signed in,
+   * is never sent anywhere, and grants nothing: RLS keys off the JWT, not off
+   * this. A device that has never signed in has no value here at all.
+   */
+  syncedFor?: string;
+
   addLine: (line: Omit<CartLine, "key">) => void;
   removeLine: (key: string) => void;
   setQty: (key: string, qty: number) => void;
   clear: () => void;
   recordReminder: (at?: number) => void;
   dismissPrompt: (at?: number) => void;
+  /** Replaces the bag with the stored one. See the note on the action. */
+  adopt: (lines: CartLine[], syncedFor: string) => void;
+  /** Corrects one line to the quantity the server settled on. */
+  reconcile: (key: string, qty: number) => void;
+  /** Forgets the sync marker, so the next sign-in merges again. */
+  forgetSync: () => void;
 }
 
 /**
@@ -98,6 +123,27 @@ export const useCartStore = create<CartState>()(
         set({ remindersSent: get().remindersSent + 1, lastReminderAt: at }),
 
       dismissPrompt: (at = Date.now()) => set({ promptDismissedAt: at }),
+
+      // Deliberately does NOT stamp touched(). Adopting the stored cart is
+      // something the app did on the customer's behalf, not something the
+      // customer did — running it through the abandonment bookkeeping would
+      // restart the clock on every page load and mean a genuinely abandoned
+      // bag was never old enough to prompt about.
+      adopt: (lines, syncedFor) => set({ lines, syncedFor }),
+
+      // Same reasoning, and one more: this fires when the server clamped a
+      // quantity the customer asked for. The customer did act, and touched()
+      // has already run for that action in addLine or setQty — doing it again
+      // here would be a second stamp for one press.
+      reconcile: (key, qty) =>
+        set({
+          lines:
+            qty <= 0
+              ? get().lines.filter((l) => l.key !== key)
+              : get().lines.map((l) => (l.key === key ? { ...l, qty } : l)),
+        }),
+
+      forgetSync: () => set({ syncedFor: undefined }),
     }),
     { name: "garmentvibes-retail-cart", skipHydration: true }
   )

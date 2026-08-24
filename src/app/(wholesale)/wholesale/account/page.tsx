@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { ClipboardList, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useSignOut } from "@/lib/hooks/use-sign-out";
 
 export default function WholesaleAccountPage() {
   const router = useRouter();
   const user = useSessionStore((s) => s.user);
-  const logout = useSessionStore((s) => s.logout);
+  const signOut = useSignOut();
 
   if (!user || user.role !== "wholesale") {
     return (
@@ -56,8 +57,8 @@ export default function WholesaleAccountPage() {
       <Button
         variant="outline"
         className="mt-4 w-full"
-        onClick={() => {
-          logout();
+        onClick={async () => {
+          await signOut();
           toast.success("Signed out");
           router.push("/wholesale");
         }}
