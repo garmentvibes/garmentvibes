@@ -154,6 +154,31 @@ end;
 $$;
 
 /**
+ * as_user_error() for a signed-out request.
+ *
+ * anon_denied() answers "was this refused?", which for a view over a protected
+ * table is true for two quite different reasons: the view itself is ungranted,
+ * or the table beneath it is. Those are not interchangeable — one is removable
+ * by a later `grant select` that looks harmless — so a test that cares which
+ * one is holding the door needs the message, not the boolean.
+ */
+create or replace function anon_error(statement text)
+returns text language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role anon;
+  begin
+    execute statement;
+    reset role;
+    return null;
+  exception when others then
+    reset role;
+    return sqlerrm;
+  end;
+end;
+$$;
+
+/**
  * The error a statement raised, or null if it succeeded.
  *
  * as_user_error()'s counterpart for statements that run as the owner rather
