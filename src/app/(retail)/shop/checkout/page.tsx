@@ -286,8 +286,31 @@ export default function CheckoutPage() {
 
     if (result.ok) return result;
 
-    // No Supabase project: not a failure, just the older path.
+    // Two reasons to fall through to the local-only flow rather than stop.
+    //
+    // `not_configured` — no Supabase project. Expected, and the older path is
+    // the whole point of keeping it.
+    //
+    // `not_signed_in` — there IS a project, but the customer has no Supabase
+    // session, because the retail session is still the localStorage mock in
+    // session-store.ts. Every retail customer hits this. Treating it as fatal
+    // (which this did) breaks checkout outright the first time the app is
+    // deployed with Supabase keys set: the customer fills the form, presses
+    // Place Order, and is told to sign in when they already have.
+    //
+    // Falling through keeps the shop working, at the cost of the order not
+    // being persisted — which is exactly where things stood before the order
+    // was wired up at all, so nothing regresses. It stops being a compromise
+    // when retail auth is real; until then the log line is what makes the gap
+    // visible rather than silent.
     if (result.reason === "not_configured") return null;
+    if (result.reason === "not_signed_in") {
+      reportError(
+        new Error("Order not persisted: customer has no Supabase session"),
+        "place-retail-order"
+      );
+      return null;
+    }
 
     toast.error(result.error);
     return { failed: true } as const;
