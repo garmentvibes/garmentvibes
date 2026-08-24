@@ -7,19 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { usePromoStore } from "@/lib/stores/promo-store";
-import { totalRedemptions } from "@/lib/promo-eligibility";
+import { useManagedPromos } from "@/lib/hooks/use-managed-promos";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 
 export default function AdminPromosPage() {
   const mounted = useHasMounted();
   const now = useNow();
-  const codes = usePromoStore((s) => s.codes);
-  const redemptions = usePromoStore((s) => s.redemptions);
-  const add = usePromoStore((s) => s.add);
-  const toggle = usePromoStore((s) => s.toggle);
-  const remove = usePromoStore((s) => s.remove);
+  const { codes, live, create: createCode, setActive, remove } = useManagedPromos();
 
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
@@ -34,47 +29,20 @@ export default function AdminPromosPage() {
 
   // A const arrow rather than a function declaration: declarations hoist
   // above the `now === null` guard, so TypeScript can't see it narrowed.
-  const create = () => {
-    const normalised = code.trim().toUpperCase();
-    if (!/^[A-Z0-9]{3,20}$/.test(normalised)) {
-      toast.error("Codes are 3-20 characters, letters and numbers only");
-      return;
-    }
-    const pct = Number(percent);
-    // A 0% code does nothing and a 100% code gives the order away — both are
-    // almost certainly typos rather than intent.
-    if (!Number.isFinite(pct) || pct < 1 || pct > 90) {
-      toast.error("Discount must be between 1% and 90%");
-      return;
-    }
-    if (expiresOn && new Date(expiresOn).getTime() < now) {
-      toast.error("Expiry date is in the past");
+  //
+  // The rules live in parsePromoForm so that the same ones run here, for
+  // immediate feedback, and again in the server action, where they bind.
+  const create = async () => {
+    const error = await createCode({ code, percent, expiresOn, maxRedemptions, maxPerCustomer });
+
+    if (error) {
+      toast.error(error);
       return;
     }
 
-    const total = maxRedemptions.trim() === "" ? undefined : Number(maxRedemptions);
-    const perCustomer = maxPerCustomer.trim() === "" ? undefined : Number(maxPerCustomer);
-
-    if (total !== undefined && (!Number.isFinite(total) || total < 1)) {
-      toast.error("Total uses must be a whole number of at least 1, or blank for unlimited");
-      return;
-    }
-    if (perCustomer !== undefined && (!Number.isFinite(perCustomer) || perCustomer < 1)) {
-      toast.error("Uses per customer must be at least 1, or blank for unlimited");
-      return;
-    }
-
-    add({
-      code: normalised,
-      percent: pct,
-      active: true,
-      expiresOn: expiresOn || undefined,
-      maxRedemptions: total,
-      maxPerCustomer: perCustomer,
-    });
     setCode("");
     setExpiresOn("");
-    toast.success(`${normalised} created`);
+    toast.success(`${code.trim().toUpperCase()} created`);
   };
 
   const isExpired = (expiry?: string) =>
@@ -87,6 +55,21 @@ export default function AdminPromosPage() {
         Codes customers can apply at checkout. Built-in codes ship with the app and can be
         switched off but not deleted.
       </p>
+
+      {/*
+        Worth saying out loud rather than leaving an admin to discover it. Until
+        this page wrote to the database, every code lived in one browser's
+        localStorage — so a colleague on another machine saw a different set,
+        and nobody could tell from looking. On a deployment with no database
+        that is still the situation, and this is the sentence that explains why
+        a code created here is not on the shop floor's laptop.
+      */}
+      {!live && (
+        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          These codes are saved in this browser only. They are not shared with other
+          staff, and clearing site data removes them.
+        </p>
+      )}
 
       <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-5">
         <h2 className="mb-3 font-semibold text-neutral-900">Create a code</h2>
@@ -147,7 +130,7 @@ export default function AdminPromosPage() {
               className="mt-1"
             />
           </div>
-          <Button size="sm" onClick={create}>
+          <Button size="sm" onClick={() => void create()}>
             Create
           </Button>
         </div>
@@ -187,7 +170,7 @@ export default function AdminPromosPage() {
                   </p>
                 )}
                 <p className="mt-1 text-xs text-neutral-400">
-                  Used {totalRedemptions(redemptions, promo.code)}
+                  Used {promo.redemptions}
                   {promo.maxRedemptions !== undefined
                     ? ` of ${promo.maxRedemptions}`
                     : " times · no total cap"}
@@ -198,7 +181,14 @@ export default function AdminPromosPage() {
               </div>
 
               <div className="flex shrink-0 gap-2">
-                <Button size="sm" variant="outline" onClick={() => toggle(promo.code)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const error = await setActive(promo.code, !promo.active);
+                    if (error) toast.error(error);
+                  }}
+                >
                   {promo.active ? "Deactivate" : "Activate"}
                 </Button>
                 {!promo.builtIn && (
@@ -206,8 +196,12 @@ export default function AdminPromosPage() {
                     size="sm"
                     variant="destructive"
                     aria-label={`Delete ${promo.code}`}
-                    onClick={() => {
-                      remove(promo.code);
+                    onClick={async () => {
+                      const error = await remove(promo.code);
+                      if (error) {
+                        toast.error(error);
+                        return;
+                      }
                       toast.success(`${promo.code} deleted`);
                     }}
                   >

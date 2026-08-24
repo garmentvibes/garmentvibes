@@ -419,4 +419,152 @@ select assert(
   anon_denied($$select evaluate_promo('UNCAPPED')$$),
   'evaluate: a signed-out visitor cannot call it');
 
+-- ---------------------------------------------------------------------------
+-- promo_code_usage — the counts the admin panel prints
+-- ---------------------------------------------------------------------------
+
+-- Staff, so the view is read with the privileges the panel actually has.
+insert into auth.users (id, email) values
+  ('44444444-4444-4444-4444-444444444444', 'staff@garmentvibes.com')
+on conflict (id) do nothing;
+
+insert into profiles (id, role, full_name, email) values
+  ('44444444-4444-4444-4444-444444444444', 'admin', 'Staff', 'staff@garmentvibes.com')
+on conflict (id) do update set role = excluded.role;
+
+select assert(
+  as_user_scalar('44444444-4444-4444-4444-444444444444',
+    $$select redemptions::text from promo_code_usage where code = 'UNCAPPED'$$) = '3',
+  'usage: staff see the total redemptions on a code');
+
+-- A code nobody has touched must read as zero, not vanish. The panel prints
+-- "0 of 100 used" and a missing row renders as a blank where a number belongs,
+-- which is the bug an inner join would have shipped.
+select assert(
+  as_user_scalar('44444444-4444-4444-4444-444444444444',
+    $$select redemptions::text from promo_code_usage where code = 'DEACTIVATED'$$) = '0',
+  'usage: a code nobody has redeemed reads as zero rather than disappearing');
+
+-- Not the same number as the total, and the one worth looking at: three
+-- redemptions by one person is a different campaign from three by three.
+select assert(
+  as_user_scalar('44444444-4444-4444-4444-444444444444',
+    $$select customers::text from promo_code_usage where code = 'UNCAPPED'$$) = '1',
+  'usage: distinct customers is counted separately from total redemptions');
+
+select assert(
+  as_user_scalar('44444444-4444-4444-4444-444444444444',
+    $$select customers::text from promo_code_usage where code = 'ONLYTWO'$$) = '2',
+  'usage: and reflects two different people on a code they shared');
+
+-- The whole reason the view is security_invoker. Owned by the migration role,
+-- it would evaluate as that role and hand every signed-in customer a readout
+-- of how many times each campaign had been redeemed — straight through the RLS
+-- on promo_redemptions. As the invoker, a customer sees only their own.
+select assert(
+  as_user_scalar('33333333-3333-3333-3333-333333333333',
+    $$select redemptions::text from promo_code_usage where code = 'UNCAPPED'$$) = '0',
+  'usage: a customer cannot read a campaign''s totals through the view');
+
+select assert(
+  as_user_scalar('33333333-3333-3333-3333-333333333333',
+    $$select redemptions::text from promo_code_usage where code = 'FRAGILE'$$) = '1',
+  'usage: they see their own redemption on a code they did use');
+
+-- Named rather than merely denied, because two separate doors are shut here
+-- and the message says which one a visitor meets first.
+--
+-- The view is granted to `authenticated` and not to `anon`, so that is the
+-- one: the read is refused before the query beneath it is ever planned. Behind
+-- it, security_invoker means the read would descend into promo_redemptions,
+-- where `anon` has no privilege either — so adding `anon` to the view's grant
+-- would move the refusal one layer down rather than open anything.
+--
+-- Worth spelling out because it explains a mutation that survives on purpose:
+-- granting this view to `anon` changes nothing observable, and a test written
+-- to catch it would be asserting a difference that does not exist.
+select assert(
+  anon_error($$select count(*) from promo_code_usage$$)
+    like '%permission denied for view promo_code_usage%',
+  'usage: a signed-out visitor is refused at the view, with the table beneath it also shut');
+
+-- ---------------------------------------------------------------------------
+-- The admin panel's write path
+-- ---------------------------------------------------------------------------
+
+-- 0009 gave staff insert, update and delete on promo_codes and nothing has
+-- ever used them: the panel writes to localStorage. These pin the policies the
+-- server actions in src/lib/admin/promos/ now depend on, so a later tightening
+-- of them fails here rather than in a shop that cannot make a discount code.
+
+select assert(
+  as_user_error('44444444-4444-4444-4444-444444444444',
+    $$insert into promo_codes (code, percent, active, max_redemptions, max_per_customer)
+      values ('STAFFMADE', 15, true, 50, 1)$$) is null,
+  'admin: staff can create a code with caps');
+
+select assert(
+  as_user_scalar('44444444-4444-4444-4444-444444444444',
+    $$select max_per_customer::text from promo_codes where code = 'STAFFMADE'$$) = '1',
+  'admin: and the caps are stored, not dropped on the way in');
+
+select assert(
+  as_user_error('44444444-4444-4444-4444-444444444444',
+    $$update promo_codes set active = false where code = 'STAFFMADE'$$) is null,
+  'admin: staff can switch a code off');
+
+select assert(
+  as_user_scalar('44444444-4444-4444-4444-444444444444',
+    $$select active::text from promo_codes where code = 'STAFFMADE'$$) = 'false',
+  'admin: and it stays off');
+
+-- A customer reaching the same table directly. The panel is gated by
+-- getStaffUser(), but that gate is a function call in the app — this is the
+-- one that holds when somebody skips the app.
+select assert(
+  is_denied('11111111-1111-1111-1111-111111111111',
+    $$insert into promo_codes (code, percent, active) values ('SELFSERVE', 90, true)$$),
+  'admin: a customer cannot mint themselves a promo code');
+
+select assert(
+  (select count(*) from promo_codes where code = 'SELFSERVE') = 0,
+  'admin: and none was created');
+
+-- An UPDATE blocked by policy affects nothing rather than raising, so this is
+-- counted rather than probed for an error — is_denied() would report false and
+-- read as a failure of the test rather than of the attack.
+select as_user_scalar('11111111-1111-1111-1111-111111111111',
+  $$update promo_codes set percent = 90 where code = 'UNCAPPED' returning code$$);
+
+select assert(
+  (select percent from promo_codes where code = 'UNCAPPED') = 10,
+  'admin: nor raise the discount on an existing one');
+
+select as_user_scalar('11111111-1111-1111-1111-111111111111',
+  $$update promo_codes set max_per_customer = null where code = 'ONCEEACH' returning code$$);
+
+select assert(
+  (select max_per_customer from promo_codes where code = 'ONCEEACH') = 1,
+  'admin: nor lift the cap that stops them reusing it');
+
+-- The built-in rule, which the delete policy enforces rather than the UI that
+-- happens to hide the button. It matters to the action in
+-- src/lib/admin/promos/actions.ts: a blocked delete matches no row and reads
+-- as success over PostgREST, so the action checks what came back.
+insert into promo_codes (code, percent, active, built_in) values ('GARMENT10', 10, true, true);
+
+select as_user_scalar('44444444-4444-4444-4444-444444444444',
+  $$delete from promo_codes where code = 'GARMENT10' returning code$$);
+
+select assert(
+  (select count(*) from promo_codes where code = 'GARMENT10') = 1,
+  'admin: a built-in code survives staff trying to delete it');
+
+select as_user_scalar('44444444-4444-4444-4444-444444444444',
+  $$delete from promo_codes where code = 'STAFFMADE' returning code$$);
+
+select assert(
+  (select count(*) from promo_codes where code = 'STAFFMADE') = 0,
+  'admin: while a code they made is deleted');
+
 rollback;
