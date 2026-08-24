@@ -33,7 +33,8 @@ insert into profiles (id, role, full_name, email) values
   ('11111111-1111-1111-1111-111111111111', 'retail', 'Asha', 'asha@example.com'),
   ('22222222-2222-2222-2222-222222222222', 'retail', 'Bhavna', 'bhavna@example.com'),
   ('44444444-4444-4444-4444-444444444444', 'wholesale', 'Trade Buyer', 'buyer@trade.example'),
-  ('33333333-3333-3333-3333-333333333333', 'admin', 'Staff', 'staff@garmentvibes.com');
+  ('33333333-3333-3333-3333-333333333333', 'admin', 'Staff', 'staff@garmentvibes.com')
+on conflict (id) do update set role = excluded.role, full_name = excluded.full_name, email = excluded.email;
 
 insert into wholesale_accounts (id, business_name, contact_name, email, status)
 values ('aaaaaaaa-0000-0000-0000-000000000001', 'Trade Co', 'Trade Buyer',

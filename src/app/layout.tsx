@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { StoreHydrator } from "@/components/shared/store-hydrator";
+import { SessionSync } from "@/components/shared/session-sync";
 import { ServiceWorkerRegistrar } from "@/components/shared/service-worker-registrar";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { JsonLd } from "@/components/shared/json-ld";
@@ -73,6 +74,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <JsonLd data={[organizationSchema(), websiteSchema()]} />
         <StoreHydrator />
+        <SessionSync />
         <ServiceWorkerRegistrar />
         {children}
         <InstallPrompt />

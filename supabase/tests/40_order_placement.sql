@@ -26,7 +26,8 @@ insert into auth.users (id, email) values
 
 insert into profiles (id, role, full_name, email) values
   ('11111111-1111-1111-1111-111111111111', 'retail', 'Asha', 'asha@example.com'),
-  ('22222222-2222-2222-2222-222222222222', 'retail', 'Bhavna', 'bhavna@example.com');
+  ('22222222-2222-2222-2222-222222222222', 'retail', 'Bhavna', 'bhavna@example.com')
+on conflict (id) do update set role = excluded.role, full_name = excluded.full_name, email = excluded.email;
 
 -- ₹1,999 — under the ₹2,500 slab boundary, so 5% GST.
 insert into retail_products (id, slug, name, brand, category, subcategory, price, mrp)
