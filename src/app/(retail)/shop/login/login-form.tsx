@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useReferralStore } from "@/lib/stores/referral-store";
+import { signInCustomer } from "@/lib/auth/customer-actions";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -30,9 +31,29 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
-  function onSubmit(data: LoginForm) {
-    // Placeholder session until Supabase Auth is wired up (Phase 1).
+  async function onSubmit(data: LoginForm) {
+    const form = new FormData();
+    form.set("email", data.email);
+    form.set("password", data.password);
+
+    const result = await signInCustomer(null, form);
+
+    // A deployment with no Supabase project has no accounts to sign into, so
+    // the local-only session stands in — the state this repository is in, and
+    // what the QA suite drives. Branching on the flag rather than the message
+    // so a reworded error cannot silently turn a real failure into a
+    // successful fake sign-in.
+    if (result.error && !result.notConfigured) {
+      toast.error(result.error);
+      return;
+    }
+
+    // Set locally either way. When Supabase did sign them in, the cookie is
+    // already set and this only makes the header correct immediately instead
+    // of one round trip later; SessionSync overwrites it with the server's
+    // answer on the next mount.
     login({ name: data.email.split("@")[0], email: data.email, role: "retail" });
+
     // A referral code is a hash of an email and cannot be reversed, so a
     // code is resolved by checking it against the customers we know about.
     // Becomes a lookup on `profiles` once accounts are in the database.
