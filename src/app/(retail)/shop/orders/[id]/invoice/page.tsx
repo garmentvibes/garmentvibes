@@ -6,7 +6,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { BUSINESS_INFO } from "@/lib/business-info";
-import { useRetailOrder } from "@/lib/stores/admin-orders-store";
+import { useMyOrder } from "@/lib/hooks/use-my-orders";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { getRetailProductById } from "@/lib/mock/retail-products";
 import { computeGst, SELLER_STATE_CODE } from "@/lib/gst";
@@ -14,7 +14,7 @@ import { computeGst, SELLER_STATE_CODE } from "@/lib/gst";
 export default function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const mounted = useHasMounted();
-  const order = useRetailOrder(id);
+  const { order } = useMyOrder(id);
 
   if (!mounted) return null;
 

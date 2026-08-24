@@ -925,7 +925,16 @@ allConsoleErrors.push(
 allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
     await goto(page, `${BASE_URL}/shop/orders`);
-    check("retail-orders", "order list renders", (await page.locator('a[href^="/shop/orders/"]').count()) > 0);
+    // appears(), not count(). The list is populated from a hook that may have
+    // to ask the server first — on a deployment with a database it always
+    // does — and count() immediately after navigation reads whatever happens
+    // to be on the page at that instant. That raced two runs in three when the
+    // fetch was unconditional.
+    check(
+      "retail-orders",
+      "order list renders",
+      await appears(page, 'a[href^="/shop/orders/"]')
+    );
 
     // A delivered order can't be cancelled; a pending one can. Pick the
     // pending one explicitly so the assertion isn't order-dependent.

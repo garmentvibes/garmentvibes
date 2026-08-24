@@ -25,6 +25,15 @@ export interface AuthResult {
   error: string | null;
   /** Set when the account was created but needs its email confirmed first. */
   needsConfirmation?: boolean;
+  /**
+   * Set when there is no Supabase project on this deployment.
+   *
+   * A flag rather than a message the caller has to match on. The forms fall
+   * back to the local-only session in this case, and deciding that by
+   * comparing error strings is the kind of thing that breaks silently the
+   * first time the wording changes.
+   */
+  notConfigured?: boolean;
 }
 
 const Credentials = z.object({
@@ -76,7 +85,7 @@ export async function signUpCustomer(
   _prev: AuthResult | null,
   formData: FormData
 ): Promise<AuthResult> {
-  if (!supabaseConfigured()) return { error: NOT_CONFIGURED };
+  if (!supabaseConfigured()) return { error: NOT_CONFIGURED, notConfigured: true };
 
   const parsed = SignUp.safeParse({
     email: formData.get("email"),
@@ -130,7 +139,7 @@ export async function signInCustomer(
   _prev: AuthResult | null,
   formData: FormData
 ): Promise<AuthResult> {
-  if (!supabaseConfigured()) return { error: NOT_CONFIGURED };
+  if (!supabaseConfigured()) return { error: NOT_CONFIGURED, notConfigured: true };
 
   const parsed = Credentials.safeParse({
     email: formData.get("email"),

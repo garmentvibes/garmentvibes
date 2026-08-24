@@ -17,7 +17,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
-import { useAdminOrdersStore, useRetailOrder } from "@/lib/stores/admin-orders-store";
+import { useAdminOrdersStore } from "@/lib/stores/admin-orders-store";
+import { useMyOrder } from "@/lib/hooks/use-my-orders";
+import { cancelMyOrder } from "@/lib/orders/reads";
 import { notify } from "@/lib/stores/notification-store";
 import { useReturnsForOrder } from "@/lib/stores/returns-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
@@ -43,13 +45,24 @@ const CANCELLABLE: RetailOrderStatus[] = ["pending", "confirmed", "packed"];
 export default function CustomerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const mounted = useHasMounted();
-  const order = useRetailOrder(id);
+  const { order, loaded, live } = useMyOrder(id);
   const setRetailStatus = useAdminOrdersStore((s) => s.setRetailStatus);
   const returns = useReturnsForOrder(id);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const now = useNow();
 
   if (!mounted) return null;
+
+  // "Not found" is only true once the server has answered. Rendering it while
+  // the fetch is in flight tells a customer their order does not exist and
+  // then contradicts itself a moment later.
+  if (!loaded) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
+        <p className="text-neutral-500">Loading your order…</p>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -68,8 +81,25 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     now !== null && returnEligibility(order, returns, now).eligible;
   const currentStep = TIMELINE.findIndex((s) => s.status === order.status);
 
-  function cancelOrder() {
-    setRetailStatus(id, "cancelled");
+  async function cancelOrder() {
+    // A live order is cancelled in the database, which is also what puts its
+    // stock back — release_retail_order() holds the row lock and decides
+    // whether it is still cancellable, so this cannot race with a payment
+    // confirming. Refusal is not an error the customer caused: an order that
+    // has just been paid for or shipped is no longer theirs to cancel here.
+    if (live) {
+      const released = await cancelMyOrder(id);
+      if (!released) {
+        toast.error("That order can no longer be cancelled. Contact support if you need help.");
+        setConfirmingCancel(false);
+        return;
+      }
+    } else {
+      // The demo seed has no database behind it; the local override is all
+      // there is to move.
+      setRetailStatus(id, "cancelled");
+    }
+
     notify({
       templateId: "order_cancelled",
       recipientName: order!.customerName,

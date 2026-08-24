@@ -5,7 +5,7 @@ import { Package, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
-import { useRetailOrders } from "@/lib/stores/admin-orders-store";
+import { useMyOrders } from "@/lib/hooks/use-my-orders";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
 
@@ -31,16 +31,21 @@ const STATUS_VARIANT: Record<RetailOrderStatus, "warning" | "wholesale" | "succe
 
 export default function OrdersPage() {
   const mounted = useHasMounted();
-  const orders = useRetailOrders();
+  const { orders, loaded, live } = useMyOrders();
 
   if (!mounted) return null;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-bold text-neutral-900">My Orders</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        Sample order history — will reflect your real orders once accounts are connected.
-      </p>
+      {/* Only shown when these really are demo orders. Leaving it up over a
+          customer's own order history would tell them their purchases are not
+          real, which is a worse mistake than the one it was warning about. */}
+      {!live && loaded && (
+        <p className="mt-1 text-sm text-neutral-500">
+          Sample order history — this deployment has no account database connected yet.
+        </p>
+      )}
 
       <div className="mt-6 space-y-3">
         {orders.map((order) => {
@@ -76,7 +81,11 @@ export default function OrdersPage() {
         })}
       </div>
 
-      {orders.length === 0 && (
+      {!loaded && (
+        <p className="mt-6 text-sm text-neutral-500">Loading your orders…</p>
+      )}
+
+      {loaded && orders.length === 0 && (
         <div className="mt-8 rounded-lg border border-dashed border-neutral-300 py-12 text-center">
           <p className="text-neutral-500">You haven&apos;t placed any orders yet.</p>
           <Link href="/shop">
