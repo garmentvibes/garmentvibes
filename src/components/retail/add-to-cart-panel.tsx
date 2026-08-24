@@ -8,7 +8,7 @@ import { SizeGuideModal } from "@/components/retail/size-guide-modal";
 import { DeliveryEstimator } from "@/components/retail/delivery-estimator";
 import { BackInStockNotify } from "@/components/retail/back-in-stock-notify";
 import { cn, formatPrice } from "@/lib/utils";
-import { useCartStore } from "@/lib/stores/cart-store";
+import { useCart } from "@/lib/hooks/use-cart";
 import { useStockStore, getStock, LOW_STOCK_THRESHOLD } from "@/lib/stores/stock-store";
 import { track } from "@/lib/analytics";
 import { useKeptSizes } from "@/lib/hooks/use-kept-sizes";
@@ -19,7 +19,7 @@ import type { RetailProduct } from "@/types/catalog";
 export function AddToCartPanel({ product }: { product: RetailProduct }) {
   const [size, setSize] = useState(product.sizes.find((s) => s.inStock)?.label ?? "");
   const [color, setColor] = useState(product.colors[0] ?? "");
-  const addLine = useCartStore((s) => s.addLine);
+  const { addLine } = useCart();
   const decrementStock = useStockStore((s) => s.decrement);
   const stockOverrides = useStockStore((s) => s.overrides);
   const router = useRouter();

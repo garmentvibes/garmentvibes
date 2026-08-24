@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { StoreHydrator } from "@/components/shared/store-hydrator";
 import { SessionSync } from "@/components/shared/session-sync";
+import { CartSync } from "@/components/shared/cart-sync";
 import { ServiceWorkerRegistrar } from "@/components/shared/service-worker-registrar";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { JsonLd } from "@/components/shared/json-ld";
@@ -75,6 +76,7 @@ export default function RootLayout({
         <JsonLd data={[organizationSchema(), websiteSchema()]} />
         <StoreHydrator />
         <SessionSync />
+        <CartSync />
         <ServiceWorkerRegistrar />
         {children}
         <InstallPrompt />
