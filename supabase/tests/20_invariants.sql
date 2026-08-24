@@ -20,7 +20,8 @@ insert into auth.users (id, email)
 values ('99999999-0000-0000-0000-000000000001', 'inv@example.com');
 
 insert into profiles (id, role, full_name, email)
-values ('99999999-0000-0000-0000-000000000001', 'retail', 'Inv', 'inv@example.com');
+values ('99999999-0000-0000-0000-000000000001', 'retail', 'Inv', 'inv@example.com')
+on conflict (id) do update set role = excluded.role, full_name = excluded.full_name, email = excluded.email;
 
 insert into retail_products (id, slug, name, brand, category, subcategory, price, mrp)
 values ('cccccccc-1111-0000-0000-000000000001', 'inv-kurta', 'Inv Kurta', 'GV',
