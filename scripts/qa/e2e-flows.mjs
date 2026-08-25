@@ -1547,7 +1547,7 @@ allConsoleErrors.push(
       await page.click('button:has-text("Sign in")');
       await page.waitForURL("**/admin");
 
-      await goto(page, `${BASE_URL}/admin/products/retail/r1`);
+      await goto(page, `${BASE_URL}/admin/products/retail/floral-anarkali-kurta`);
       await page.fill(`input[aria-label="Stock for size ${size}"]`, "8");
       await page.waitForTimeout(500);
 
@@ -1728,13 +1728,13 @@ allConsoleErrors.push(
 
   const zeroQty = await post(
     "/api/razorpay/order",
-    JSON.stringify({ items: [{ productId: "r1", qty: 0 }] })
+    JSON.stringify({ items: [{ productId: "floral-anarkali-kurta", qty: 0 }] })
   );
   check("payments", "order route rejects a zero quantity", zeroQty.status === 400);
 
   const absurdQty = await post(
     "/api/razorpay/order",
-    JSON.stringify({ items: [{ productId: "r1", qty: 9999 }] })
+    JSON.stringify({ items: [{ productId: "floral-anarkali-kurta", qty: 9999 }] })
   );
   check("payments", "order route caps quantity", absurdQty.status === 400);
 
@@ -1749,7 +1749,7 @@ allConsoleErrors.push(
   // honouring the injected total, and never 200s on it.
   const injectedAmount = await post(
     "/api/razorpay/order",
-    JSON.stringify({ items: [{ productId: "r1", qty: 1 }], amount: 100, total: 100 })
+    JSON.stringify({ items: [{ productId: "floral-anarkali-kurta", qty: 1 }], amount: 100, total: 100 })
   );
   check(
     "payments",
@@ -1759,7 +1759,7 @@ allConsoleErrors.push(
 
   const validOrder = await post(
     "/api/razorpay/order",
-    JSON.stringify({ items: [{ productId: "r1", qty: 1 }] })
+    JSON.stringify({ items: [{ productId: "floral-anarkali-kurta", qty: 1 }] })
   );
   const validBody = await validOrder.json().catch(() => ({}));
   check(
@@ -1830,7 +1830,7 @@ allConsoleErrors.push(
     for (let i = 0; i < count; i += 1) {
       const res = await post(
         "/api/razorpay/order",
-        JSON.stringify({ items: [{ productId: "r1", qty: 1 }] }),
+        JSON.stringify({ items: [{ productId: "floral-anarkali-kurta", qty: 1 }] }),
         { "x-forwarded-for": ip }
       );
       statuses.push(res.status);
@@ -1861,7 +1861,7 @@ allConsoleErrors.push(
   // mode of keying the limit on anything shared.
   const bystander = await post(
     "/api/razorpay/order",
-    JSON.stringify({ items: [{ productId: "r1", qty: 1 }] }),
+    JSON.stringify({ items: [{ productId: "floral-anarkali-kurta", qty: 1 }] }),
     { "x-forwarded-for": "198.51.100.7" }
   );
   check("payments", "one caller's limit does not affect another", bystander.status !== 429);

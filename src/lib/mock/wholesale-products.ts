@@ -5,7 +5,7 @@ import { fuzzySearch } from "@/lib/search";
 export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
   // --- Unisex / Basics ---
   {
-    id: "w1",
+    id: "cotton-round-neck-tee-bulk",
     sku: "GV-WCT-001",
     slug: "cotton-round-neck-tee-bulk",
     name: "Cotton Round Neck T-Shirt (Bulk Pack)",
@@ -29,7 +29,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     tags: ["bestseller"],
   },
   {
-    id: "w9",
+    id: "fleece-hoodie-bulk",
     sku: "GV-WHD-009",
     slug: "fleece-hoodie-bulk",
     name: "Fleece Pullover Hoodie (Bulk Pack)",
@@ -52,7 +52,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     tags: ["new"],
   },
   {
-    id: "w10",
+    id: "cotton-vest-bulk",
     sku: "GV-WVN-010",
     slug: "cotton-vest-bulk",
     name: "Cotton Ribbed Vest (Bulk Pack)",
@@ -76,7 +76,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Unisex / Activewear ---
   {
-    id: "w8",
+    id: "activewear-joggers-bulk",
     sku: "GV-WAT-008",
     slug: "activewear-joggers-bulk",
     name: "Activewear Joggers (Bulk Pack)",
@@ -99,7 +99,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     tags: ["closeout"],
   },
   {
-    id: "w11",
+    id: "dryfit-sports-tee-bulk",
     sku: "GV-WDF-011",
     slug: "dryfit-sports-tee-bulk",
     name: "Dry-Fit Sports T-Shirt (Bulk Pack)",
@@ -124,7 +124,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Unisex / Ethnic (festive) ---
   {
-    id: "w7",
+    id: "festive-ethnic-set-bulk",
     sku: "GV-WET-007",
     slug: "festive-ethnic-set-bulk",
     name: "Festive Ethnic Kurta Set (Bulk Pack)",
@@ -149,7 +149,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Women / Kurtis ---
   {
-    id: "w2",
+    id: "cotton-printed-kurti-bulk",
     sku: "GV-WKR-002",
     slug: "cotton-printed-kurti-bulk",
     name: "Cotton Printed Kurti (Bulk Pack)",
@@ -173,7 +173,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     tags: ["new"],
   },
   {
-    id: "w12",
+    id: "chikankari-kurti-bulk",
     sku: "GV-WCK-012",
     slug: "chikankari-kurti-bulk",
     name: "Chikankari Embroidered Kurti (Bulk Pack)",
@@ -195,7 +195,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     leadTimeDays: 18,
   },
   {
-    id: "w13",
+    id: "anarkali-kurta-bulk",
     sku: "GV-WAK-013",
     slug: "anarkali-kurta-bulk",
     name: "Anarkali Flared Kurta (Bulk Pack)",
@@ -219,7 +219,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Women / Sarees & Suit Sets ---
   {
-    id: "w14",
+    id: "printed-saree-bulk",
     sku: "GV-WSS-014",
     slug: "printed-saree-bulk",
     name: "Printed Georgette Saree (Bulk Pack)",
@@ -242,7 +242,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     tags: ["bestseller"],
   },
   {
-    id: "w15",
+    id: "unstitched-suit-set-bulk",
     sku: "GV-WSU-015",
     slug: "unstitched-suit-set-bulk",
     name: "Unstitched 3-Piece Suit Set (Bulk Pack)",
@@ -266,7 +266,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Women / Western Wear ---
   {
-    id: "w16",
+    id: "womens-rayon-top-bulk",
     sku: "GV-WWT-016",
     slug: "womens-rayon-top-bulk",
     name: "Women's Rayon Top (Bulk Pack)",
@@ -290,7 +290,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Men / T-Shirts & Polos ---
   {
-    id: "w17",
+    id: "mens-pique-polo-bulk",
     sku: "GV-WPO-017",
     slug: "mens-pique-polo-bulk",
     name: "Men's Pique Polo T-Shirt (Bulk Pack)",
@@ -315,7 +315,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Men / Shirts ---
   {
-    id: "w6",
+    id: "formal-shirt-bulk",
     sku: "GV-WFR-006",
     slug: "formal-shirt-bulk",
     name: "Formal Cotton Shirt (Bulk Pack)",
@@ -337,7 +337,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     leadTimeDays: 12,
   },
   {
-    id: "w18",
+    id: "casual-checked-shirt-bulk",
     sku: "GV-WCS-018",
     slug: "casual-checked-shirt-bulk",
     name: "Casual Checked Shirt (Bulk Pack)",
@@ -361,7 +361,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Men / Denim & Trousers ---
   {
-    id: "w3",
+    id: "denim-jeans-bulk",
     sku: "GV-WDN-003",
     slug: "denim-jeans-bulk",
     name: "Stretch Denim Jeans (Bulk Pack)",
@@ -383,7 +383,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     leadTimeDays: 14,
   },
   {
-    id: "w19",
+    id: "cotton-chino-trouser-bulk",
     sku: "GV-WCH-019",
     slug: "cotton-chino-trouser-bulk",
     name: "Cotton Chino Trousers (Bulk Pack)",
@@ -407,7 +407,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Men / Ethnic Wear ---
   {
-    id: "w20",
+    id: "mens-cotton-kurta-bulk",
     sku: "GV-WMK-020",
     slug: "mens-cotton-kurta-bulk",
     name: "Men's Cotton Kurta (Bulk Pack)",
@@ -431,7 +431,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Kids / Co-ord Sets ---
   {
-    id: "w4",
+    id: "kids-cotton-coord-set-bulk",
     sku: "GV-WKD-004",
     slug: "kids-cotton-coord-set-bulk",
     name: "Kids Cotton Co-ord Set (Bulk Pack)",
@@ -456,7 +456,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Kids / T-Shirts & Dresses ---
   {
-    id: "w21",
+    id: "kids-printed-tee-bulk",
     sku: "GV-WKT-021",
     slug: "kids-printed-tee-bulk",
     name: "Kids Printed T-Shirt (Bulk Pack)",
@@ -478,7 +478,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     leadTimeDays: 8,
   },
   {
-    id: "w22",
+    id: "kids-cotton-frock-bulk",
     sku: "GV-WKF-022",
     slug: "kids-cotton-frock-bulk",
     name: "Kids Cotton Frock (Bulk Pack)",
@@ -503,7 +503,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Fabric / Cotton Fabric ---
   {
-    id: "w23",
+    id: "cotton-poplin-fabric-bulk",
     sku: "GV-WCF-023",
     slug: "cotton-poplin-fabric-bulk",
     name: "Cotton Poplin Fabric (Bulk Roll)",
@@ -525,7 +525,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     leadTimeDays: 16,
   },
   {
-    id: "w24",
+    id: "denim-fabric-bulk",
     sku: "GV-WDF-024",
     slug: "denim-fabric-bulk",
     name: "Denim Fabric (Bulk Roll)",
@@ -549,7 +549,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
 
   // --- Fabric / Embroidered & Silk Blend ---
   {
-    id: "w5",
+    id: "chikankari-kurti-fabric-bulk",
     sku: "GV-WSR-005",
     slug: "chikankari-kurti-fabric-bulk",
     name: "Chikankari Embroidered Fabric (Bulk Roll)",
@@ -571,7 +571,7 @@ export const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
     leadTimeDays: 18,
   },
   {
-    id: "w25",
+    id: "banarasi-silk-blend-fabric-bulk",
     sku: "GV-WSF-025",
     slug: "banarasi-silk-blend-fabric-bulk",
     name: "Banarasi Silk Blend Fabric (Bulk Roll)",

@@ -23,9 +23,11 @@ export interface OrderLinePayload {
   /**
    * The catalogue slug, not the id.
    *
-   * src/lib/mock/ numbers products "r1", "r10"; the database generates uuids
-   * and the seed joins them by slug. The slug is the only identifier both
-   * sides share.
+   * The database generates uuids for products and the seed joins them by slug,
+   * so the slug is the only identifier both sides share. The catalogue's `id`
+   * now holds the slug too — see the note on RetailProduct.id — but this stays
+   * explicit rather than passing `id` and relying on that, because what this
+   * field means to `place_retail_order` is "the slug", and it should say so.
    */
   slug: string;
   size: string;

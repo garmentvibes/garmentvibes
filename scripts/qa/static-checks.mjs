@@ -219,6 +219,50 @@ if (unhydrated === 0) {
 }
 
 // ---------------------------------------------------------------------------
+// Every catalogue product's id is its slug
+// ---------------------------------------------------------------------------
+//
+// The app keys nine localStorage stores on `product.id` — wishlist, stock
+// overrides, fit votes, reviews, questions, recently viewed and the rest. The
+// database keys on `retail_products.id`, a uuid Postgres generates because the
+// seed does not set one, which is therefore different in every environment.
+//
+// Those two cannot both be the identity. The slug is what they share, and what
+// place_retail_order, cart_add and active_product_id already address products
+// by — so the catalogue's `id` holds the slug, and the uuid stays server-side.
+//
+// Checked here rather than trusted, because the failure is silent: a product
+// added with an id of "r34" would work perfectly until the catalogue moved to
+// the database, at which point its wishlist entries and reviews would point at
+// nothing and no error would be raised anywhere.
+
+let idMismatches = 0;
+let productsChecked = 0;
+
+for (const file of ["retail-products.ts", "wholesale-products.ts"]) {
+  const source = readFileSync(join("src/lib/mock", file), "utf8");
+
+  // Each product literal opens with its id and carries its slug a few lines
+  // later. Matched together so a product missing one of them is not silently
+  // skipped by pairing it with a neighbour's.
+  const pattern = /id: "([^"]+)",\n(?:[^\n]*\n){0,3}?\s*(?:sku: "[^"]*",\n\s*)?slug: "([^"]+)",/g;
+
+  for (const [, id, slug] of source.matchAll(pattern)) {
+    productsChecked++;
+    if (id !== slug) {
+      fail(`${file}: product id "${id}" is not its slug "${slug}" — see RetailProduct.id`);
+      idMismatches++;
+    }
+  }
+}
+
+if (productsChecked === 0) {
+  fail("Found no products to check ids on — the catalogue matcher has gone stale");
+} else if (idMismatches === 0) {
+  pass(`All ${productsChecked} catalogue products use their slug as their id`);
+}
+
+// ---------------------------------------------------------------------------
 
 console.log(`\n${failures === 0 ? "PASS" : "FAIL"}: ${failures} issue(s) found`);
 process.exit(failures === 0 ? 0 : 1);

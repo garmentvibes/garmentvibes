@@ -14,7 +14,7 @@ export const SEED_RETURNS: ReturnRequest[] = [
     phone: "+91 90000 12345",
     items: [
       {
-        productId: "r23",
+        productId: "classic-crew-neck-tee",
         name: "Classic Crew Neck T-Shirt",
         size: "M",
         color: "Navy",
