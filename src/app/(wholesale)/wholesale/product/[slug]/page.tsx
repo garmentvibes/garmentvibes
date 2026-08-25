@@ -6,26 +6,35 @@ import { WholesaleBreadcrumbs } from "@/components/wholesale/breadcrumbs";
 import { AddToOrderPanel } from "@/components/wholesale/add-to-order-panel";
 import { WholesaleProductCard } from "@/components/wholesale/product-card";
 import {
-  WHOLESALE_PRODUCTS,
-  getWholesaleProductBySlug,
+  getWholesaleCatalogue,
+  getWholesaleProduct,
   getRelatedWholesaleProducts,
-} from "@/lib/mock/wholesale-products";
+} from "@/lib/catalogue/wholesale";
 import { WHOLESALE_CATEGORY_LABELS } from "@/lib/mock/wholesale-taxonomy";
 import { JsonLd } from "@/components/shared/json-ld";
 import { breadcrumbSchema, wholesaleProductSchema } from "@/lib/seo";
 
-// Anything not produced by generateStaticParams below is a 404, not a
-// server-rendered miss. Without this, an unknown slug still renders the
-// not-found page but answers HTTP 200 — a soft 404, which search engines
-// index as a real page.
+// `dynamicParams = false` used to be here, guarding against a soft 404 — an
+// unknown slug rendering the not-found page with HTTP 200. Its own comment
+// named what would end it:
 //
-// Correct while the catalogue is static. Once products come from the
-// database, adding one will need a revalidation (or this flipped back to
-// the default) before its page becomes reachable.
-export const dynamicParams = false;
+//     Correct while the catalogue is static. Once products come from the
+//     database, adding one will need a revalidation (or this flipped back to
+//     the default) before its page becomes reachable.
+//
+// Products come from the database now, so it is flipped back, exactly as on
+// the retail route. A product added after the last build would otherwise 404
+// while the catalogue contained it and the listings linked to it — and
+// `notFound()` below returns a real 404 for a genuinely unknown slug, which
+// is all the flag was buying.
 
-export function generateStaticParams() {
-  return WHOLESALE_PRODUCTS.map((p) => ({ slug: p.slug }));
+// Rebuilt at most this often; admin writes call revalidatePath to publish an
+// edit immediately rather than waiting out the interval.
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const catalogue = await getWholesaleCatalogue();
+  return catalogue.map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({
@@ -34,7 +43,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = getWholesaleProductBySlug(slug);
+  const product = await getWholesaleProduct(slug);
   if (!product) return {};
   return {
     title: product.name,
@@ -55,10 +64,10 @@ export default async function WholesaleProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = getWholesaleProductBySlug(slug);
+  const product = await getWholesaleProduct(slug);
   if (!product) notFound();
 
-  const related = getRelatedWholesaleProducts(product);
+  const related = await getRelatedWholesaleProducts(product);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

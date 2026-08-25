@@ -12,16 +12,22 @@ import { useAdminCatalogStore } from "@/lib/stores/admin-catalog-store";
 import { placeholderImage } from "@/lib/mock/placeholder-image";
 import { WHOLESALE_TAXONOMY, WHOLESALE_CATEGORY_LABELS } from "@/lib/mock/wholesale-taxonomy";
 import type { WholesaleCategory, WholesaleProduct } from "@/types/catalog";
+import { saveWholesaleProduct } from "@/lib/admin/products/actions";
+import { parseWholesaleProductForm } from "@/lib/admin/products/wholesale-form";
 
 const CATEGORIES: WholesaleCategory[] = ["women", "men", "kids", "unisex", "fabric"];
 
 const toRupees = (minor: number) => String(Math.round(minor / 100));
-const toMinor = (rupees: string) => Math.round(Number(rupees) * 100) || 0;
 
 interface TierDraft {
   minQty: string;
   pricePerUnit: string;
 }
+
+/** Whether this deployment has a database to save products to. */
+const CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export function WholesaleProductForm({ product }: { product?: WholesaleProduct }) {
   const router = useRouter();
@@ -60,58 +66,63 @@ export function WholesaleProductForm({ product }: { product?: WholesaleProduct }
     setTiers((prev) => prev.map((t, i) => (i === index ? { ...t, [key]: value } : t)));
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name || !form.sku || !form.subcategory || !form.moq || !form.packSize) {
-      toast.error("Name, SKU, subcategory, MOQ and pack size are required");
+
+    const input = { ...form, tiers };
+
+    // Parsed here as well as in the action, so an admin sees the problem
+    // without a round trip. The action's copy is the one that binds.
+    const parsed = parseWholesaleProductForm(input);
+    if (!parsed.ok) {
+      toast.error(parsed.error);
       return;
     }
 
-    const parsedTiers = tiers
-      .filter((t) => t.minQty && t.pricePerUnit)
-      .map((t) => ({ minQty: Number(t.minQty), pricePerUnit: toMinor(t.pricePerUnit) }))
-      .sort((a, b) => a.minQty - b.minQty);
+    if (CONFIGURED) {
+      const result = await saveWholesaleProduct(product?.slug ?? null, input);
 
-    if (parsedTiers.length === 0) {
-      toast.error("Add at least one price tier");
-      return;
-    }
-    // Tiers must get cheaper as quantity rises, or the pricing logic (which
-    // picks the last tier whose minQty is met) would quote a higher price for
-    // a bigger order.
-    for (let i = 1; i < parsedTiers.length; i++) {
-      if (parsedTiers[i].pricePerUnit > parsedTiers[i - 1].pricePerUnit) {
-        toast.error("Each higher-quantity tier must have a lower (or equal) unit price");
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      if (!result.notConfigured) {
+        toast.success(`${parsed.value.name} ${isEdit ? "updated" : "created"}`);
+        router.push("/admin/products");
         return;
       }
     }
 
     const shared = {
-      name: form.name,
-      sku: form.sku,
-      category: form.category,
-      subcategory: form.subcategory,
-      description: form.description,
-      moq: Number(form.moq),
-      packSize: Number(form.packSize),
-      priceTiers: parsedTiers,
-      fabric: form.fabric,
-      sizeRun: form.sizeRun,
-      colors: form.colors.split(",").map((c) => c.trim()).filter(Boolean),
-      leadTimeDays: Number(form.leadTimeDays) || 7,
+      name: parsed.value.name,
+      sku: parsed.value.sku,
+      category: parsed.value.category,
+      subcategory: parsed.value.subcategory,
+      description: parsed.value.description,
+      moq: parsed.value.moq,
+      packSize: parsed.value.packSize,
+      priceTiers: parsed.value.priceTiers,
+      fabric: parsed.value.fabric,
+      sizeRun: parsed.value.sizeRun,
+      colors: parsed.value.colors,
+      leadTimeDays: parsed.value.leadTimeDays,
     };
 
     if (isEdit && product) {
       updateWholesale(product.id, shared);
-      toast.success(`${form.name} updated`);
+      toast.success(`${parsed.value.name} updated`);
     } else {
       addWholesale({
         ...shared,
-        slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-        images: [placeholderImage(form.name.slice(0, 18), "#1d4ed8")],
+        slug: parsed.value.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+        images: [placeholderImage(parsed.value.name.slice(0, 18), "#1d4ed8")],
         currency: "INR",
       });
-      toast.success(`${form.name} created`);
+      toast.success(`${parsed.value.name} created`);
     }
     router.push("/admin/products");
   }
@@ -129,7 +140,7 @@ export function WholesaleProductForm({ product }: { product?: WholesaleProduct }
         {isEdit ? "Edit wholesale product" : "New wholesale product"}
       </h1>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border border-neutral-200 bg-white p-6">
+      <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4 rounded-lg border border-neutral-200 bg-white p-6">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="name">Product name</Label>

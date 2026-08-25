@@ -9,11 +9,16 @@ import { BUSINESS_INFO } from "@/lib/business-info";
 import { useWholesaleQuote } from "@/lib/stores/admin-orders-store";
 import { useWholesaleAccounts } from "@/lib/stores/admin-accounts-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
-import { getWholesaleProductBySku } from "@/lib/mock/wholesale-products";
+import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
 import { computeGstExclusive, SELLER_STATE_CODE } from "@/lib/gst";
 import { wholesaleQuoteUnits } from "@/types/admin";
 
 export default function WholesaleInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  // The catalogue the panel was given, not the module: the subcategory it
+  // supplies decides the HSN code printed on a GST invoice.
+  const catalogue = useWholesaleCatalogue();
+  const bySku = (sku: string) => catalogue.find((p) => p.sku === sku);
+
   const { id } = use(params);
   const mounted = useHasMounted();
   const quote = useWholesaleQuote(id);
@@ -48,7 +53,7 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
       name: item.name,
       qty: item.qty,
       price: item.pricePerUnit,
-      subcategory: getWholesaleProductBySku(item.sku)?.subcategory,
+      subcategory: bySku(item.sku)?.subcategory,
     })),
     // Place of supply. Without a shipping address on the quote we fall back
     // to the buyer's registered state, taken from the GSTIN prefix.

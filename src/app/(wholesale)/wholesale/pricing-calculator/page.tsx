@@ -3,14 +3,20 @@
 import { useState } from "react";
 import { Calculator } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
-import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
+import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
 import { wholesalePriceForQty } from "@/types/catalog";
 
 export default function PricingCalculatorPage() {
-  const [productId, setProductId] = useState(WHOLESALE_PRODUCTS[0].id);
-  const [qty, setQty] = useState(WHOLESALE_PRODUCTS[0].moq);
+  const catalogue = useWholesaleCatalogue();
 
-  const product = WHOLESALE_PRODUCTS.find((p) => p.id === productId) ?? WHOLESALE_PRODUCTS[0];
+  // Initialised from the catalogue's first product. `useState` only reads its
+  // argument on the first render, so this is the initial selection rather than
+  // something that follows a later catalogue change — which is what the
+  // dropdown below is for.
+  const [productId, setProductId] = useState(catalogue[0].id);
+  const [qty, setQty] = useState(catalogue[0].moq);
+
+  const product = catalogue.find((p) => p.id === productId) ?? catalogue[0];
   const unitPrice = wholesalePriceForQty(product, qty);
   const total = unitPrice * qty;
   const baseUnitPrice = product.priceTiers[0].pricePerUnit;
@@ -36,13 +42,13 @@ export default function PricingCalculatorPage() {
               id="calc-product"
               value={productId}
               onChange={(e) => {
-                const next = WHOLESALE_PRODUCTS.find((p) => p.id === e.target.value);
+                const next = catalogue.find((p) => p.id === e.target.value);
                 setProductId(e.target.value);
                 if (next) setQty(next.moq);
               }}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
             >
-              {WHOLESALE_PRODUCTS.map((p) => (
+              {catalogue.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.sku})
                 </option>

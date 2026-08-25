@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { withdrawRetailProduct } from "@/lib/admin/products/actions";
+import {
+  withdrawRetailProduct,
+  withdrawWholesaleProduct,
+} from "@/lib/admin/products/actions";
 import { Plus, Trash2, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -210,8 +213,25 @@ export default function AdminProductsPage() {
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
-                      aria-label={`Delete ${p.name}`}
-                      onClick={() => {
+                      // Withdraw rather than delete, for the same reason as
+                      // the retail table above: quote lines reference these
+                      // products, and a delete that succeeds takes their price
+                      // tiers with it.
+                      aria-label={`Withdraw ${p.name}`}
+                      title="Withdraw from sale"
+                      onClick={async () => {
+                        if (CONFIGURED) {
+                          const result = await withdrawWholesaleProduct(p.slug);
+                          if (result.error) {
+                            toast.error(result.error);
+                            return;
+                          }
+                          if (!result.notConfigured) {
+                            toast.success(`${p.name} withdrawn from sale`);
+                            return;
+                          }
+                        }
+
                         deleteWholesale(p.id);
                         toast.success(`${p.name} removed`);
                       }}

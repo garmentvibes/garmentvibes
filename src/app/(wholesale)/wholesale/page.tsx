@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { WholesaleProductCard } from "@/components/wholesale/product-card";
-import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
+import { getWholesaleCatalogue } from "@/lib/catalogue/wholesale";
+
+// See the note in wholesale/product/[slug]/page.tsx: the catalogue is read at
+// build time and at revalidation, not per request.
+export const revalidate = 3600;
 
 export const metadata = {
   title: "Wholesale Apparel Sourcing",
@@ -15,9 +19,10 @@ const CATEGORY_TILES = [
   { href: "/wholesale/catalog/fabric", label: "Fabric" },
 ];
 
-export default function WholesaleHomePage() {
-  const bestsellers = WHOLESALE_PRODUCTS.filter((p) => p.tags?.includes("bestseller"));
-  const newArrivals = WHOLESALE_PRODUCTS.filter((p) => p.tags?.includes("new"));
+export default async function WholesaleHomePage() {
+  const catalogue = await getWholesaleCatalogue();
+  const bestsellers = catalogue.filter((p) => p.tags?.includes("bestseller"));
+  const newArrivals = catalogue.filter((p) => p.tags?.includes("new"));
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

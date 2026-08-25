@@ -12,6 +12,11 @@ import {
   type RetailProductDraft,
   type RetailProductFormInput,
 } from "./form";
+import {
+  parseWholesaleProductForm,
+  type WholesaleProductDraft,
+  type WholesaleProductFormInput,
+} from "./wholesale-form";
 
 // ---------------------------------------------------------------------------
 // Retail products, managed against the database.
@@ -296,6 +301,182 @@ export async function setRetailStock(
   if (!data) return { error: `${slug} is not sold in size ${label}` };
 
   republish(slug, product.category);
+
+  return { error: null, slug };
+}
+
+// ---------------------------------------------------------------------------
+// Wholesale
+// ---------------------------------------------------------------------------
+
+/** Republishes the trade pages a product appears on. */
+function republishWholesale(slug: string, category: string) {
+  revalidatePath(`/wholesale/product/${slug}`);
+  revalidatePath(`/wholesale/catalog/${category}`);
+  revalidatePath("/wholesale/catalog");
+  revalidatePath("/wholesale");
+  // The quick-order grid and the pricing calculator both render every product,
+  // so a new one has to reach them too — and the price-list export reads the
+  // same catalogue the layout hands down.
+  revalidatePath("/wholesale/quick-order");
+  revalidatePath("/wholesale/pricing-calculator");
+  revalidatePath("/sitemap.xml");
+}
+
+/**
+ * Creates or updates a wholesale product and its price tiers.
+ *
+ * As on the retail side, `slug` identifies an existing product and null
+ * creates one, and an edit never changes the slug.
+ */
+export async function saveWholesaleProduct(
+  slug: string | null,
+  input: WholesaleProductFormInput
+): Promise<ProductWriteResult> {
+  const { client, notConfigured } = await staffClient();
+  if (notConfigured) return { error: null, notConfigured: true };
+  if (!client) return NOT_STAFF;
+
+  const parsed = parseWholesaleProductForm(input);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const draft = parsed.value;
+  const targetSlug = slug ?? slugFromName(draft.name);
+
+  if (!targetSlug) {
+    return { error: "That name does not produce a usable web address" };
+  }
+
+  const columns = {
+    slug: targetSlug,
+    sku: draft.sku,
+    name: draft.name,
+    category: draft.category,
+    subcategory: draft.subcategory,
+    description: draft.description,
+    moq: draft.moq,
+    pack_size: draft.packSize,
+    size_run: draft.sizeRun,
+    fabric: draft.fabric,
+    colors: draft.colors,
+    lead_time_days: draft.leadTimeDays,
+    currency: "INR",
+  };
+
+  const { data: saved, error } = slug
+    ? await client.from("wholesale_products").update(columns).eq("slug", slug).select("id").single()
+    : await client
+        .from("wholesale_products")
+        .insert({
+          ...columns,
+          images: [placeholderImage(draft.name.slice(0, 18), "#1d4ed8")],
+          is_active: true,
+        })
+        .select("id")
+        .single();
+
+  if (error) {
+    console.error("[admin/products] could not save the wholesale product", error.message);
+    if (error.code === "23505") {
+      // Both slug and sku are unique, and an admin retyping either deserves to
+      // be told which one they have already used.
+      return { error: `That slug or SKU is already taken (${targetSlug} / ${draft.sku})` };
+    }
+    return { error: "Could not save that product" };
+  }
+
+  const tierError = await saveTiers(client, saved.id, draft);
+  if (tierError) return { error: tierError };
+
+  republishWholesale(targetSlug, draft.category);
+
+  return { error: null, slug: targetSlug };
+}
+
+/**
+ * Brings a product's price tiers in line with the submitted ones.
+ *
+ * Tiers removed from the form are deleted, the rest are upserted on
+ * (product_id, min_qty). Unlike the retail size run there is nothing to
+ * preserve across the write — a tier is only a quantity and a price, both of
+ * them submitted — so this needs no read-back, only the delete.
+ */
+async function saveTiers(
+  client: StaffClient,
+  productId: string,
+  draft: WholesaleProductDraft
+): Promise<string | null> {
+  const wanted = draft.priceTiers.map((t) => t.minQty);
+
+  const { data: existing, error: readError } = await client
+    .from("wholesale_price_tiers")
+    .select("min_qty")
+    .eq("product_id", productId);
+
+  if (readError) {
+    console.error("[admin/products] could not read the current tiers", readError.message);
+    return "Could not update the price tiers";
+  }
+
+  const withdrawn = (existing ?? []).map((t) => t.min_qty).filter((q) => !wanted.includes(q));
+
+  if (withdrawn.length > 0) {
+    const { error: deleteError } = await client
+      .from("wholesale_price_tiers")
+      .delete()
+      .eq("product_id", productId)
+      .in("min_qty", withdrawn);
+
+    if (deleteError) {
+      console.error("[admin/products] could not remove old tiers", deleteError.message);
+      return "Could not update the price tiers";
+    }
+  }
+
+  const { error: upsertError } = await client.from("wholesale_price_tiers").upsert(
+    draft.priceTiers.map((tier) => ({
+      product_id: productId,
+      min_qty: tier.minQty,
+      price_per_unit: tier.pricePerUnit,
+    })),
+    { onConflict: "product_id,min_qty", ignoreDuplicates: false }
+  );
+
+  if (upsertError) {
+    console.error("[admin/products] could not save the tiers", upsertError.message);
+    return "Could not update the price tiers";
+  }
+
+  return null;
+}
+
+/**
+ * Withdraws a wholesale product from sale.
+ *
+ * Same argument as the retail version: `wholesale_quote_items` references
+ * `wholesale_products`, so a product anything has been quoted for cannot be
+ * deleted, and where a delete would succeed it takes its price tiers with it.
+ */
+export async function withdrawWholesaleProduct(slug: string): Promise<ProductWriteResult> {
+  const { client, notConfigured } = await staffClient();
+  if (notConfigured) return { error: null, notConfigured: true };
+  if (!client) return NOT_STAFF;
+
+  const { data, error } = await client
+    .from("wholesale_products")
+    .update({ is_active: false })
+    .eq("slug", slug)
+    .select("category")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[admin/products] could not withdraw the wholesale product", error.message);
+    return { error: "Could not withdraw that product" };
+  }
+
+  if (!data) return { error: "No such product" };
+
+  republishWholesale(slug, data.category);
 
   return { error: null, slug };
 }

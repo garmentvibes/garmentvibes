@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
-import { WHOLESALE_PRODUCTS, getWholesaleProductBySku } from "@/lib/mock/wholesale-products";
+import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
 import { useWholesaleOrderStore } from "@/lib/stores/wholesale-order-store";
 import { wholesalePriceForQty } from "@/types/catalog";
 
@@ -21,13 +21,15 @@ function downloadCsv(filename: string, content: string) {
 }
 
 export default function QuickOrderPage() {
+  const catalogue = useWholesaleCatalogue();
+  const bySku = (sku: string) => catalogue.find((p) => p.sku === sku);
   const [qtyBySku, setQtyBySku] = useState<Record<string, number>>({});
   const upsertLine = useWholesaleOrderStore((s) => s.upsertLine);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function addAll() {
     let added = 0;
-    for (const product of WHOLESALE_PRODUCTS) {
+    for (const product of catalogue) {
       const qty = qtyBySku[product.sku] ?? 0;
       if (qty >= product.moq) {
         upsertLine({
@@ -54,7 +56,7 @@ export default function QuickOrderPage() {
   }
 
   function handleTemplateDownload() {
-    const rows = ["sku,quantity", ...WHOLESALE_PRODUCTS.map((p) => `${p.sku},${p.moq}`)];
+    const rows = ["sku,quantity", ...catalogue.map((p) => `${p.sku},${p.moq}`)];
     downloadCsv("garmentvibes-quick-order-template.csv", rows.join("\n"));
   }
 
@@ -73,7 +75,7 @@ export default function QuickOrderPage() {
       for (const line of lines) {
         const [sku, qtyRaw] = line.split(",").map((v) => v.trim());
         if (!sku || sku.toLowerCase() === "sku") continue; // skip header row
-        const product = getWholesaleProductBySku(sku);
+        const product = bySku(sku);
         const qty = Number(qtyRaw);
         if (product && Number.isFinite(qty) && qty > 0) {
           updates[product.sku] = qty;
@@ -137,7 +139,7 @@ export default function QuickOrderPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {WHOLESALE_PRODUCTS.map((product) => {
+            {catalogue.map((product) => {
               const qty = qtyBySku[product.sku] ?? 0;
               const bestTier = product.priceTiers[product.priceTiers.length - 1];
               return (

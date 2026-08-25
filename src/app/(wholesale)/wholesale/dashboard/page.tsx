@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
-import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
+import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
 import { useWholesaleOrderStore } from "@/lib/stores/wholesale-order-store";
 import { useWholesaleQuotes } from "@/lib/stores/admin-orders-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
@@ -44,6 +44,9 @@ export default function WholesaleDashboardPage() {
   const [filter, setFilter] = useState<StatusFilter>("all");
   const upsertLine = useWholesaleOrderStore((s) => s.upsertLine);
   const quotes = useWholesaleQuotes();
+  // Above the early return below — a hook after one runs in some renders and
+  // not others.
+  const catalogue = useWholesaleCatalogue();
 
   if (!mounted) return null;
 
@@ -52,7 +55,7 @@ export default function WholesaleDashboardPage() {
   function handleReorder(quote: WholesaleQuote) {
     let added = 0;
     for (const item of quote.items) {
-      const product = WHOLESALE_PRODUCTS.find((p) => p.sku === item.sku);
+      const product = catalogue.find((p) => p.sku === item.sku);
       if (!product) continue;
       upsertLine({
         productId: product.id,

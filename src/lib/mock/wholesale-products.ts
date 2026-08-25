@@ -617,8 +617,23 @@ const wholesaleSearchFields = (p: WholesaleProduct) => [
 ];
 
 export function searchWholesaleProducts(query: string, limit?: number) {
+  return searchWholesaleCatalogue(WHOLESALE_PRODUCTS, query, limit);
+}
+
+/**
+ * The same search, over a catalogue handed in.
+ *
+ * The portal's search page ranks against whatever the server last read, which
+ * on a deployment with a database is not this module. One function so the
+ * ranking cannot differ between the two.
+ */
+export function searchWholesaleCatalogue(
+  catalogue: WholesaleProduct[],
+  query: string,
+  limit?: number
+) {
   if (!query.trim()) return [];
-  return fuzzySearch(query, WHOLESALE_PRODUCTS, wholesaleSearchFields, limit);
+  return fuzzySearch(query, catalogue, wholesaleSearchFields, limit);
 }
 
 export function getRelatedWholesaleProducts(product: WholesaleProduct, limit = 4) {

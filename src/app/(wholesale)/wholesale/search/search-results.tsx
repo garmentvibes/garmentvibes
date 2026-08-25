@@ -2,11 +2,13 @@
 
 import { useSearchParams } from "next/navigation";
 import { WholesaleProductCard } from "@/components/wholesale/product-card";
-import { searchWholesaleProducts } from "@/lib/mock/wholesale-products";
+import { searchWholesaleCatalogue } from "@/lib/mock/wholesale-products";
+import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
 
 export function WholesaleSearchResults() {
   const query = useSearchParams().get("q") ?? "";
-  const results = searchWholesaleProducts(query);
+  const catalogue = useWholesaleCatalogue();
+  const results = searchWholesaleCatalogue(catalogue, query);
 
   return (
     <>
