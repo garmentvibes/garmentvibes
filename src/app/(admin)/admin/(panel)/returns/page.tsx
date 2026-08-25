@@ -12,7 +12,7 @@ import { useStockStore, stockForProductId } from "@/lib/stores/stock-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { notify } from "@/lib/stores/notification-store";
 import { notifyRestocked } from "@/lib/notify-restock";
-import { getRetailProductById } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
 import {
   RETURN_STATUS_LABELS,
   exchangeBalance,
@@ -34,6 +34,12 @@ const STATUS_VARIANT: Record<ReturnStatus, "warning" | "success" | "destructive"
 };
 
 export default function AdminReturnsPage() {
+  // Resolves a product id to the product, from the catalogue the panel was
+  // given rather than from the mock module — a renamed product should read
+  // with its new name here too.
+  const catalogue = useCatalogue();
+  const productById = (id: string) => catalogue.find((p) => p.id === id);
+
   const mounted = useHasMounted();
   const requests = useReturnsStore((s) => s.requests);
   const setStatus = useReturnsStore((s) => s.setStatus);
@@ -239,7 +245,7 @@ export default function AdminReturnsPage() {
                           ? ` → ${
                               item.exchangeForProductId &&
                               item.exchangeForProductId !== item.productId
-                                ? `${getRetailProductById(item.exchangeForProductId)?.name ?? "another item"}, `
+                                ? `${productById(item.exchangeForProductId)?.name ?? "another item"}, `
                                 : ""
                             }size ${item.exchangeForSize}`
                           : ""}{" "}

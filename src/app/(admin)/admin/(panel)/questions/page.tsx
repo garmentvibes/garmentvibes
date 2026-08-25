@@ -9,11 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useQuestionsStore } from "@/lib/stores/questions-store";
 import { notify } from "@/lib/stores/notification-store";
-import { getRetailProductById } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
 import { MAX_ANSWER_LENGTH, pendingQuestions, validateAnswer } from "@/lib/questions";
 
 export default function AdminQuestionsPage() {
   const mounted = useHasMounted();
+  // Resolves a product id to the product, from the catalogue the panel was
+  // given rather than from the mock module — a renamed product should read
+  // with its new name here too.
+  const catalogue = useCatalogue();
+  const productById = (id: string) => catalogue.find((p) => p.id === id);
+
   const questions = useQuestionsStore((s) => s.questions);
   const answer = useQuestionsStore((s) => s.answer);
   const reject = useQuestionsStore((s) => s.reject);
@@ -47,7 +53,7 @@ export default function AdminQuestionsPage() {
         relatedTo: question.productId,
         vars: {
           name: question.askerName,
-          productName: getRetailProductById(question.productId)?.name,
+          productName: productById(question.productId)?.name,
           question: question.body,
           answer: draft.trim(),
         },
@@ -77,7 +83,7 @@ export default function AdminQuestionsPage() {
       ) : (
         <ul id="question-queue" className="mt-3 space-y-3">
           {queue.map((question) => {
-            const product = getRetailProductById(question.productId);
+            const product = productById(question.productId);
             return (
               <li key={question.id} className="rounded-lg border border-neutral-200 bg-white p-4">
                 <p className="text-xs text-neutral-400">
@@ -126,7 +132,7 @@ export default function AdminQuestionsPage() {
         {answered.map((question) => (
           <li key={question.id} className="rounded-md border border-neutral-200 bg-white p-3">
             <p className="text-xs text-neutral-400">
-              {getRetailProductById(question.productId)?.name ?? question.productId}
+              {productById(question.productId)?.name ?? question.productId}
             </p>
             <p className="mt-0.5 text-sm text-neutral-800">Q: {question.body}</p>
             <p className="mt-0.5 text-sm text-neutral-600">A: {question.answer}</p>

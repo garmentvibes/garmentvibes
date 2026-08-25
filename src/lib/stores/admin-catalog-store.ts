@@ -1,6 +1,6 @@
 import { create } from "zustand";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
 import { persist } from "zustand/middleware";
-import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
 import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 import type { RetailProduct, WholesaleProduct } from "@/types/catalog";
 
@@ -95,8 +95,15 @@ export const useAdminCatalogStore = create<AdminCatalogState>()(
 
 export function useAdminRetailProducts(): RetailProduct[] {
   const { retailOverrides, retailAdded, retailDeleted } = useAdminCatalogStore();
+
+  // The base is whatever the server last read — the database on a deployment
+  // that has one, the mock module otherwise. It used to be the module
+  // unconditionally, which meant the panel edited a catalogue the storefront
+  // did not render.
+  const catalogue = useCatalogue();
+
   return [
-    ...RETAIL_PRODUCTS.map((p) => ({ ...p, ...retailOverrides[p.id] })),
+    ...catalogue.map((p) => ({ ...p, ...retailOverrides[p.id] })),
     ...retailAdded,
   ].filter((p) => !retailDeleted.includes(p.id));
 }

@@ -14,13 +14,25 @@ import { notifyRestocked } from "@/lib/notify-restock";
 import { placeholderImage } from "@/lib/mock/placeholder-image";
 import { RETAIL_TAXONOMY, CATEGORY_LABELS } from "@/lib/mock/category-taxonomy";
 import type { RetailCategory, RetailProduct } from "@/types/catalog";
+import { saveRetailProduct, setRetailStock } from "@/lib/admin/products/actions";
+import { parseRetailProductForm } from "@/lib/admin/products/form";
 
 const CATEGORIES: RetailCategory[] = ["women", "men", "kids"];
 
 // Prices are stored in minor units (paise); the form works in rupees so staff
 // aren't typing 129900 for ₹1,299.
 const toRupees = (minor: number) => String(Math.round(minor / 100));
-const toMinor = (rupees: string) => Math.round(Number(rupees) * 100) || 0;
+
+/**
+ * Whether this deployment has a database to save products to.
+ *
+ * From the inlined public env for the same reason as the other admin hooks:
+ * the answer is fixed at build time and asking costs a round trip on a page
+ * that is going to fall back regardless.
+ */
+const CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export function RetailProductForm({ product }: { product?: RetailProduct }) {
   const router = useRouter();
@@ -48,48 +60,62 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name || !form.brand || !form.subcategory || !form.price) {
-      toast.error("Name, brand, category and price are required");
-      return;
-    }
-    const price = toMinor(form.price);
-    const mrp = toMinor(form.mrp) || price;
-    if (mrp < price) {
-      toast.error("MRP can't be lower than the selling price");
+
+    // Parsed here as well as in the action, so an admin sees the problem
+    // without a round trip. The action's copy is the one that binds.
+    const parsed = parseRetailProductForm(form);
+    if (!parsed.ok) {
+      toast.error(parsed.error);
       return;
     }
 
+    if (CONFIGURED) {
+      const result = await saveRetailProduct(product?.slug ?? null, form);
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      if (!result.notConfigured) {
+        toast.success(`${parsed.value.name} ${isEdit ? "updated" : "created"}`);
+        router.push("/admin/products");
+        return;
+      }
+    }
+
+    // No database on this deployment: the local store is the catalogue, which
+    // is what every QA environment here runs against.
     const shared = {
-      name: form.name,
-      brand: form.brand,
-      category: form.category,
-      subcategory: form.subcategory,
-      description: form.description,
-      price,
-      mrp,
-      colors: form.colors.split(",").map((c) => c.trim()).filter(Boolean),
-      sizes: form.sizes
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((label) => ({ label, inStock: true })),
+      name: parsed.value.name,
+      brand: parsed.value.brand,
+      category: parsed.value.category,
+      subcategory: parsed.value.subcategory,
+      description: parsed.value.description,
+      price: parsed.value.price,
+      mrp: parsed.value.mrp,
+      colors: parsed.value.colors,
+      sizes: parsed.value.sizes.map((label) => ({ label, inStock: true })),
     };
 
     if (isEdit && product) {
       updateRetail(product.id, shared);
-      toast.success(`${form.name} updated`);
+      toast.success(`${parsed.value.name} updated`);
     } else {
       addRetail({
         ...shared,
-        slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-        images: [placeholderImage(form.name.slice(0, 18), "#e11d48")],
+        slug: parsed.value.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+        images: [placeholderImage(parsed.value.name.slice(0, 18), "#e11d48")],
         currency: "INR",
         rating: 0,
         ratingCount: 0,
       });
-      toast.success(`${form.name} created`);
+      toast.success(`${parsed.value.name} created`);
     }
     router.push("/admin/products");
   }
@@ -107,7 +133,7 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
         {isEdit ? "Edit retail product" : "New retail product"}
       </h1>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border border-neutral-200 bg-white p-6">
+      <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4 rounded-lg border border-neutral-200 bg-white p-6">
         <div>
           <Label htmlFor="name">Product name</Label>
           <Input id="name" value={form.name} onChange={(e) => set("name", e.target.value)} />
@@ -215,7 +241,19 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
                       aria-label={`Stock for size ${s.label}`}
                       onChange={(e) => {
                         const next = Number(e.target.value) || 0;
+
+                        // Locally first, so the field responds to typing, then
+                        // to the database. The store is what this page renders
+                        // from either way; on a deployment with a database the
+                        // write is what actually changes the shelf.
                         setStock(product.id, s.label, next);
+
+                        if (CONFIGURED) {
+                          void setRetailStock(product.slug, s.label, next).then((result) => {
+                            if (result.error) toast.error(result.error);
+                          });
+                        }
+
                         // Restocking from zero is what people asked to hear
                         // about, so the alert fires from the edit itself.
                         if (stock === 0 && next > 0) {
