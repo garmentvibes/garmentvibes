@@ -11,7 +11,7 @@
 // there isn't one, so `npm run qa` stays usable on a machine without it.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const DB = "garmentvibes_schema_check";
@@ -280,6 +280,58 @@ const unindexedFks = scalar(`
     )
 `);
 check("every single-column foreign key is indexed", unindexedFks === "", unindexedFks);
+
+// The template enum and the TypeScript union have to agree.
+//
+// 0009 said src/types/notifications.ts "already treats it as exhaustive", and
+// then three templates were written without the enum growing — cart_reminder,
+// question_answered and support_reply. That was invisible for as long as the
+// outbox lived in localStorage and no template id ever reached Postgres. The
+// moment enqueue.ts started writing rows it became a runtime error on code
+// TypeScript compiles happily, at the moment a customer should have been told
+// something. 0021 closed it; this stops it reopening.
+//
+// Read out of the source rather than duplicated here: a list maintained in
+// two places is a list that disagrees.
+const declaredTemplates = (
+  readFileSync("src/types/notifications.ts", "utf8")
+    .match(/export type NotificationTemplateId =([\s\S]*?);/)?.[1] ?? ""
+)
+  .split("|")
+  .map((line) => line.match(/"([a-z_]+)"/)?.[1])
+  .filter(Boolean)
+  .sort();
+
+const enumTemplates = scalar(`
+  select coalesce(string_agg(enumlabel, ',' order by enumlabel), '')
+  from pg_enum e join pg_type t on t.oid = e.enumtypid
+  where t.typname = 'notification_template'
+`)
+  .split(",")
+  .filter(Boolean);
+
+check(
+  "the app declares some notification templates",
+  declaredTemplates.length > 0,
+  "the union in src/types/notifications.ts did not parse"
+);
+
+const missingFromEnum = declaredTemplates.filter((t) => !enumTemplates.includes(t));
+check(
+  "every notification template the app can send exists in the enum",
+  missingFromEnum.length === 0,
+  missingFromEnum.join(", ")
+);
+
+// The other direction is a warning rather than a failure elsewhere in spirit,
+// but it is asserted too: an enum value nothing can render is a row the
+// dispatcher would claim and never be able to send.
+const missingFromApp = enumTemplates.filter((t) => !declaredTemplates.includes(t));
+check(
+  "every template in the enum has copy in the app",
+  missingFromApp.length === 0,
+  missingFromApp.join(", ")
+);
 
 // ---------------------------------------------------------------------------
 // Behaviour

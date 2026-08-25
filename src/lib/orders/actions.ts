@@ -1,5 +1,6 @@
 "use server";
 
+import { notifyOrderPlaced } from "@/lib/notifications/orders";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/auth/demo";
 import { buildOrderPayload, OrderPayloadError, type BuildOrderInput } from "./payload";
@@ -120,9 +121,23 @@ export async function placeRetailOrder(input: BuildOrderInput): Promise<PlaceOrd
     return { ok: false, ...classify(error.message) };
   }
 
+  const orderId = data as string;
+
+  // COD orders are confirmed the moment they are placed, so this is the point
+  // at which the customer can be told. Online orders are still `pending` here
+  // and are notified from `recordPayment` instead; notifyOrderPlaced() re-reads
+  // the status and declines to send for them, so this call is safe either way
+  // rather than depending on the payment method being read correctly twice.
+  //
+  // Awaited, not fired and forgotten. A serverless function that has returned
+  // its response can be frozen mid-promise, and a confirmation that queues only
+  // when the platform feels like finishing the work is worse than one that
+  // costs a few milliseconds.
+  await notifyOrderPlaced(orderId);
+
   return {
     ok: true,
-    orderId: data as string,
+    orderId,
     // Both are echoed back rather than recomputed by the caller: the
     // gateway order must be created for the amount the database accepted,
     // and keyed on the receipt it stored, or the two cannot be reconciled.
