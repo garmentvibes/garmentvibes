@@ -3,6 +3,7 @@ import { isRazorpayConfigured, razorpayKeySecret } from "@/lib/razorpay/config";
 import { verifyPaymentSignature } from "@/lib/razorpay/signature";
 import { fetchRazorpayPayment, RazorpayError } from "@/lib/razorpay/client";
 import { callerKey, createRateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
+import { notifyOrderPlaced } from "@/lib/notifications/orders";
 import { recordPayment } from "@/lib/supabase/admin";
 
 // Verifies the handoff Razorpay Checkout gives the browser after payment.
@@ -70,11 +71,16 @@ export async function POST(request: Request) {
     // Keyed on the receipt Razorpay echoes back from the order we created,
     // and checked against the order's own total on the way in.
     if (paid && payment.notes?.receipt) {
-      await recordPayment({
+      const orderId = await recordPayment({
         reference: String(payment.notes.receipt),
         paymentId,
         amount: payment.amount,
       });
+
+      // Queued here as well as in the webhook, for the same reason the payment
+      // is recorded in both: whichever arrives first should be the one that
+      // tells the customer. The dedupe key in 0022 makes the loser a no-op.
+      if (orderId) await notifyOrderPlaced(orderId);
     }
 
     return NextResponse.json({

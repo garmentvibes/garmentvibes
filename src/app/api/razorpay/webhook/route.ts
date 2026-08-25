@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { razorpayWebhookSecret } from "@/lib/razorpay/config";
 import { verifyWebhookSignature } from "@/lib/razorpay/signature";
+import { notifyOrderPlaced } from "@/lib/notifications/orders";
 import { recordPayment } from "@/lib/supabase/admin";
 
 // Razorpay webhook receiver.
@@ -80,11 +81,17 @@ export async function POST(request: Request) {
         // payment.captured and order.paid for one payment, and the browser's
         // verify handoff may already have recorded it. The database turns a
         // repeat into a no-op.
-        await recordPayment({
+        const orderId = await recordPayment({
           reference: receipt,
           paymentId: payment.id,
           amount: payment.amount,
         });
+
+        // An online order is only confirmed once the money is recorded, so
+        // this is where its confirmation is queued. Both this and the verify
+        // handoff can reach here for one payment; the dedupe key in 0022 is
+        // what stops the customer being told twice.
+        if (orderId) await notifyOrderPlaced(orderId);
       } else {
         // A paid event we cannot attribute is money we have taken against an
         // order we cannot find. Nothing to retry — it needs a person.
