@@ -1,7 +1,9 @@
 import { create } from "zustand";
-import { useCatalogue } from "@/components/shared/catalogue-provider";
+import {
+  useCatalogue,
+  useWholesaleCatalogue,
+} from "@/components/shared/catalogue-provider";
 import { persist } from "zustand/middleware";
-import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 import type { RetailProduct, WholesaleProduct } from "@/types/catalog";
 
 // Admin catalog edits, layered on top of the static mock catalogs.
@@ -110,8 +112,13 @@ export function useAdminRetailProducts(): RetailProduct[] {
 
 export function useAdminWholesaleProducts(): WholesaleProduct[] {
   const { wholesaleOverrides, wholesaleAdded, wholesaleDeleted } = useAdminCatalogStore();
+
+  // As with retail: the base is whatever the server last read, so the panel
+  // and the portal are looking at the same products.
+  const catalogue = useWholesaleCatalogue();
+
   return [
-    ...WHOLESALE_PRODUCTS.map((p) => ({ ...p, ...wholesaleOverrides[p.id] })),
+    ...catalogue.map((p) => ({ ...p, ...wholesaleOverrides[p.id] })),
     ...wholesaleAdded,
   ].filter((p) => !wholesaleDeleted.includes(p.id));
 }

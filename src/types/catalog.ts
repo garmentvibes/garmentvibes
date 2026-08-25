@@ -67,6 +67,9 @@ export interface RetailProduct {
 
 export type WholesaleCategory = "women" | "men" | "kids" | "unisex" | "fabric";
 
+/** The badges a wholesale product can carry. See RetailTag for why it is named. */
+export type WholesaleTag = "new" | "bestseller" | "closeout";
+
 export interface WholesalePriceTier {
   minQty: number; // minimum units to unlock this price
   pricePerUnit: number; // minor units, per single garment unit
@@ -90,7 +93,7 @@ export interface WholesaleProduct {
   fabric: string;
   colors: string[];
   leadTimeDays: number;
-  tags?: Array<"new" | "bestseller" | "closeout">;
+  tags?: WholesaleTag[];
 }
 
 export function wholesalePriceForQty(product: WholesaleProduct, qty: number): number {

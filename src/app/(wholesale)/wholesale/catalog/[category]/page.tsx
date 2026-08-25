@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { WholesaleBreadcrumbs } from "@/components/wholesale/breadcrumbs";
 import { CatalogBrowser } from "@/components/wholesale/catalog-browser";
-import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
+import { getWholesaleProductsByCategory } from "@/lib/catalogue/wholesale";
 import { WHOLESALE_CATEGORY_LABELS } from "@/lib/mock/wholesale-taxonomy";
 import type { WholesaleCategory } from "@/types/catalog";
 
@@ -18,6 +18,10 @@ import type { WholesaleCategory } from "@/types/catalog";
 // subcategory read into the client component behind Suspense — was measured
 // and drops every product link out of the prerendered HTML. A soft 404 on a
 // URL nobody links to is the cheaper problem.
+
+// See the note in wholesale/product/[slug]/page.tsx: the catalogue is read at
+// build time and at revalidation, not per request.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return Object.keys(WHOLESALE_CATEGORY_LABELS).map((category) => ({ category }));
@@ -48,7 +52,7 @@ export default async function WholesaleCategoryPage({
 
   const { subcategory } = await searchParams;
   const label = WHOLESALE_CATEGORY_LABELS[category as WholesaleCategory];
-  const products = WHOLESALE_PRODUCTS.filter((p) => p.category === category);
+  const products = await getWholesaleProductsByCategory(category);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

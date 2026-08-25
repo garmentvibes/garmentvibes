@@ -2,12 +2,16 @@
 
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
+import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
 
 export function PriceListExportButton() {
+  // The catalogue the server last read, so an exported price list matches what
+  // the portal is quoting rather than what the bundle was built with.
+  const catalogue = useWholesaleCatalogue();
+
   function handleExport() {
     const header = "sku,name,category,moq,pack_size,lead_time_days,tier_min_qty,price_per_unit_minor,currency";
-    const rows = WHOLESALE_PRODUCTS.flatMap((p) =>
+    const rows = catalogue.flatMap((p) =>
       p.priceTiers.map(
         (tier) =>
           `${p.sku},"${p.name}",${p.category},${p.moq},${p.packSize},${p.leadTimeDays},${tier.minQty},${tier.pricePerUnit},${p.currency}`

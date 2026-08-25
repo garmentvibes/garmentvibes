@@ -3,7 +3,8 @@
 import { createContext, useContext } from "react";
 
 import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
-import type { RetailProduct } from "@/types/catalog";
+import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
+import type { RetailProduct, WholesaleProduct } from "@/types/catalog";
 
 // ---------------------------------------------------------------------------
 // The catalogue, for the client components that need all of it.
@@ -49,4 +50,33 @@ export function CatalogueProvider({
 /** Every retail product, as the server last read them. */
 export function useCatalogue(): RetailProduct[] {
   return useContext(CatalogueContext);
+}
+
+// ---------------------------------------------------------------------------
+// The same, for the wholesale portal.
+//
+// A separate context rather than one carrying both catalogues, so a retail
+// page does not pay to ship 25 wholesale products it will never render, and a
+// trade page does not ship 33 retail ones. The two sides of this app share
+// almost nothing by design — separate catalogues, separate pricing, separate
+// chrome — and this follows that.
+// ---------------------------------------------------------------------------
+
+const WholesaleCatalogueContext = createContext<WholesaleProduct[]>(WHOLESALE_PRODUCTS);
+
+export function WholesaleCatalogueProvider({
+  catalogue,
+  children,
+}: {
+  catalogue: WholesaleProduct[];
+  children: React.ReactNode;
+}) {
+  return (
+    <WholesaleCatalogueContext value={catalogue}>{children}</WholesaleCatalogueContext>
+  );
+}
+
+/** Every wholesale product, as the server last read them. */
+export function useWholesaleCatalogue(): WholesaleProduct[] {
+  return useContext(WholesaleCatalogueContext);
 }

@@ -1,7 +1,11 @@
 import { requireStaff } from "@/lib/auth/dal";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { CatalogueProvider } from "@/components/shared/catalogue-provider";
+import {
+  CatalogueProvider,
+  WholesaleCatalogueProvider,
+} from "@/components/shared/catalogue-provider";
 import { getRetailCatalogue } from "@/lib/catalogue/retail";
+import { getWholesaleCatalogue } from "@/lib/catalogue/wholesale";
 
 // ---------------------------------------------------------------------------
 // The admin authorisation boundary.
@@ -26,10 +30,13 @@ export default async function AdminPanelLayout({ children }: { children: React.R
   // storefront renders. Read here for the same reason as the retail layout:
   // the pages that need it are client components and cannot await.
   const catalogue = await getRetailCatalogue();
+  const wholesaleCatalogue = await getWholesaleCatalogue();
 
   return (
     <CatalogueProvider catalogue={catalogue}>
-      <AdminShell user={user}>{children}</AdminShell>
+      <WholesaleCatalogueProvider catalogue={wholesaleCatalogue}>
+        <AdminShell user={user}>{children}</AdminShell>
+      </WholesaleCatalogueProvider>
     </CatalogueProvider>
   );
 }

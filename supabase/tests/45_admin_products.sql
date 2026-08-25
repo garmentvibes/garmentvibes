@@ -188,4 +188,90 @@ select assert(
   (select count(*) from wishlists) = 0,
   'products: deleting it took the customer''s wishlist entry with it');
 
+-- ---------------------------------------------------------------------------
+-- Wholesale
+-- ---------------------------------------------------------------------------
+
+-- 0003 gave staff `for all` on wholesale_products and wholesale_price_tiers,
+-- unused until now for the same reason. The tier table is the part that
+-- matters: every quote is built from it.
+
+insert into wholesale_products (id, sku, slug, name, category, subcategory, moq, pack_size)
+values ('bbbbbbbb-0000-0000-0000-0000000000b1', 'GV-BULK-1', 'admin-bulk-tee',
+        'Admin Bulk Tee', 'unisex', 'T-Shirts & Polos', 100, 10);
+
+insert into wholesale_price_tiers (product_id, min_qty, price_per_unit) values
+  ('bbbbbbbb-0000-0000-0000-0000000000b1', 100, 24000),
+  ('bbbbbbbb-0000-0000-0000-0000000000b1', 500, 21000);
+
+select assert(
+  as_user_error('44444444-4444-4444-4444-444444444444', $$
+    insert into wholesale_price_tiers (product_id, min_qty, price_per_unit)
+    values ('bbbbbbbb-0000-0000-0000-0000000000b1', 1000, 18500)
+  $$) is null,
+  'wholesale: staff can add a price tier');
+
+select assert(
+  as_user_error('44444444-4444-4444-4444-444444444444', $$
+    update wholesale_price_tiers set price_per_unit = 19000
+     where product_id = 'bbbbbbbb-0000-0000-0000-0000000000b1' and min_qty = 1000
+  $$) is null,
+  'wholesale: and change one');
+
+-- A tier table with two rows at the same quantity makes "the last tier the
+-- order clears" ambiguous. The unique index is what stops it reaching the
+-- database at all; the form refuses it first so an admin gets a sentence.
+select assert(
+  violates_constraint($$
+    insert into wholesale_price_tiers (product_id, min_qty, price_per_unit)
+    values ('bbbbbbbb-0000-0000-0000-0000000000b1', 500, 20000)
+  $$),
+  'wholesale: two tiers cannot start at the same quantity');
+
+select assert(
+  is_denied('11111111-1111-1111-1111-111111111111', $$
+    insert into wholesale_products (sku, slug, name, category, subcategory, moq, pack_size)
+    values ('GV-SELF', 'customer-bulk', 'Customer Bulk', 'unisex', 'T-Shirts & Polos', 1, 1)
+  $$),
+  'wholesale: a customer cannot add a product to the trade catalogue');
+
+-- The one that would actually pay: repricing a tier downward is a discount a
+-- buyer awards themselves.
+select as_user_scalar('11111111-1111-1111-1111-111111111111',
+  $$update wholesale_price_tiers set price_per_unit = 1 returning min_qty$$);
+
+select assert(
+  (select min(price_per_unit) from wholesale_price_tiers
+    where product_id = 'bbbbbbbb-0000-0000-0000-0000000000b1') = 19000,
+  'wholesale: nor reprice a tier to a rupee');
+
+select assert(
+  visible_count('11111111-1111-1111-1111-111111111111',
+    $$select count(*)::int from wholesale_products where slug = 'admin-bulk-tee'$$) = 1,
+  'wholesale: a live product is visible to a trade buyer');
+
+select assert(
+  as_user_error('44444444-4444-4444-4444-444444444444',
+    $$update wholesale_products set is_active = false where slug = 'admin-bulk-tee'$$) is null,
+  'wholesale: staff can withdraw it');
+
+select assert(
+  visible_count('11111111-1111-1111-1111-111111111111',
+    $$select count(*)::int from wholesale_products where slug = 'admin-bulk-tee'$$) = 0,
+  'wholesale: and it disappears from the portal');
+
+-- Deleting takes the tiers with it — ON DELETE CASCADE on wholesale_price_tiers
+-- — which is the other half of why the panel withdraws instead.
+select assert(
+  (select count(*) from wholesale_price_tiers
+    where product_id = 'bbbbbbbb-0000-0000-0000-0000000000b1') = 3,
+  'wholesale: the withdrawn product still has its tiers');
+
+delete from wholesale_products where slug = 'admin-bulk-tee';
+
+select assert(
+  (select count(*) from wholesale_price_tiers
+    where product_id = 'bbbbbbbb-0000-0000-0000-0000000000b1') = 0,
+  'wholesale: deleting it would have taken every price tier with it');
+
 rollback;
