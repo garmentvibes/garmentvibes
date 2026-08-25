@@ -26,7 +26,7 @@ const sizesKids = [
 export const RETAIL_PRODUCTS: RetailProduct[] = [
   // --- Women / Ethnic Wear: Kurtas ---
   {
-    id: "r1",
+    id: "floral-anarkali-kurta",
     slug: "floral-anarkali-kurta",
     name: "Floral Printed Anarkali Kurta",
     brand: "Vibe & Co.",
@@ -45,7 +45,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["bestseller", "sale"],
   },
   {
-    id: "r10",
+    id: "embroidered-chikankari-kurti",
     slug: "embroidered-chikankari-kurti",
     name: "Embroidered Chikankari Kurti",
     brand: "Loomcraft",
@@ -63,7 +63,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["sale"],
   },
   {
-    id: "r13",
+    id: "block-print-cotton-kurta",
     slug: "block-print-cotton-kurta",
     name: "Block Print Cotton Kurta",
     brand: "Loomcraft",
@@ -82,7 +82,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Women / Ethnic Wear: Sarees ---
   {
-    id: "r2",
+    id: "banarasi-silk-saree",
     slug: "banarasi-silk-saree",
     name: "Banarasi Silk Blend Saree",
     brand: "Loomcraft",
@@ -101,7 +101,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["new"],
   },
   {
-    id: "r14",
+    id: "chiffon-printed-saree",
     slug: "chiffon-printed-saree",
     name: "Chiffon Printed Saree",
     brand: "Wanderlust",
@@ -120,7 +120,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Women / Ethnic Wear: Suit Sets ---
   {
-    id: "r15",
+    id: "embroidered-anarkali-suit-set",
     slug: "embroidered-anarkali-suit-set",
     name: "Embroidered Anarkali Suit Set",
     brand: "Vibe & Co.",
@@ -138,7 +138,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["new"],
   },
   {
-    id: "r16",
+    id: "printed-palazzo-suit-set",
     slug: "printed-palazzo-suit-set",
     name: "Printed Palazzo Suit Set",
     brand: "Loomcraft",
@@ -157,7 +157,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Women / Western Wear: Dresses ---
   {
-    id: "r12",
+    id: "printed-maxi-dress",
     slug: "printed-maxi-dress",
     name: "Printed Tiered Maxi Dress",
     brand: "Vibe & Co.",
@@ -175,7 +175,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["bestseller", "sale"],
   },
   {
-    id: "r17",
+    id: "floral-wrap-dress",
     slug: "floral-wrap-dress",
     name: "Floral Wrap Midi Dress",
     brand: "Wanderlust",
@@ -192,7 +192,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     ratingCount: 401,
   },
   {
-    id: "r18",
+    id: "denim-shirt-dress",
     slug: "denim-shirt-dress",
     name: "Denim Shirt Dress",
     brand: "Denim Union",
@@ -212,7 +212,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Women / Western Wear: Tops ---
   {
-    id: "r19",
+    id: "ruffle-sleeve-top",
     slug: "ruffle-sleeve-top",
     name: "Ruffle Sleeve Top",
     brand: "Wanderlust",
@@ -229,7 +229,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     ratingCount: 234,
   },
   {
-    id: "r20",
+    id: "satin-cami-top",
     slug: "satin-cami-top",
     name: "Satin Cami Top",
     brand: "Urban Thread",
@@ -249,7 +249,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Women / Western Wear: Jeans ---
   {
-    id: "r3",
+    id: "high-rise-straight-jeans",
     slug: "high-rise-straight-jeans",
     name: "High-Rise Straight Fit Jeans",
     brand: "Denim Union",
@@ -266,7 +266,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     ratingCount: 876,
   },
   {
-    id: "r21",
+    id: "skinny-fit-ankle-jeans",
     slug: "skinny-fit-ankle-jeans",
     name: "Skinny Fit Ankle Length Jeans",
     brand: "Denim Union",
@@ -285,7 +285,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Women / Winter Wear: Jackets ---
   {
-    id: "r22",
+    id: "womens-quilted-puffer-jacket",
     slug: "womens-quilted-puffer-jacket",
     name: "Quilted Puffer Jacket",
     brand: "Urban Thread",
@@ -305,7 +305,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Men / Topwear: T-Shirts ---
   {
-    id: "r4",
+    id: "graphic-print-oversized-tee",
     slug: "graphic-print-oversized-tee",
     name: "Graphic Print Oversized T-Shirt",
     brand: "Streetline",
@@ -323,7 +323,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["bestseller"],
   },
   {
-    id: "r23",
+    id: "classic-crew-neck-tee",
     slug: "classic-crew-neck-tee",
     name: "Classic Crew Neck T-Shirt",
     brand: "Urban Thread",
@@ -341,7 +341,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["bestseller"],
   },
   {
-    id: "r24",
+    id: "striped-polo-tshirt",
     slug: "striped-polo-tshirt",
     name: "Striped Polo T-Shirt",
     brand: "Oakridge",
@@ -360,7 +360,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Men / Topwear: Shirts ---
   {
-    id: "r5",
+    id: "classic-fit-formal-shirt",
     slug: "classic-fit-formal-shirt",
     name: "Classic Fit Formal Shirt",
     brand: "Oakridge",
@@ -377,7 +377,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     ratingCount: 654,
   },
   {
-    id: "r25",
+    id: "checked-casual-shirt",
     slug: "checked-casual-shirt",
     name: "Checked Casual Shirt",
     brand: "Streetline",
@@ -396,7 +396,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Men / Bottomwear: Jeans ---
   {
-    id: "r26",
+    id: "mens-slim-fit-jeans",
     slug: "mens-slim-fit-jeans",
     name: "Slim Fit Jeans",
     brand: "Denim Union",
@@ -416,7 +416,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Men / Bottomwear: Trousers ---
   {
-    id: "r6",
+    id: "slim-fit-chino-trousers",
     slug: "slim-fit-chino-trousers",
     name: "Slim Fit Chino Trousers",
     brand: "Oakridge",
@@ -433,7 +433,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     ratingCount: 321,
   },
   {
-    id: "r27",
+    id: "formal-pleated-trousers",
     slug: "formal-pleated-trousers",
     name: "Formal Pleated Trousers",
     brand: "Oakridge",
@@ -452,7 +452,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Men / Ethnic Wear ---
   {
-    id: "r7",
+    id: "nehru-jacket-set",
     slug: "nehru-jacket-set",
     name: "Nehru Jacket & Kurta Set",
     brand: "Vibe & Co.",
@@ -472,7 +472,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Men / Winterwear: Jackets ---
   {
-    id: "r11",
+    id: "quilted-bomber-jacket",
     slug: "quilted-bomber-jacket",
     name: "Quilted Bomber Jacket",
     brand: "Streetline",
@@ -490,7 +490,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["new"],
   },
   {
-    id: "r28",
+    id: "mens-denim-jacket",
     slug: "mens-denim-jacket",
     name: "Classic Denim Jacket",
     brand: "Denim Union",
@@ -509,7 +509,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Kids / Girls: Dresses ---
   {
-    id: "r8",
+    id: "unicorn-print-frock",
     slug: "unicorn-print-frock",
     name: "Unicorn Print Party Frock",
     brand: "Little Vibes",
@@ -527,7 +527,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     tags: ["bestseller"],
   },
   {
-    id: "r29",
+    id: "floral-cotton-frock",
     slug: "floral-cotton-frock",
     name: "Floral Cotton Frock",
     brand: "Little Vibes",
@@ -546,7 +546,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Kids / Girls: Ethnic Wear ---
   {
-    id: "r30",
+    id: "girls-lehenga-choli-set",
     slug: "girls-lehenga-choli-set",
     name: "Girls Lehenga Choli Set",
     brand: "Little Vibes",
@@ -566,7 +566,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Kids / Boys: T-Shirts ---
   {
-    id: "r31",
+    id: "boys-printed-tshirt",
     slug: "boys-printed-tshirt",
     name: "Boys Printed T-Shirt",
     brand: "Little Vibes",
@@ -583,7 +583,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     ratingCount: 267,
   },
   {
-    id: "r32",
+    id: "boys-solid-polo",
     slug: "boys-solid-polo",
     name: "Boys Solid Polo T-Shirt",
     brand: "Oakridge",
@@ -602,7 +602,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
 
   // --- Kids / Everyday: Co-ord Sets ---
   {
-    id: "r9",
+    id: "dino-print-tee-shorts-set",
     slug: "dino-print-tee-shorts-set",
     name: "Dino Print Tee & Shorts Set",
     brand: "Little Vibes",
@@ -619,7 +619,7 @@ export const RETAIL_PRODUCTS: RetailProduct[] = [
     ratingCount: 267,
   },
   {
-    id: "r33",
+    id: "girls-floral-coord-set",
     slug: "girls-floral-coord-set",
     name: "Girls Floral Co-ord Set",
     brand: "Little Vibes",

@@ -22,8 +22,8 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
     paymentMethod: "online",
     status: "confirmed",
     items: [
-      { productId: "r1", name: "Floral Printed Anarkali Kurta", size: "M", color: "Rose", qty: 1, price: 129900 },
-      { productId: "r20", name: "Satin Cami Top", size: "S", color: "Black", qty: 2, price: 59900 },
+      { productId: "floral-anarkali-kurta", name: "Floral Printed Anarkali Kurta", size: "M", color: "Rose", qty: 1, price: 129900 },
+      { productId: "satin-cami-top", name: "Satin Cami Top", size: "S", color: "Black", qty: 2, price: 59900 },
     ],
   },
   {
@@ -36,7 +36,7 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
     paymentMethod: "cod",
     status: "packed",
     items: [
-      { productId: "r4", name: "Graphic Print Oversized T-Shirt", size: "L", color: "Black", qty: 3, price: 69900 },
+      { productId: "graphic-print-oversized-tee", name: "Graphic Print Oversized T-Shirt", size: "L", color: "Black", qty: 3, price: 69900 },
     ],
   },
   {
@@ -49,7 +49,7 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
     paymentMethod: "online",
     status: "shipped",
     items: [
-      { productId: "r2", name: "Banarasi Silk Blend Saree", size: "Free Size", color: "Maroon", qty: 1, price: 349900 },
+      { productId: "banarasi-silk-saree", name: "Banarasi Silk Blend Saree", size: "Free Size", color: "Maroon", qty: 1, price: 349900 },
     ],
   },
   {
@@ -63,8 +63,8 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
     paymentMethod: "cod",
     status: "delivered",
     items: [
-      { productId: "r11", name: "Quilted Bomber Jacket", size: "M", color: "Olive", qty: 1, price: 219900 },
-      { productId: "r23", name: "Classic Crew Neck T-Shirt", size: "M", color: "Navy", qty: 2, price: 49900 },
+      { productId: "quilted-bomber-jacket", name: "Quilted Bomber Jacket", size: "M", color: "Olive", qty: 1, price: 219900 },
+      { productId: "classic-crew-neck-tee", name: "Classic Crew Neck T-Shirt", size: "M", color: "Navy", qty: 2, price: 49900 },
     ],
   },
   {
@@ -80,7 +80,7 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
     paymentMethod: "online",
     status: "delivered",
     items: [
-      { productId: "r4", name: "Graphic Print Oversized T-Shirt", size: "M", color: "Black", qty: 2, price: 69900 },
+      { productId: "graphic-print-oversized-tee", name: "Graphic Print Oversized T-Shirt", size: "M", color: "Black", qty: 2, price: 69900 },
     ],
   },
   {
@@ -93,7 +93,7 @@ export const SEED_RETAIL_ORDERS: RetailOrder[] = [
     paymentMethod: "online",
     status: "pending",
     items: [
-      { productId: "r8", name: "Unicorn Print Party Frock", size: "4-5Y", color: "Pink", qty: 2, price: 89900 },
+      { productId: "unicorn-print-frock", name: "Unicorn Print Party Frock", size: "4-5Y", color: "Pink", qty: 2, price: 89900 },
     ],
   },
 ];
@@ -108,8 +108,8 @@ export const SEED_WHOLESALE_QUOTES: WholesaleQuote[] = [
     email: "meera@meerafashion.example",
     status: "requested",
     items: [
-      { productId: "w1", sku: "GV-WCT-001", name: "Cotton Round Neck T-Shirt (Bulk Pack)", qty: 300, pricePerUnit: 21900 },
-      { productId: "w3", sku: "GV-WDN-003", name: "Stretch Denim Jeans (Bulk Pack)", qty: 96, pricePerUnit: 64900 },
+      { productId: "cotton-round-neck-tee-bulk", sku: "GV-WCT-001", name: "Cotton Round Neck T-Shirt (Bulk Pack)", qty: 300, pricePerUnit: 21900 },
+      { productId: "denim-jeans-bulk", sku: "GV-WDN-003", name: "Stretch Denim Jeans (Bulk Pack)", qty: 96, pricePerUnit: 64900 },
     ],
   },
   {
@@ -121,7 +121,7 @@ export const SEED_WHOLESALE_QUOTES: WholesaleQuote[] = [
     email: "suresh@kumarretail.example",
     status: "confirmed",
     items: [
-      { productId: "w17", sku: "GV-WPO-017", name: "Men's Pique Polo T-Shirt (Bulk Pack)", qty: 600, pricePerUnit: 24900 },
+      { productId: "mens-pique-polo-bulk", sku: "GV-WPO-017", name: "Men's Pique Polo T-Shirt (Bulk Pack)", qty: 600, pricePerUnit: 24900 },
     ],
   },
   {
@@ -133,8 +133,8 @@ export const SEED_WHOLESALE_QUOTES: WholesaleQuote[] = [
     email: "anita@stylebazaar.example",
     status: "quoted",
     items: [
-      { productId: "w2", sku: "GV-WKR-002", name: "Cotton Printed Kurti (Bulk Pack)", qty: 150, pricePerUnit: 34900 },
-      { productId: "w14", sku: "GV-WSS-014", name: "Printed Georgette Saree (Bulk Pack)", qty: 150, pricePerUnit: 52900 },
+      { productId: "cotton-printed-kurti-bulk", sku: "GV-WKR-002", name: "Cotton Printed Kurti (Bulk Pack)", qty: 150, pricePerUnit: 34900 },
+      { productId: "printed-saree-bulk", sku: "GV-WSS-014", name: "Printed Georgette Saree (Bulk Pack)", qty: 150, pricePerUnit: 52900 },
     ],
   },
   {
@@ -146,7 +146,7 @@ export const SEED_WHOLESALE_QUOTES: WholesaleQuote[] = [
     email: "ravi@littlesteps.example",
     status: "shipped",
     items: [
-      { productId: "w4", sku: "GV-WKD-004", name: "Kids Cotton Co-ord Set (Bulk Pack)", qty: 360, pricePerUnit: 13900 },
+      { productId: "kids-cotton-coord-set-bulk", sku: "GV-WKD-004", name: "Kids Cotton Co-ord Set (Bulk Pack)", qty: 360, pricePerUnit: 13900 },
     ],
   },
 ];

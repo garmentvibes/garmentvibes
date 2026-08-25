@@ -14,7 +14,7 @@ import type { ProductQuestion } from "@/types/questions";
 export const SEED_QUESTIONS: ProductQuestion[] = [
   {
     id: "q_seed_1",
-    productId: "r23", // Classic Crew Neck T-Shirt
+    productId: "classic-crew-neck-tee", // Classic Crew Neck T-Shirt
     askerName: "Rahul M.",
     askerEmail: "rahul.seed@example.com",
     body: "Does this shrink after the first wash?",
@@ -26,7 +26,7 @@ export const SEED_QUESTIONS: ProductQuestion[] = [
   },
   {
     id: "q_seed_2",
-    productId: "r23",
+    productId: "classic-crew-neck-tee",
     askerName: "Sneha P.",
     askerEmail: "sneha.seed@example.com",
     body: "Is the fabric thick enough to not be see-through in white?",
@@ -38,7 +38,7 @@ export const SEED_QUESTIONS: ProductQuestion[] = [
   },
   {
     id: "q_seed_3",
-    productId: "r1", // Floral Anarkali Kurta
+    productId: "floral-anarkali-kurta", // Floral Anarkali Kurta
     askerName: "Divya K.",
     askerEmail: "divya.seed@example.com",
     body: "What is the length from shoulder to hem in size M?",
@@ -50,7 +50,7 @@ export const SEED_QUESTIONS: ProductQuestion[] = [
   },
   {
     id: "q_seed_4",
-    productId: "r2", // Banarasi Silk Blend Saree
+    productId: "banarasi-silk-saree", // Banarasi Silk Blend Saree
     askerName: "Meera T.",
     askerEmail: "meera.seed@example.com",
     body: "Does this come with an unstitched blouse piece, and what is its length?",
