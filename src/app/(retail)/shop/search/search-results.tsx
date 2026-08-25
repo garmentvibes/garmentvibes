@@ -4,12 +4,14 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CategoryBrowser } from "@/components/retail/category-browser";
-import { searchRetailProducts } from "@/lib/mock/retail-products";
+import { searchRetailCatalogue } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
 import { track } from "@/lib/analytics";
 
 export function SearchResults() {
   const query = useSearchParams().get("q") ?? "";
-  const results = searchRetailProducts(query);
+  const catalogue = useCatalogue();
+  const results = searchRetailCatalogue(catalogue, query);
 
   // Zero-result searches are the most actionable analytics signal a store
   // has — they name products customers want and we don't list.

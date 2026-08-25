@@ -185,6 +185,19 @@ if (seedOk) {
     "the built-in promo codes are present",
     scalar("select count(*) from promo_codes where built_in") === "2"
   );
+
+  // The seed writes the display order the storefront has always used, rather
+  // than leaving every row on the default and letting 0019's backfill number
+  // them by label. If this ever reads alphabetically — L, M, S, XL — the
+  // generator has stopped emitting sort_order and the backfill is what ran.
+  check(
+    "seeded sizes are in catalogue order, not alphabetical",
+    scalar(
+      "select string_agg(label, ',' order by sort_order) " +
+        "from retail_product_sizes s join retail_products p on p.id = s.product_id " +
+        "where p.slug = 'floral-anarkali-kurta'"
+    ) === "S,M,L,XL"
+  );
 }
 
 // Re-applying must be a no-op rather than an error: Supabase records applied

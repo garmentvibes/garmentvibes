@@ -161,19 +161,27 @@ w("-- Sizes and their stock levels. Quantities come from getStock() in");
 w("-- src/lib/stores/stock-store.ts, so the database starts out agreeing with");
 w("-- what the storefront currently displays.");
 w();
-w("insert into retail_product_sizes (product_id, label, stock_qty) values");
+w("insert into retail_product_sizes (product_id, label, stock_qty, sort_order) values");
 
+// `sort_order` is the array index, because the array's order IS the display
+// order the storefront has always used — S, M, L, XL for tops, 28 upward for
+// waists. Reading the catalogue from the database loses that unless it is
+// written down: rows come back in whatever order Postgres finds them, and a
+// size picker whose order moves between page loads is one customers mis-tap.
+// See 0019.
 const sizeRows = [];
 for (const p of RETAIL_PRODUCTS) {
-  for (const size of p.sizes) {
+  p.sizes.forEach((size, index) => {
     const qty = getStock({}, p, size.label);
     sizeRows.push(
-      `  ((select id from retail_products where slug = ${lit(p.slug)}), ${lit(size.label)}, ${num(qty)})`
+      `  ((select id from retail_products where slug = ${lit(p.slug)}), ${lit(size.label)}, ${num(qty)}, ${num(index)})`
     );
-  }
+  });
 }
 w(sizeRows.join(",\n"));
-w("on conflict (product_id, label) do update set stock_qty = excluded.stock_qty;");
+w("on conflict (product_id, label) do update set");
+w("  stock_qty = excluded.stock_qty,");
+w("  sort_order = excluded.sort_order;");
 w();
 
 // --- Wholesale catalogue -------------------------------------------------

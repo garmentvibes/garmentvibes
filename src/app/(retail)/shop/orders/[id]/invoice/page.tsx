@@ -8,13 +8,19 @@ import { formatPrice } from "@/lib/utils";
 import { BUSINESS_INFO } from "@/lib/business-info";
 import { useMyOrder } from "@/lib/hooks/use-my-orders";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
-import { getRetailProductById } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
 import { computeGst, SELLER_STATE_CODE } from "@/lib/gst";
 
 export default function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const mounted = useHasMounted();
   const { order } = useMyOrder(id);
+  // With the other hooks, above the two early returns below — a hook after one
+  // of them runs in some renders and not others.
+  //
+  // The catalogue the server last read, not the module: the subcategory it
+  // supplies decides the HSN code printed on a tax invoice.
+  const catalogue = useCatalogue();
 
   if (!mounted) return null;
 
@@ -36,7 +42,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
       name: item.name,
       qty: item.qty,
       price: item.price,
-      subcategory: getRetailProductById(item.productId)?.subcategory,
+      subcategory: catalogue.find((p) => p.id === item.productId)?.subcategory,
     })),
     order.shippingAddress
   );

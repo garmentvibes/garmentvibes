@@ -29,7 +29,7 @@ import { useNow } from "@/lib/hooks/use-now";
 import { computeGst } from "@/lib/gst";
 import { isServerPriceable } from "@/lib/pricing";
 import { placeRetailOrder, releaseRetailOrder } from "@/lib/orders/actions";
-import { getRetailProductById } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
 import { reportError } from "@/lib/analytics";
 import {
   createPaymentOrder,
@@ -65,6 +65,9 @@ export default function CheckoutPage() {
   const mounted = useHasMounted();
   const user = useSessionStore((s) => s.user);
   const { lines, clear } = useCart();
+  // The catalogue the server last read, not the module — the subcategory below
+  // decides the HSN code on a tax invoice.
+  const catalogue = useCatalogue();
   const addresses = useAddressStore((s) => s.addresses);
   const promoCodes = usePromoStore((s) => s.codes);
   const promoRedemptions = usePromoStore((s) => s.redemptions);
@@ -230,7 +233,7 @@ export default function CheckoutPage() {
             name: line.name,
             qty: line.qty,
             price: Math.round((line.price * finalTotal) / totalPrice),
-            subcategory: getRetailProductById(line.productId)?.subcategory,
+            subcategory: catalogue.find((p) => p.id === line.productId)?.subcategory,
           })),
           // Place of supply only decides CGST+SGST vs IGST; the total tax is
           // the same either way, and that total is all this line shows.

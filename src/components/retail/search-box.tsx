@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
-import { searchRetailProducts } from "@/lib/mock/retail-products";
+import { searchRetailCatalogue } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
 
 export function SearchBox({
   className,
@@ -24,7 +25,8 @@ export function SearchBox({
   const [highlighted, setHighlighted] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const suggestions = query.trim() ? searchRetailProducts(query, 6) : [];
+  const catalogue = useCatalogue();
+  const suggestions = query.trim() ? searchRetailCatalogue(catalogue, query, 6) : [];
 
   // Close the dropdown when focus/clicks move elsewhere.
   useEffect(() => {

@@ -660,8 +660,24 @@ const retailSearchFields = (p: RetailProduct) => [
 ];
 
 export function searchRetailProducts(query: string, limit?: number) {
+  return searchRetailCatalogue(RETAIL_PRODUCTS, query, limit);
+}
+
+/**
+ * The same search, over a catalogue handed in.
+ *
+ * The search box autocompletes against whatever the server last read, which on
+ * a deployment with a database is not this module — see
+ * src/components/shared/catalogue-provider.tsx. The ranking has to be the same
+ * either way, so both callers go through one function.
+ */
+export function searchRetailCatalogue(
+  catalogue: RetailProduct[],
+  query: string,
+  limit?: number
+) {
   if (!query.trim()) return [];
-  return fuzzySearch(query, RETAIL_PRODUCTS, retailSearchFields, limit);
+  return fuzzySearch(query, catalogue, retailSearchFields, limit);
 }
 
 export function getRelatedRetailProducts(product: RetailProduct, limit = 4) {
