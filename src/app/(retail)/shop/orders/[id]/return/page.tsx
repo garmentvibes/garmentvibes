@@ -14,14 +14,18 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
 import { returnEligibility, INELIGIBLE_MESSAGES, RETURN_WINDOW_DAYS } from "@/lib/returns";
-import { getRetailProductById, RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
+import type { RetailProduct } from "@/types/catalog";
 
 // Anything currently sellable can be exchanged into. Capped so the picker
 // stays a picker rather than becoming a second catalogue — a customer
 // wanting something further afield is better served returning and reordering.
-const EXCHANGEABLE_PRODUCTS = RETAIL_PRODUCTS.filter((p) =>
-  p.sizes.some((s) => s.inStock)
-).slice(0, 20);
+// Derived per render rather than at module load, now that the catalogue comes
+// from the server: a module-level const would freeze whatever the bundle was
+// built with and never see a product going out of stock.
+function exchangeableFrom(catalogue: RetailProduct[]) {
+  return catalogue.filter((p) => p.sizes.some((s) => s.inStock)).slice(0, 20);
+}
 import { RETURN_REASONS, type ReturnReason, type ResolutionType } from "@/types/returns";
 
 export default function ReturnRequestPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +45,14 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
   const [reason, setReason] = useState<ReturnReason>(RETURN_REASONS[0]);
   const [comments, setComments] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Up here with the other hooks rather than beside the code that uses it:
+  // there are three early returns between this point and there, and a hook
+  // after any of them is a hook that runs in some renders and not others.
+  //
+  // Exchange prices are money, so they come from the catalogue the server last
+  // read rather than from whatever the bundle happened to be built with.
+  const catalogue = useCatalogue();
 
   if (!mounted || now === null) return null;
 
@@ -82,6 +94,8 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
     );
   }
 
+  const exchangeable = exchangeableFrom(catalogue);
+
   const chosen = order.items
     .map((item, i) => ({ item, qty: selected[i] ?? 0, index: i }))
     .filter((x) => x.qty > 0);
@@ -90,7 +104,8 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
   // Positive: customer owes the difference. Negative: we refund it.
   const balance = chosen.reduce((sum, x) => {
     const replacementId = exchangeProducts[x.index] ?? x.item.productId;
-    const replacementPrice = getRetailProductById(replacementId)?.price ?? x.item.price;
+    const replacementPrice =
+      catalogue.find((p) => p.id === replacementId)?.price ?? x.item.price;
     return sum + x.qty * (replacementPrice - x.item.price);
   }, 0);
 
@@ -129,7 +144,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
           resolution === "exchange"
             ? // Captured now, so a later price change can't retroactively
               // alter what the customer agreed to settle.
-              getRetailProductById(exchangeProducts[x.index] ?? x.item.productId)?.price
+              catalogue.find((p) => p.id === (exchangeProducts[x.index] ?? x.item.productId))?.price
             : undefined,
       })),
       reason,
@@ -247,7 +262,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                       className="max-w-[12rem] rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-rose-400 focus:outline-none"
                     >
                       <option value={item.productId}>Same item</option>
-                      {EXCHANGEABLE_PRODUCTS.filter((p) => p.id !== item.productId).map((p) => (
+                      {exchangeable.filter((p) => p.id !== item.productId).map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name} — {formatPrice(p.price)}
                         </option>
@@ -267,7 +282,8 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                       {/* Only sizes we can actually send. On a same-product
                           swap the original size is excluded, since that's
                           not an exchange. */}
-                      {(getRetailProductById(exchangeProducts[i] ?? item.productId)?.sizes ?? [])
+                      {(catalogue.find((p) => p.id === (exchangeProducts[i] ?? item.productId))
+                        ?.sizes ?? [])
                         .filter(
                           (s) =>
                             s.inStock &&

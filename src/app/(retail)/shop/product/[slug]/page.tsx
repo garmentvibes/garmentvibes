@@ -12,27 +12,41 @@ import { ProductCard } from "@/components/retail/product-card";
 import { RecentlyViewedTracker } from "@/components/retail/recently-viewed-tracker";
 import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
 import {
-  RETAIL_PRODUCTS,
-  getRetailProductBySlug,
+  getRetailCatalogue,
+  getRetailProduct,
   getRelatedRetailProducts,
-} from "@/lib/mock/retail-products";
+} from "@/lib/catalogue/retail";
 import { getRetailReviews } from "@/lib/mock/retail-reviews";
 import { JsonLd } from "@/components/shared/json-ld";
 import { breadcrumbSchema, retailProductSchema } from "@/lib/seo";
 import { formatPrice } from "@/lib/utils";
 
-// Anything not produced by generateStaticParams below is a 404, not a
-// server-rendered miss. Without this, an unknown slug still renders the
-// not-found page but answers HTTP 200 — a soft 404, which search engines
-// index as a real page.
+// `dynamicParams = false` used to be here, so that anything not produced by
+// generateStaticParams was a 404 rather than a server-rendered miss. Its own
+// comment said what would end this:
 //
-// Correct while the catalogue is static. Once products come from the
-// database, adding one will need a revalidation (or this flipped back to
-// the default) before its page becomes reachable.
-export const dynamicParams = false;
+//     Correct while the catalogue is static. Once products come from the
+//     database, adding one will need a revalidation (or this flipped back to
+//     the default) before its page becomes reachable.
+//
+// Products now come from the database, so it is flipped back. A product added
+// after the last build would otherwise 404 until someone redeployed — the
+// catalogue would contain it, the listing pages would link to it, and the page
+// itself would refuse to exist.
+//
+// Nothing is lost by removing it. It was guarding against a soft 404 — an
+// unknown slug rendering the not-found page with HTTP 200 — and `notFound()`
+// below returns a real 404 for exactly that case. The flag only ever changed
+// whether the miss was decided at build time or at request time.
 
-export function generateStaticParams() {
-  return RETAIL_PRODUCTS.map((p) => ({ slug: p.slug }));
+// Rebuild the page at most this often. A clothing catalogue changes seasonally,
+// so an hour is generous rather than tight, and admin writes call
+// revalidatePath() to publish an edit immediately instead of waiting it out.
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const catalogue = await getRetailCatalogue();
+  return catalogue.map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({
@@ -41,7 +55,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = getRetailProductBySlug(slug);
+  const product = await getRetailProduct(slug);
   if (!product) return {};
   return {
     title: product.name,
@@ -58,12 +72,12 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = getRetailProductBySlug(slug);
+  const product = await getRetailProduct(slug);
   if (!product) notFound();
 
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const reviews = getRetailReviews(product.id);
-  const related = getRelatedRetailProducts(product);
+  const related = await getRelatedRetailProducts(product);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

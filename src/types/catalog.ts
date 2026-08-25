@@ -9,6 +9,15 @@ export type Currency = "INR" | "USD";
 
 export type RetailCategory = "women" | "men" | "kids";
 
+/**
+ * The badges a product can carry.
+ *
+ * Named so the database mapping can filter against it — `retail_products.tags`
+ * is a Postgres enum array, and the two lists are free to drift, so an unknown
+ * value has to be dropped rather than rendered as a badge nobody styled.
+ */
+export type RetailTag = "new" | "bestseller" | "sale";
+
 export interface RetailSize {
   label: string; // e.g. "S", "M", "L", "XL", "32", "34"
   inStock: boolean;
@@ -49,7 +58,7 @@ export interface RetailProduct {
   colors: string[];
   rating: number; // 0-5
   ratingCount: number;
-  tags?: Array<"new" | "bestseller" | "sale">;
+  tags?: RetailTag[];
 }
 
 // ---------------------------------------------------------------------------

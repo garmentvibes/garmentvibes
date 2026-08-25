@@ -2,14 +2,16 @@
 
 import { ProductCard } from "@/components/retail/product-card";
 import { useRecentlyViewedStore } from "@/lib/stores/recently-viewed-store";
-import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
+import { useCatalogue } from "@/components/shared/catalogue-provider";
+import type { RetailProduct } from "@/types/catalog";
 
 export function RecentlyViewedRail({ excludeId }: { excludeId?: string }) {
   const productIds = useRecentlyViewedStore((s) => s.productIds);
+  const catalogue = useCatalogue();
   const products = productIds
     .filter((id) => id !== excludeId)
-    .map((id) => RETAIL_PRODUCTS.find((p) => p.id === id))
-    .filter((p): p is (typeof RETAIL_PRODUCTS)[number] => Boolean(p));
+    .map((id) => catalogue.find((p) => p.id === id))
+    .filter((p): p is RetailProduct => Boolean(p));
 
   if (products.length === 0) return null;
 

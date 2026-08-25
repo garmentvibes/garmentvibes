@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { siteUrl } from "@/lib/seo";
-import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
+import { getRetailCatalogue } from "@/lib/catalogue/retail";
 import { WHOLESALE_PRODUCTS } from "@/lib/mock/wholesale-products";
 
 const RETAIL_CATEGORIES = ["women", "men", "kids"];
@@ -37,7 +37,8 @@ const STATIC_WHOLESALE_PAGES = [
   "/wholesale/signup", // how new B2B buyers find us
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const retailCatalogue = await getRetailCatalogue();
   const origin = siteUrl();
   const entries: MetadataRoute.Sitemap = [{ url: origin, priority: 1 }];
 
@@ -46,7 +47,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   for (const category of RETAIL_CATEGORIES) entries.push({ url: `${origin}/shop/${category}` });
   for (const category of WHOLESALE_CATEGORIES)
     entries.push({ url: `${origin}/wholesale/catalog/${category}` });
-  for (const product of RETAIL_PRODUCTS)
+  for (const product of retailCatalogue)
     entries.push({ url: `${origin}/shop/product/${product.slug}` });
   for (const product of WHOLESALE_PRODUCTS)
     entries.push({ url: `${origin}/wholesale/product/${product.slug}` });

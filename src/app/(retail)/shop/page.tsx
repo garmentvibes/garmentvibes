@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/retail/product-card";
 import { RecentlyViewedRail } from "@/components/retail/recently-viewed-rail";
-import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
+import { getRetailCatalogue } from "@/lib/catalogue/retail";
+
+// See the note in shop/product/[slug]/page.tsx: the catalogue is read at build
+// time and at revalidation, not per request, and admin writes publish an edit
+// immediately with revalidatePath().
+export const revalidate = 3600;
 
 export const metadata = {
   title: "Shop Fashion Online",
@@ -15,9 +20,10 @@ const CATEGORY_TILES = [
   { href: "/shop/kids", label: "Kids", from: "from-amber-500", to: "to-orange-600" },
 ];
 
-export default function ShopHomePage() {
-  const bestsellers = RETAIL_PRODUCTS.filter((p) => p.tags?.includes("bestseller"));
-  const newArrivals = RETAIL_PRODUCTS.filter((p) => p.tags?.includes("new"));
+export default async function ShopHomePage() {
+  const catalogue = await getRetailCatalogue();
+  const bestsellers = catalogue.filter((p) => p.tags?.includes("bestseller"));
+  const newArrivals = catalogue.filter((p) => p.tags?.includes("new"));
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

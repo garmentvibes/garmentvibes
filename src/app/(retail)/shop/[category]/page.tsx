@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/retail/breadcrumbs";
 import { CategoryBrowser } from "@/components/retail/category-browser";
-import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
+import { getRetailProductsByCategory } from "@/lib/catalogue/retail";
 import { CATEGORY_LABELS } from "@/lib/mock/category-taxonomy";
 import type { RetailCategory } from "@/types/catalog";
 import type { Metadata } from "next";
@@ -18,6 +18,11 @@ import type { Metadata } from "next";
 // subcategory read into the client component behind Suspense — was measured
 // and drops every product link out of the prerendered HTML. A soft 404 on a
 // URL nobody links to is the cheaper problem.
+
+// See the note in shop/product/[slug]/page.tsx: the catalogue is read at build
+// time and at revalidation, not per request, and admin writes publish an edit
+// immediately with revalidatePath().
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return Object.keys(CATEGORY_LABELS).map((category) => ({ category }));
@@ -48,7 +53,7 @@ export default async function CategoryPage({
 
   const { subcategory } = await searchParams;
   const label = CATEGORY_LABELS[category as RetailCategory];
-  const products = RETAIL_PRODUCTS.filter((p) => p.category === category);
+  const products = await getRetailProductsByCategory(category);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

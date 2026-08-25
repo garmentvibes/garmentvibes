@@ -1,17 +1,18 @@
 import { ImageResponse } from "next/og";
-import { RETAIL_PRODUCTS, getRetailProductBySlug } from "@/lib/mock/retail-products";
+import { getRetailCatalogue, getRetailProduct } from "@/lib/catalogue/retail";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "GarmentVibes product";
 
-export function generateStaticParams() {
-  return RETAIL_PRODUCTS.map((p) => ({ slug: p.slug }));
+export async function generateStaticParams() {
+  const catalogue = await getRetailCatalogue();
+  return catalogue.map((p) => ({ slug: p.slug }));
 }
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = getRetailProductBySlug(slug);
+  const product = await getRetailProduct(slug);
 
   const name = product?.name ?? "GarmentVibes";
   const brand = product?.brand ?? "Fashion Retail & Wholesale";

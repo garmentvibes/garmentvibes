@@ -348,4 +348,59 @@ select assert(
   'a sent message must record when it was sent'
 );
 
+-- ---------------------------------------------------------------------------
+-- Size display order
+-- ---------------------------------------------------------------------------
+
+-- Rows come back from Postgres in whatever order it finds them, so the order
+-- sizes are shown in has to be stored. Two sizes of one product claiming the
+-- same slot leaves the tie broken by the planner, which is a size picker whose
+-- order moves between page loads.
+insert into retail_products (id, slug, name, brand, category, subcategory, price, mrp)
+values ('aaaaaaaa-0000-0000-0000-00000000000f', 'order-test-tee', 'Order Test Tee', 'Brand',
+        'men', 'T-Shirts', 49900, 69900);
+
+insert into retail_product_sizes (product_id, label, stock_qty, sort_order) values
+  ('aaaaaaaa-0000-0000-0000-00000000000f', 'S', 5, 0),
+  ('aaaaaaaa-0000-0000-0000-00000000000f', 'M', 5, 1);
+
+-- Forced immediate for the probe. The constraint is DEFERRABLE INITIALLY
+-- DEFERRED, so left alone it raises at COMMIT — after violates_constraint()
+-- has already returned false and the test has read as passing.
+set constraints retail_product_sizes_order_unique immediate;
+
+select assert(
+  violates_constraint($q$
+    insert into retail_product_sizes (product_id, label, stock_qty, sort_order)
+    values ('aaaaaaaa-0000-0000-0000-00000000000f', 'L', 5, 1)
+  $q$),
+  'two sizes of one product cannot share a display position'
+);
+
+-- And that it really is deferrable, because that is what the seed depends on:
+-- re-running it after a size is inserted into the middle of a run renumbers
+-- the rows in one statement, passing through states where two of them briefly
+-- share a position. Made NOT DEFERRABLE, the assertion above would still pass
+-- and the seed would start failing.
+select assert(
+  (select condeferrable from pg_constraint
+    where conname = 'retail_product_sizes_order_unique'),
+  'the display-order constraint is deferrable, so a run can be renumbered'
+);
+
+-- Scoped per product, not global. Every product starts its own run at zero and
+-- a constraint that forgot the product_id would make the second product in the
+-- catalogue unsavable.
+insert into retail_products (id, slug, name, brand, category, subcategory, price, mrp)
+values ('aaaaaaaa-0000-0000-0000-00000000001f', 'order-test-cap', 'Order Test Cap', 'Brand',
+        'men', 'Caps', 29900, 39900);
+
+select assert(
+  not violates_constraint($q$
+    insert into retail_product_sizes (product_id, label, stock_qty, sort_order)
+    values ('aaaaaaaa-0000-0000-0000-00000000001f', 'S', 5, 0)
+  $q$),
+  'while a different product may start its own run at the same position'
+);
+
 rollback;
