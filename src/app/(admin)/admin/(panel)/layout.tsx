@@ -1,5 +1,7 @@
 import { requireStaff } from "@/lib/auth/dal";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { CatalogueProvider } from "@/components/shared/catalogue-provider";
+import { getRetailCatalogue } from "@/lib/catalogue/retail";
 
 // ---------------------------------------------------------------------------
 // The admin authorisation boundary.
@@ -20,7 +22,14 @@ import { AdminShell } from "@/components/admin/admin-shell";
 export default async function AdminPanelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaff();
 
+  // The panel edits the catalogue, so it has to be looking at the same one the
+  // storefront renders. Read here for the same reason as the retail layout:
+  // the pages that need it are client components and cannot await.
+  const catalogue = await getRetailCatalogue();
+
   return (
-    <AdminShell user={user}>{children}</AdminShell>
+    <CatalogueProvider catalogue={catalogue}>
+      <AdminShell user={user}>{children}</AdminShell>
+    </CatalogueProvider>
   );
 }

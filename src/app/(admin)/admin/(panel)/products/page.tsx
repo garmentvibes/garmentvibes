@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { withdrawRetailProduct } from "@/lib/admin/products/actions";
 import { Plus, Trash2, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,16 @@ import {
 } from "@/lib/stores/admin-catalog-store";
 
 type Tab = "retail" | "wholesale";
+
+/**
+ * Whether this deployment has a database to withdraw products from.
+ *
+ * From the inlined public env, as elsewhere in the panel: fixed at build time,
+ * and asking would cost a round trip on a page that falls back regardless.
+ */
+const CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function AdminProductsPage() {
   const [tab, setTab] = useState<Tab>("retail");
@@ -128,8 +139,27 @@ export default function AdminProductsPage() {
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
-                      aria-label={`Delete ${p.name}`}
-                      onClick={() => {
+                      // "Withdraw", not "delete". retail_order_items references
+                      // retail_products with no ON DELETE clause, so Postgres
+                      // refuses to remove a product anything has been ordered
+                      // of — and where it would succeed, it takes the reviews,
+                      // wishlists and questions with it. is_active = false is
+                      // what the storefront already respects.
+                      aria-label={`Withdraw ${p.name}`}
+                      title="Withdraw from sale"
+                      onClick={async () => {
+                        if (CONFIGURED) {
+                          const result = await withdrawRetailProduct(p.slug);
+                          if (result.error) {
+                            toast.error(result.error);
+                            return;
+                          }
+                          if (!result.notConfigured) {
+                            toast.success(`${p.name} withdrawn from sale`);
+                            return;
+                          }
+                        }
+
                         deleteRetail(p.id);
                         toast.success(`${p.name} removed`);
                       }}
