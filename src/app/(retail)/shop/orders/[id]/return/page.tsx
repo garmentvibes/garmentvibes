@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { formatPrice } from "@/lib/utils";
 import { useRetailOrder } from "@/lib/stores/admin-orders-store";
 import { useReturnsStore, useReturnsForOrder } from "@/lib/stores/returns-store";
+import { createReturnRequest } from "@/lib/returns/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
@@ -34,7 +35,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
   const mounted = useHasMounted();
   const order = useRetailOrder(id);
   const existingReturns = useReturnsForOrder(id);
-  const createReturn = useReturnsStore((s) => s.create);
+  const createReturnLocally = useReturnsStore((s) => s.create);
 
   const now = useNow();
 
@@ -109,7 +110,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
     return sum + x.qty * (replacementPrice - x.item.price);
   }, 0);
 
-  function submit() {
+  async function submit() {
     if (chosen.length === 0) {
       toast.error(`Select at least one item to ${resolution === "exchange" ? "exchange" : "return"}`);
       return;
@@ -124,7 +125,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
     }
     setSubmitting(true);
 
-    const request = createReturn({
+    const draft = {
       orderId: order!.id,
       resolution,
       customerName: order!.customerName,
@@ -149,7 +150,25 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
       })),
       reason,
       comments: comments.trim() || undefined,
-    });
+    };
+
+    // The database first, where there is one. The insert policy from 0007
+    // pins `status = 'requested'` in its WITH CHECK, so raising a return and
+    // deciding one cannot be the same call however this page is written — and
+    // the refund total is recomputed server-side rather than taken from here.
+    const stored = await createReturnRequest(draft);
+
+    if (stored.error) {
+      setSubmitting(false);
+      toast.error(stored.error);
+      return;
+    }
+
+    // `notConfigured` means there was no database to write to, so the local
+    // store is the record — which is what every QA suite here exercises.
+    const request = stored.notConfigured
+      ? createReturnLocally(draft)
+      : { id: stored.reference! };
 
     notify({
       templateId: "return_requested",

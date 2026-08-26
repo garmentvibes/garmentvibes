@@ -17,6 +17,16 @@ export const RETURN_STATUS_LABELS: Record<ReturnStatus, string> = {
 };
 
 /**
+ * Every status, for validating one that arrived from outside.
+ *
+ * Derived from the labels rather than written out again: a second list is a
+ * second thing to update, and the one that gets forgotten is the one a server
+ * action validates against — which would refuse a status the UI happily
+ * offers, or accept one the enum does not have.
+ */
+export const RETURN_STATUSES = Object.keys(RETURN_STATUS_LABELS) as ReturnStatus[];
+
+/**
  * A refund sends money back; an exchange sends a different size out. They
  * share the whole pipeline up to pickup and only diverge at the last step,
  * so they're one record with a discriminator rather than two systems.
