@@ -21,6 +21,21 @@ export type RetailTag = "new" | "bestseller" | "sale";
 export interface RetailSize {
   label: string; // e.g. "S", "M", "L", "XL", "32", "34"
   inStock: boolean;
+  /**
+   * Units on the shelf, when the catalogue came from the database.
+   *
+   * Undefined when it came from src/lib/mock/, which only carries the
+   * `inStock` boolean — see the fallback note in lib/catalogue/retail.ts. That
+   * is what the optionality means: not "stock is unknown" but "this deployment
+   * has no database to know it", which `getStock()` answers with the same
+   * deterministic seed the module has always used.
+   *
+   * Where it IS defined it is authoritative, because it is the number
+   * `place_retail_order` decrements and refuses orders against. Anything that
+   * decides whether a size can be bought must read this rather than a browser's
+   * own idea of it.
+   */
+  stock?: number;
 }
 
 export interface RetailProduct {

@@ -20,7 +20,6 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
   const [size, setSize] = useState(product.sizes.find((s) => s.inStock)?.label ?? "");
   const [color, setColor] = useState(product.colors[0] ?? "");
   const { addLine } = useCart();
-  const decrementStock = useStockStore((s) => s.decrement);
   const stockOverrides = useStockStore((s) => s.overrides);
   const router = useRouter();
 
@@ -45,7 +44,17 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
       toast.error(`Size ${size} is out of stock`);
       return;
     }
-    decrementStock(product.id, size, 1, selectedStock);
+    // Deliberately does not decrement stock.
+    //
+    // It used to, and that was wrong on its own terms: putting something in a
+    // bag does not take it off the shelf. Two customers looking at the last
+    // unit are both entitled to add it, and whoever reaches checkout first gets
+    // it — `place_retail_order` takes the stock under a row lock, which is the
+    // only place a reservation can honestly happen.
+    //
+    // Decrementing here also made the display disagree with the shelf: it wrote
+    // to a browser-local override that no other customer, device or server
+    // could see, so the count fell for one person and nobody else.
     addLine({
       productId: product.id,
       slug: product.slug,
