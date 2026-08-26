@@ -7,7 +7,9 @@ import { ArrowLeft, Building2, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
-import { useAdminOrdersStore, useWholesaleQuote } from "@/lib/stores/admin-orders-store";
+import { useAdminOrdersStore } from "@/lib/stores/admin-orders-store";
+import { useAdminQuote } from "@/lib/hooks/use-admin-quotes";
+import { setWholesaleQuoteStatus, setWholesaleShipment } from "@/lib/admin/quotes/actions";
 import { notify } from "@/lib/stores/notification-store";
 import { COURIERS, trackingUrlFor } from "@/lib/couriers";
 import { checkAwb } from "@/lib/shipping/awb";
@@ -23,11 +25,17 @@ import {
 
 export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const quote = useWholesaleQuote(id);
+  const { quote, loaded, live, refresh } = useAdminQuote(id);
   const setQuoteStatus = useAdminOrdersStore((s) => s.setQuoteStatus);
   const setQuoteShipment = useAdminOrdersStore((s) => s.setQuoteShipment);
   const [courierId, setCourierId] = useState(quote?.shipment?.courierId ?? COURIERS[0].id);
   const [awb, setAwb] = useState(quote?.shipment?.awb ?? "");
+
+  // A "not found" while the answer is in flight sends staff back to the list
+  // for a quote that is about to appear.
+  if (!loaded) {
+    return <div className="mx-auto max-w-3xl py-16 text-center text-neutral-400">Loading quote…</div>;
+  }
 
   if (!quote) {
     return (
@@ -40,7 +48,23 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
     );
   }
 
-  function updateStatus(status: WholesaleQuoteStatus) {
+  async function updateStatus(status: WholesaleQuoteStatus) {
+    // The database first, where there is one: it sets the status, stamps the
+    // date bulk claims run from, and queues the buyer's message from the row
+    // it actually wrote.
+    if (live) {
+      const result = await setWholesaleQuoteStatus(id, status);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      refresh();
+      toast.success(`Marked as ${WHOLESALE_QUOTE_STATUS_LABELS[status]}`);
+      return;
+    }
+
+    // No database: the store is the quote book and the browser outbox is the
+    // queue, which is what every QA suite here exercises.
     setQuoteStatus(id, status);
 
     // "quoted" is the one transition the buyer is actively waiting on.
@@ -85,13 +109,26 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
     toast.success(`Marked as ${WHOLESALE_QUOTE_STATUS_LABELS[status]}`);
   }
 
-  function saveShipment() {
+  async function saveShipment() {
     // Same guard as the retail side — see the note there.
     const checked = checkAwb(courierId, awb);
     if (!checked.valid) {
       toast.error(checked.error);
       return;
     }
+
+    if (live) {
+      const result = await setWholesaleShipment(id, courierId, checked.normalised);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setAwb(checked.normalised);
+      refresh();
+      toast.success("Tracking saved — it now appears on the buyer's order");
+      return;
+    }
+
     setQuoteShipment(id, courierId, checked.normalised);
     setAwb(checked.normalised);
     toast.success("Tracking saved — it now appears on the buyer's order");

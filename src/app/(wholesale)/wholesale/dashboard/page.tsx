@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
 import { useWholesaleOrderStore } from "@/lib/stores/wholesale-order-store";
-import { useWholesaleQuotes } from "@/lib/stores/admin-orders-store";
+import { useMyQuotes } from "@/lib/hooks/use-my-quotes";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { courierById, trackingUrlFor } from "@/lib/couriers";
 import { wholesalePriceForQty } from "@/types/catalog";
@@ -43,7 +43,7 @@ export default function WholesaleDashboardPage() {
   const mounted = useHasMounted();
   const [filter, setFilter] = useState<StatusFilter>("all");
   const upsertLine = useWholesaleOrderStore((s) => s.upsertLine);
-  const quotes = useWholesaleQuotes();
+  const { quotes } = useMyQuotes();
   // Above the early return below — a hook after one runs in some renders and
   // not others.
   const catalogue = useWholesaleCatalogue();

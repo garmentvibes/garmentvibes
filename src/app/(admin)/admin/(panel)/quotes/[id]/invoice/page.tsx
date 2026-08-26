@@ -6,7 +6,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { BUSINESS_INFO } from "@/lib/business-info";
-import { useWholesaleQuote } from "@/lib/stores/admin-orders-store";
+import { useAdminQuote } from "@/lib/hooks/use-admin-quotes";
 import { useWholesaleAccounts } from "@/lib/stores/admin-accounts-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useWholesaleCatalogue } from "@/components/shared/catalogue-provider";
@@ -21,7 +21,7 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
 
   const { id } = use(params);
   const mounted = useHasMounted();
-  const quote = useWholesaleQuote(id);
+  const { quote } = useAdminQuote(id);
   const accounts = useWholesaleAccounts();
 
   if (!mounted) return null;

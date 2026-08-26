@@ -8,7 +8,7 @@ import { ArrowLeft, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { formatPrice } from "@/lib/utils";
-import { useWholesaleQuote } from "@/lib/stores/admin-orders-store";
+import { useMyQuote } from "@/lib/hooks/use-my-quotes";
 import { useClaimsStore, useClaimsForOrder } from "@/lib/stores/claims-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
@@ -26,7 +26,7 @@ export default function WholesaleClaimPage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const mounted = useHasMounted();
   const now = useNow();
-  const order = useWholesaleQuote(id);
+  const { quote: order } = useMyQuote(id);
   const existingClaims = useClaimsForOrder(id);
   const createClaim = useClaimsStore((s) => s.create);
 
