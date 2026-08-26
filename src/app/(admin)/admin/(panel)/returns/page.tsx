@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import { useReturnsStore } from "@/lib/stores/returns-store";
+import { useAllReturns } from "@/lib/hooks/use-returns";
+import { setReturnStatus } from "@/lib/returns/actions";
 import { useStockStore, getStock } from "@/lib/stores/stock-store";
 import { adjustRetailStock } from "@/lib/admin/products/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
@@ -53,12 +55,29 @@ export default function AdminReturnsPage() {
   const productById = (id: string) => catalogue.find((p) => p.id === id);
 
   const mounted = useHasMounted();
-  const requests = useReturnsStore((s) => s.requests);
-  const setStatus = useReturnsStore((s) => s.setStatus);
+  const { requests, live, refresh } = useAllReturns();
+  const setStoreStatus = useReturnsStore((s) => s.setStatus);
   const increment = useStockStore((s) => s.increment);
   const decrement = useStockStore((s) => s.decrement);
   const stockOverrides = useStockStore((s) => s.overrides);
   const [filter, setFilter] = useState<Filter>("requested");
+
+  // One entry point for every transition below, so the live/fallback decision
+  // is made once rather than at each of the six call sites.
+  function setStatus(id: string, status: ReturnStatus, decisionNote?: string) {
+    if (live) {
+      void setReturnStatus(id, status, decisionNote).then((result) => {
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        refresh();
+      });
+      return;
+    }
+
+    setStoreStatus(id, status, decisionNote);
+  }
 
   if (!mounted) return null;
 

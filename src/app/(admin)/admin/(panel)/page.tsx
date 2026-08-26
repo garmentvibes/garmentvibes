@@ -12,7 +12,7 @@ import {
   useAdminWholesaleProducts,
 } from "@/lib/stores/admin-catalog-store";
 import { useStockStore, getTotalStock, LOW_STOCK_THRESHOLD } from "@/lib/stores/stock-store";
-import { useReturnsStore } from "@/lib/stores/returns-store";
+import { useAllReturns } from "@/lib/hooks/use-returns";
 import { useNotificationStore } from "@/lib/stores/notification-store";
 import { NOTIFICATION_TEMPLATES } from "@/lib/notifications/templates";
 import { retailOrderTotal, wholesaleQuoteTotal } from "@/types/admin";
@@ -23,7 +23,7 @@ export default function AdminDashboardPage() {
   const { orders } = useAdminOrders();
   const { quotes } = useAdminQuotes();
   const accounts = useWholesaleAccounts();
-  const returns = useReturnsStore((s) => s.requests);
+  const { requests: returns } = useAllReturns();
   const messages = useNotificationStore((s) => s.messages);
 
   const stockOverrides = useStockStore((s) => s.overrides);
