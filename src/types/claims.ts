@@ -41,6 +41,15 @@ export const CLAIM_STATUS_LABELS: Record<ClaimStatus, string> = {
   settled: "Settled",
 };
 
+/**
+ * Every status, for validating one that arrived from outside.
+ *
+ * Derived from the labels rather than listed again, like RETURN_STATUSES: a
+ * second copy is a second thing to update, and the one that gets forgotten is
+ * whichever a server action validates against.
+ */
+export const CLAIM_STATUSES = Object.keys(CLAIM_STATUS_LABELS) as ClaimStatus[];
+
 export interface ClaimLine {
   sku: string;
   name: string;
