@@ -3,7 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/auth/demo";
 import { getCustomer } from "@/lib/auth/customer";
-import type { RetailOrder, RetailOrderItem, RetailOrderStatus } from "@/types/admin";
+import { ORDER_SELECT, toRetailOrder, type OrderRow } from "./rows";
+import type { RetailOrder } from "@/types/admin";
 
 // ---------------------------------------------------------------------------
 // Reading a customer's own orders back.
@@ -31,95 +32,6 @@ export interface OrderRead {
    * genuinely has not ordered yet — and those two must render differently.
    */
   live: boolean;
-}
-
-/** The columns a customer-facing order needs, in one round trip. */
-const ORDER_SELECT = `
-  id, reference, status, created_at, delivered_at, shipped_at,
-  courier_id, awb, customer_name, customer_email, phone,
-  shipping_address, payment_method,
-  retail_order_items ( product_id, product_name, size, color, qty, price )
-`;
-
-interface OrderRow {
-  id: string;
-  reference: string | null;
-  status: string;
-  created_at: string;
-  delivered_at: string | null;
-  shipped_at: string | null;
-  courier_id: string | null;
-  awb: string | null;
-  customer_name: string | null;
-  customer_email: string | null;
-  phone: string | null;
-  shipping_address: Record<string, unknown> | null;
-  payment_method: string;
-  retail_order_items: Array<{
-    product_id: string;
-    product_name: string | null;
-    size: string;
-    color: string;
-    qty: number;
-    price: number;
-  }>;
-}
-
-/**
- * Flattens the stored address JSON into the single line the UI prints.
- *
- * The order carries a snapshot rather than a join, so this is whatever the
- * address looked like when the order was placed — which is the address the
- * parcel went to, and the one that belongs on the invoice, even if the
- * customer has since edited their address book.
- */
-function formatAddress(address: Record<string, unknown> | null): string {
-  if (!address) return "";
-  const parts = [
-    address.addressLine1 ?? address.line1,
-    address.city,
-    address.state,
-    address.pincode,
-  ];
-  return parts.filter(Boolean).join(", ");
-}
-
-function toRetailOrder(row: OrderRow): RetailOrder {
-  const items: RetailOrderItem[] = row.retail_order_items.map((item) => ({
-    productId: item.product_id,
-    // Snapshotted at order time. Falling back to the id rather than to a
-    // product lookup: the point of storing the name was that a renamed or
-    // withdrawn product must not change what an order says it was for.
-    name: item.product_name ?? item.product_id,
-    size: item.size,
-    color: item.color,
-    qty: item.qty,
-    price: item.price,
-  }));
-
-  return {
-    // The reference is what the customer was shown and what Razorpay holds.
-    // The uuid is ours; putting it in a URL would mean support and the
-    // customer quoting different numbers at each other.
-    id: row.reference ?? row.id,
-    placedAt: row.created_at.slice(0, 10),
-    deliveredAt: row.delivered_at ?? undefined,
-    shipment:
-      row.courier_id && row.awb && row.shipped_at
-        ? { courierId: row.courier_id, awb: row.awb, shippedAt: row.shipped_at }
-        : undefined,
-    customerName: row.customer_name ?? "",
-    customerEmail: row.customer_email ?? "",
-    phone: row.phone ?? "",
-    shippingAddress: formatAddress(row.shipping_address),
-    // The stored enum grew past the two the UI type knows about in 0012 —
-    // upi, card, netbanking, wallet and emi are all online as far as anything
-    // customer-facing is concerned, and the specific method is a
-    // reconciliation detail rather than something to print on an order card.
-    paymentMethod: row.payment_method === "cod" ? "cod" : "online",
-    status: row.status as RetailOrderStatus,
-    items,
-  };
 }
 
 /**
