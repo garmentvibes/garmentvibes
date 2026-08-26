@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import { useReturnsStore } from "@/lib/stores/returns-store";
-import { useStockStore, stockForProductId } from "@/lib/stores/stock-store";
+import { useStockStore, getStock } from "@/lib/stores/stock-store";
+import { adjustRetailStock } from "@/lib/admin/products/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { notify } from "@/lib/stores/notification-store";
 import { notifyRestocked } from "@/lib/notify-restock";
@@ -23,6 +24,17 @@ import {
 } from "@/types/returns";
 
 type Filter = ReturnStatus | "all";
+
+/**
+ * Whether this deployment has a database to move stock in.
+ *
+ * From the inlined public env, like the other admin components: the answer is
+ * fixed at build time, and asking would cost a round trip on a page that falls
+ * back regardless.
+ */
+const CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const STATUS_VARIANT: Record<ReturnStatus, "warning" | "success" | "destructive"> = {
   requested: "warning",
@@ -45,6 +57,7 @@ export default function AdminReturnsPage() {
   const setStatus = useReturnsStore((s) => s.setStatus);
   const increment = useStockStore((s) => s.increment);
   const decrement = useStockStore((s) => s.decrement);
+  const stockOverrides = useStockStore((s) => s.overrides);
   const [filter, setFilter] = useState<Filter>("requested");
 
   if (!mounted) return null;
@@ -83,6 +96,50 @@ export default function AdminReturnsPage() {
   }
 
   /**
+   * The level a variant is at now.
+   *
+   * Read from the catalogue the panel was handed, which is the database's
+   * `stock_qty` wherever there is a database — not from the mock module, which
+   * `stockForProductId()` used and which knows nothing about either the
+   * catalogue or the shelf. It matters beyond display: "was this at zero
+   * before?" is what decides whether back-in-stock alerts fire, and answering
+   * it from the wrong source either spams people or silently drops the alert
+   * they asked for.
+   */
+  function currentStock(productId: string, size: string) {
+    const product = productById(productId);
+    return product ? getStock(stockOverrides, product, size) : 0;
+  }
+
+  /**
+   * Moves a variant's stock by a delta — positive back onto the shelf, negative
+   * off it.
+   *
+   * Written to both places for the same reason every other admin write is: on a
+   * deployment with a database the row is the shelf, and on one without it the
+   * store is. The store write is unconditional because it is harmless where it
+   * is ignored, and the alternative is a branch that silently does nothing on
+   * whichever path is not being tested.
+   *
+   * Not awaited. These run inside a transition that also sets the return's
+   * status and notifies the customer, and holding those up for a round trip
+   * would leave the admin looking at an unresponsive button; a failure is
+   * reported by toast when it arrives.
+   */
+  function moveStock(productId: string, size: string, delta: number, before: number) {
+    if (delta > 0) increment(productId, size, delta, before);
+    else decrement(productId, size, -delta, before);
+
+    if (!CONFIGURED) return;
+
+    // `product.id` is the slug — pinned by a static check, and the reason the
+    // action can be addressed by slug at all.
+    void adjustRetailStock(productId, size, delta).then((result) => {
+      if (result.error) toast.error(result.error);
+    });
+  }
+
+  /**
    * Puts the returned units back on the shelf, but only when the reason
    * means they are actually sellable — a damaged or poor-quality item must
    * not be quietly re-sold to the next customer.
@@ -94,8 +151,8 @@ export default function AdminReturnsPage() {
     if (!isRestockable(request.reason)) return 0;
     let restocked = 0;
     for (const item of request.items) {
-      const before = stockForProductId(item.productId, item.size);
-      increment(item.productId, item.size, item.qty, before);
+      const before = currentStock(item.productId, item.size);
+      moveStock(item.productId, item.size, item.qty, before);
       restocked += item.qty;
       // Going from zero to available is exactly what people registered for.
       if (before === 0) {
@@ -118,11 +175,11 @@ export default function AdminReturnsPage() {
       // The replacement may be a different product entirely, so stock comes
       // off whatever is actually being shipped — not off the item returned.
       const outgoingProductId = item.exchangeForProductId ?? item.productId;
-      decrement(
+      moveStock(
         outgoingProductId,
         item.exchangeForSize,
-        item.qty,
-        stockForProductId(outgoingProductId, item.exchangeForSize)
+        -item.qty,
+        currentStock(outgoingProductId, item.exchangeForSize)
       );
     }
     const restocked = restockIfSellable(request);

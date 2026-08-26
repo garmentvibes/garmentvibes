@@ -42,6 +42,18 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
   const setStock = useStockStore((s) => s.setStock);
   const isEdit = Boolean(product);
 
+  // What the admin has typed into a stock field, per size label.
+  //
+  // Needed because the stock this page displays now comes from the catalogue
+  // row when there is a database, and `product` is a prop from a server
+  // component — so a write plus revalidatePath does not change it until the
+  // route is re-rendered, and the field would sit at the old number while
+  // somebody typed into it. This holds the typed value until then.
+  //
+  // Cleared back to the stored value if the write fails, rather than left
+  // showing a number the shelf does not have.
+  const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
+
   const [form, setForm] = useState({
     name: product?.name ?? "",
     brand: product?.brand ?? "",
@@ -230,7 +242,8 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
             <Label>Stock by size</Label>
             <div className="mt-1 flex flex-wrap gap-3">
               {product.sizes.map((s) => {
-                const stock = getStock(stockOverrides, product, s.label);
+                const stored = getStock(stockOverrides, product, s.label);
+                const stock = stockEdits[s.label] ?? stored;
                 return (
                   <div key={s.label} className="flex items-center gap-1.5">
                     <span className="w-12 text-sm text-neutral-600">{s.label}</span>
@@ -242,15 +255,29 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
                       onChange={(e) => {
                         const next = Number(e.target.value) || 0;
 
-                        // Locally first, so the field responds to typing, then
-                        // to the database. The store is what this page renders
-                        // from either way; on a deployment with a database the
-                        // write is what actually changes the shelf.
+                        // The field shows what was typed straight away, and the
+                        // shelf catches up underneath.
+                        setStockEdits((edits) => ({ ...edits, [s.label]: next }));
+
+                        // Still written to the store, because on a deployment
+                        // with no database that store IS the shelf — every QA
+                        // suite here runs that way. Where there is a database
+                        // it is the row that counts, and getStock() prefers it.
                         setStock(product.id, s.label, next);
 
                         if (CONFIGURED) {
                           void setRetailStock(product.slug, s.label, next).then((result) => {
-                            if (result.error) toast.error(result.error);
+                            if (result.error) {
+                              toast.error(result.error);
+                              // Put the field back to the number the shelf
+                              // actually has. Leaving the typed one there would
+                              // show stock nobody can buy.
+                              setStockEdits((edits) => {
+                                const { [s.label]: _rejected, ...rest } = edits;
+                                return rest;
+                              });
+                              setStock(product.id, s.label, stored);
+                            }
                           });
                         }
 

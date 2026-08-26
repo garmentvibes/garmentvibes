@@ -41,6 +41,7 @@ export interface RetailProductRow {
   retail_product_sizes: Array<{
     label: string;
     in_stock: boolean;
+    stock_qty: number;
     sort_order: number;
   }> | null;
 }
@@ -66,7 +67,17 @@ export function toRetailProduct(row: RetailProductRow): RetailProduct | null {
     // drop in a refactor and impossible to notice — whereas this is right
     // whatever order the rows arrive in.
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map((size) => ({ label: size.label, inStock: size.in_stock }));
+    // `stock` carried through, not just `in_stock`. The boolean is a generated
+    // column — 0005 made it `stock_qty > 0` precisely so the two could not
+    // disagree — but a boolean cannot say "only 2 left", and the storefront was
+    // reading that number out of a zustand store in the customer's own browser
+    // while `place_retail_order` enforced this one. Carrying it is what makes
+    // the page and the order engine agree about a fact.
+    .map((size) => ({
+      label: size.label,
+      inStock: size.in_stock,
+      stock: size.stock_qty,
+    }));
 
   return {
     id: row.slug,

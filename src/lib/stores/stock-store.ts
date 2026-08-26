@@ -3,13 +3,36 @@ import { persist } from "zustand/middleware";
 import { getRetailProductById } from "@/lib/mock/retail-products";
 import type { RetailProduct } from "@/types/catalog";
 
-// Per-variant stock levels.
+// Per-variant stock levels, for a deployment that has no database.
 //
-// The mock catalog only carries a boolean `inStock` per size, which can't
-// express "only 3 left" or be decremented by an order. This layers real
-// integer stock on top, seeded deterministically from that boolean so the
-// catalog doesn't need rewriting, and lets admin adjust levels. When Supabase
-// lands this becomes an inventory table and the same helpers read from it.
+// ---------------------------------------------------------------------------
+// What this used to be, and what it is now
+// ---------------------------------------------------------------------------
+//
+// It was the only answer to "how many are left". The mock catalogue carries a
+// boolean `inStock` per size, which cannot express "only 3 left" or be
+// decremented, so this layered integer stock on top, seeded deterministically
+// from that boolean, and let admin adjust it. Its own note said: "When Supabase
+// lands this becomes an inventory table and the same helpers read from it."
+//
+// Supabase has landed, and the halfway state was worse than either end. The
+// storefront decided sold-out from these overrides — one browser's opinion,
+// private to that browser — while `place_retail_order` decremented and enforced
+// `retail_product_sizes.stock_qty`. So a product page could offer a size the
+// database would refuse, or hide one it would have sold. Every browser had its
+// own idea of the shelf.
+//
+// `getStock()` now prefers the catalogue's own number, which arrives from
+// `stock_qty` whenever the catalogue came from the database. These overrides
+// are what is left for the deployments that have no database — every QA suite
+// in this repo and any contributor who clones it — exactly as
+// lib/catalogue/retail.ts falls back to the module for the catalogue itself.
+//
+// The precedence is deliberate and not symmetric: a stored number always wins
+// over an override. An admin editing stock on a configured deployment writes
+// through `lib/admin/stock/actions.ts` to the row, so there is nothing for an
+// override to usefully say — and if one lingered in a browser from before this
+// change, letting it win would resurrect exactly the bug this removed.
 
 const DEFAULT_STOCK = 12;
 export const LOW_STOCK_THRESHOLD = 5;
@@ -72,16 +95,39 @@ export const useStockStore = create<StockState>()(
   )
 );
 
-/** Stock for one variant, honouring any admin override. */
+/**
+ * Stock for one variant.
+ *
+ * Three sources, in this order:
+ *
+ *   1. The catalogue row, when the catalogue came from the database. This is
+ *      `retail_product_sizes.stock_qty` — the number `place_retail_order`
+ *      decrements and refuses orders against, so it is the only one that can
+ *      make the page and the checkout agree.
+ *   2. An admin override, for a deployment with no database.
+ *   3. The deterministic seed, so an untouched variant still has a plausible
+ *      level rather than zero.
+ *
+ * A size the product does not have returns 0 rather than a seeded level: it
+ * cannot be bought, and inventing stock for it would offer it.
+ */
 export function getStock(
   overrides: Record<string, number>,
   product: Pick<RetailProduct, "id" | "sizes">,
   sizeLabel: string
 ) {
+  const size = product.sizes.find((s) => s.label === sizeLabel);
+  if (!size) return 0;
+
+  // The stored number wins outright. See the precedence note at the top: a
+  // stale override left in a browser from before the catalogue moved must not
+  // be able to contradict the shelf.
+  if (size.stock !== undefined) return size.stock;
+
   const key = variantKey(product.id, sizeLabel);
   if (overrides[key] !== undefined) return overrides[key];
-  const size = product.sizes.find((s) => s.label === sizeLabel);
-  return seedStock(product.id, sizeLabel, size?.inStock ?? false);
+
+  return seedStock(product.id, sizeLabel, size.inStock);
 }
 
 /** Total stock across every size of a product. */

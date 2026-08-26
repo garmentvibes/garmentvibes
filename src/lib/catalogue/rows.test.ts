@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { toRetailProduct, toRetailProducts, type RetailProductRow } from "./rows";
+import type { RetailProduct } from "@/types/catalog";
 import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
 
 function row(overrides: Partial<RetailProductRow> = {}): RetailProductRow {
@@ -20,10 +21,10 @@ function row(overrides: Partial<RetailProductRow> = {}): RetailProductRow {
     rating_count: 1284,
     tags: ["bestseller", "sale"],
     retail_product_sizes: [
-      { label: "S", in_stock: true, sort_order: 0 },
-      { label: "M", in_stock: true, sort_order: 1 },
-      { label: "L", in_stock: true, sort_order: 2 },
-      { label: "XL", in_stock: false, sort_order: 3 },
+      { label: "S", in_stock: true, stock_qty: 29, sort_order: 0 },
+      { label: "M", in_stock: true, stock_qty: 23, sort_order: 1 },
+      { label: "L", in_stock: true, stock_qty: 1, sort_order: 2 },
+      { label: "XL", in_stock: false, stock_qty: 0, sort_order: 3 },
     ],
     ...overrides,
   };
@@ -46,10 +47,10 @@ describe("toRetailProduct", () => {
     const product = toRetailProduct(
       row({
         retail_product_sizes: [
-          { label: "XL", in_stock: false, sort_order: 3 },
-          { label: "S", in_stock: true, sort_order: 0 },
-          { label: "L", in_stock: true, sort_order: 2 },
-          { label: "M", in_stock: true, sort_order: 1 },
+          { label: "XL", in_stock: false, stock_qty: 0, sort_order: 3 },
+          { label: "S", in_stock: true, stock_qty: 4, sort_order: 0 },
+          { label: "L", in_stock: true, stock_qty: 2, sort_order: 2 },
+          { label: "M", in_stock: true, stock_qty: 7, sort_order: 1 },
         ],
       })
     );
@@ -61,6 +62,27 @@ describe("toRetailProduct", () => {
     const product = toRetailProduct(row());
     expect(product?.sizes.find((s) => s.label === "XL")?.inStock).toBe(false);
     expect(product?.sizes.find((s) => s.label === "S")?.inStock).toBe(true);
+  });
+
+  it("carries each size's stock level, not just whether it has any", () => {
+    // The boolean is a generated column — 0005 made it `stock_qty > 0` — but it
+    // cannot say "only 1 left". Without the number the storefront had to get it
+    // from a zustand store in the customer's own browser, while
+    // place_retail_order enforced the column. Carrying it is what makes the
+    // page and the order engine agree.
+    const product = toRetailProduct(row());
+    expect(product?.sizes.find((s) => s.label === "S")?.stock).toBe(29);
+    expect(product?.sizes.find((s) => s.label === "L")?.stock).toBe(1);
+  });
+
+  it("carries a zero level rather than dropping it", () => {
+    // 0 and undefined mean different things to getStock(): one is "the shelf is
+    // empty", the other is "there is no database to ask". Losing the zero would
+    // send it to the deterministic seed and invent stock for a sold-out size.
+    const product = toRetailProduct(row());
+    const xl = product?.sizes.find((s) => s.label === "XL");
+    expect(xl?.stock).toBe(0);
+    expect(xl?.stock).not.toBeUndefined();
   });
 
   it("coerces a rating that arrived as a string", () => {
@@ -125,12 +147,27 @@ describe("toRetailProduct", () => {
         retail_product_sizes: fromModule!.sizes.map((s, i) => ({
           label: s.label,
           in_stock: s.inStock,
+          stock_qty: s.inStock ? 5 : 0,
           sort_order: i,
         })),
       })
     );
 
-    expect(fromRow).toEqual(fromModule);
+    // Compared with `stock` stripped, because it is the one field the two
+    // sources are MEANT to differ on: the row carries a real level and the
+    // module has none to carry. Every other field still has to match, which is
+    // what this test is for — asserting equality on the whole object would make
+    // it fail for the one legitimate reason and stop guarding the rest.
+    //
+    // That `stock` is present at all is covered above; that its absence sends
+    // getStock() to the seed is covered in stock-store.test.ts.
+    const withoutStock = (p: RetailProduct) => ({
+      ...p,
+      sizes: p.sizes.map(({ label, inStock }) => ({ label, inStock })),
+    });
+
+    expect(withoutStock(fromRow!)).toEqual(withoutStock(fromModule!));
+    expect(fromRow!.sizes.every((s) => s.stock !== undefined)).toBe(true);
   });
 });
 

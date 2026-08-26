@@ -62,7 +62,7 @@ import type { RetailProduct } from "@/types/catalog";
 const SELECT = `
   slug, name, brand, category, subcategory, description, images,
   price, mrp, currency, colors, rating, rating_count, tags,
-  retail_product_sizes ( label, in_stock, sort_order )
+  retail_product_sizes ( label, in_stock, stock_qty, sort_order )
 `;
 
 /**

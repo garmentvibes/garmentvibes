@@ -305,6 +305,70 @@ export async function setRetailStock(
   return { error: null, slug };
 }
 
+/**
+ * Moves stock on one variant by a delta, and reports the resulting level.
+ *
+ * The movements that are not a sale: a return coming back onto the shelf, an
+ * exchange replacement leaving it. `place_retail_order` handles the sale.
+ *
+ * Relative rather than absolute, through the function 0023 added, because
+ * PostgREST can set a column but cannot compute one from its current value —
+ * so the alternative is read-then-write, and two returns approved in the same
+ * moment would both read the same level and write the same result, losing a
+ * unit. Stock loss found a week later is indistinguishable from theft.
+ */
+export async function adjustRetailStock(
+  slug: string,
+  label: string,
+  delta: number
+): Promise<ProductWriteResult & { stock?: number }> {
+  const { client, notConfigured } = await staffClient();
+  if (notConfigured) return { error: null, notConfigured: true };
+  if (!client) return NOT_STAFF;
+
+  if (!Number.isInteger(delta) || delta === 0) {
+    return { error: "A stock adjustment must move a whole number of units" };
+  }
+
+  const { data, error } = await client.rpc("adjust_retail_stock", {
+    p_slug: slug,
+    p_size: label,
+    p_delta: delta,
+  });
+
+  if (error) {
+    console.error("[admin/products] could not adjust stock", {
+      slug,
+      label,
+      delta,
+      message: error.message,
+    });
+
+    // The function's own messages are written for whoever is reading them and
+    // are safe to show: they name a product and a size, not internals.
+    if (error.message.includes("Not enough stock")) {
+      return { error: `There is not enough stock of ${slug} size ${label} to remove` };
+    }
+    if (error.message.includes("is not sold in size")) {
+      return { error: `${slug} is not sold in size ${label}` };
+    }
+    return { error: "Could not adjust stock" };
+  }
+
+  // Republished so the shelf the storefront shows follows the movement. A
+  // restocked size that stays sold out until the next revalidation is a sale
+  // nobody can make.
+  const { data: product } = await client
+    .from("retail_products")
+    .select("category")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (product) republish(slug, product.category);
+
+  return { error: null, slug, stock: data as number };
+}
+
 // ---------------------------------------------------------------------------
 // Wholesale
 // ---------------------------------------------------------------------------
