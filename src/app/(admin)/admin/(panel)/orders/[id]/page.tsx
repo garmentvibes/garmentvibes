@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPrice } from "@/lib/utils";
-import { useAdminOrdersStore, useRetailOrder } from "@/lib/stores/admin-orders-store";
+import { useAdminOrdersStore } from "@/lib/stores/admin-orders-store";
+import { useAdminOrder } from "@/lib/hooks/use-admin-orders";
+import { setRetailOrderStatus, setRetailShipment } from "@/lib/admin/orders/actions";
 import { notify } from "@/lib/stores/notification-store";
 import { COURIERS, trackingUrlFor } from "@/lib/couriers";
 import { checkAwb } from "@/lib/shipping/awb";
@@ -19,12 +21,18 @@ import type { NotificationTemplateId } from "@/types/notifications";
 
 export default function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const order = useRetailOrder(id);
+  const { order, loaded, live, refresh } = useAdminOrder(id);
   const setRetailStatus = useAdminOrdersStore((s) => s.setRetailStatus);
   const setShipment = useAdminOrdersStore((s) => s.setShipment);
   const [courierId, setCourierId] = useState(order?.shipment?.courierId ?? COURIERS[0].id);
   const [awb, setAwb] = useState(order?.shipment?.awb ?? "");
   const [booking, setBooking] = useState(false);
+
+  // A page that says "not found" while the answer is still in flight sends
+  // staff back to the list for an order that is about to appear.
+  if (!loaded) {
+    return <div className="mx-auto max-w-3xl py-16 text-center text-neutral-400">Loading order…</div>;
+  }
 
   if (!order) {
     return (
@@ -45,7 +53,23 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     cancelled: "order_cancelled",
   };
 
-  function updateStatus(status: RetailOrderStatus) {
+  async function updateStatus(status: RetailOrderStatus) {
+    // The database first, where there is one. It sets the status, stamps the
+    // date the return window runs from, and queues the customer's message from
+    // the row it actually wrote — so a refused update announces nothing.
+    if (live) {
+      const result = await setRetailOrderStatus(id, status);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      refresh();
+      toast.success(`Order marked as ${status}`);
+      return;
+    }
+
+    // No database: the store is the order book and the browser outbox is the
+    // queue. This is what every QA suite here exercises.
     setRetailStatus(id, status);
 
     const templateId = CUSTOMER_FACING[status];
@@ -120,7 +144,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
-  function saveShipment() {
+  async function saveShipment() {
     // Validated against the courier's own AWB format before it is stored,
     // because this number goes straight into the shipment email as a tracking
     // link. A transposed digit sends the customer to a "not found" page and
@@ -130,6 +154,22 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
       toast.error(checked.error);
       return;
     }
+
+    if (live) {
+      // One call, because attaching tracking and shipping are one event: an
+      // AWB on a `packed` order is a parcel the courier has and the customer
+      // has not been told about.
+      const result = await setRetailShipment(id, courierId, checked.normalised);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setAwb(checked.normalised);
+      refresh();
+      toast.success("Tracking saved — it now appears on the customer's order");
+      return;
+    }
+
     setShipment(id, courierId, checked.normalised);
     // Show back what was actually stored. Leaving the field holding the raw
     // typed text means the spaces someone pasted stay on screen while a

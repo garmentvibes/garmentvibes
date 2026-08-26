@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { useRetailOrders } from "@/lib/stores/admin-orders-store";
+import { useAdminOrders } from "@/lib/hooks/use-admin-orders";
 import { RETAIL_ORDER_STATUSES, retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
 
 const STATUS_VARIANT: Record<RetailOrderStatus, "outline" | "warning" | "wholesale" | "success" | "destructive"> = {
@@ -17,7 +17,7 @@ const STATUS_VARIANT: Record<RetailOrderStatus, "outline" | "warning" | "wholesa
 };
 
 export default function AdminOrdersPage() {
-  const orders = useRetailOrders();
+  const { orders } = useAdminOrders();
   const [filter, setFilter] = useState<RetailOrderStatus | "all">("all");
 
   const visible = orders.filter((o) => filter === "all" || o.status === filter);
