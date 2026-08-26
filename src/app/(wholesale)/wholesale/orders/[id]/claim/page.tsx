@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { formatPrice } from "@/lib/utils";
 import { useMyQuote } from "@/lib/hooks/use-my-quotes";
 import { useClaimsStore, useClaimsForOrder } from "@/lib/stores/claims-store";
+import { createClaim as createClaimInDatabase } from "@/lib/claims/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
@@ -28,7 +29,7 @@ export default function WholesaleClaimPage({ params }: { params: Promise<{ id: s
   const now = useNow();
   const { quote: order } = useMyQuote(id);
   const existingClaims = useClaimsForOrder(id);
-  const createClaim = useClaimsStore((s) => s.create);
+  const createClaimLocally = useClaimsStore((s) => s.create);
 
   const [claimed, setClaimed] = useState<Record<number, number>>({});
   const [reason, setReason] = useState<ClaimReason>(CLAIM_REASONS[0]);
@@ -74,13 +75,13 @@ export default function WholesaleClaimPage({ params }: { params: Promise<{ id: s
     .filter((x) => x.qty > 0);
   const claimValue = chosen.reduce((sum, x) => sum + x.qty * x.item.pricePerUnit, 0);
 
-  function submit() {
+  async function submit() {
     if (chosen.length === 0) {
       toast.error("Enter the affected quantity on at least one line");
       return;
     }
 
-    const claim = createClaim({
+    const draft = {
       orderId: order!.id,
       businessName: order!.businessName,
       contactName: order!.contactName,
@@ -95,7 +96,23 @@ export default function WholesaleClaimPage({ params }: { params: Promise<{ id: s
         pricePerUnit: x.item.pricePerUnit,
       })),
       comments: comments.trim() || undefined,
-    });
+    };
+
+    // The database first, where there is one. 0007 gates the insert on the
+    // account being approved and being the caller's own, and refuses a claim
+    // that arrives already granted.
+    const stored = await createClaimInDatabase(draft);
+
+    if (stored.error) {
+      toast.error(stored.error);
+      return;
+    }
+
+    // `notConfigured` means there was no database, so the local store is the
+    // record — which is what every QA suite here exercises.
+    const claim = stored.notConfigured
+      ? createClaimLocally(draft)
+      : { id: stored.reference! };
 
     notify({
       templateId: "claim_received",

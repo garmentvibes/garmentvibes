@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import { useClaimsStore } from "@/lib/stores/claims-store";
+import { useAllClaims } from "@/lib/hooks/use-claims";
+import { setClaimStatus } from "@/lib/claims/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { notify } from "@/lib/stores/notification-store";
 import {
@@ -33,9 +35,26 @@ const FILTERS: Filter[] = ["submitted", "under_review", "approved", "settled", "
 
 export default function AdminClaimsPage() {
   const mounted = useHasMounted();
-  const claims = useClaimsStore((s) => s.claims);
-  const setStatus = useClaimsStore((s) => s.setStatus);
+  const { claims, live, refresh } = useAllClaims();
+  const setStoreStatus = useClaimsStore((s) => s.setStatus);
   const [filter, setFilter] = useState<Filter>("submitted");
+
+  // One entry point for every transition, so the live/fallback decision is
+  // made once rather than at each of the five call sites below.
+  function setStatus(id: string, status: ClaimStatus, decisionNote?: string) {
+    if (live) {
+      void setClaimStatus(id, status, decisionNote).then((result) => {
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        refresh();
+      });
+      return;
+    }
+
+    setStoreStatus(id, status, decisionNote);
+  }
 
   if (!mounted) return null;
 
