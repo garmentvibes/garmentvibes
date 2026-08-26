@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase cli scratch
+#
+# The CLI writes a version cache here the first time it runs — it is machine
+# state, not schema. The migrations, seed and tests in supabase/ are all
+# tracked; only this directory is not.
+supabase/.temp/
