@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { useWholesaleQuotes } from "@/lib/stores/admin-orders-store";
+import { useAdminQuotes } from "@/lib/hooks/use-admin-quotes";
 import {
   WHOLESALE_QUOTE_STATUSES,
   WHOLESALE_QUOTE_STATUS_LABELS,
@@ -27,7 +27,7 @@ const STATUS_VARIANT: Record<
 };
 
 export default function AdminQuotesPage() {
-  const quotes = useWholesaleQuotes();
+  const { quotes } = useAdminQuotes();
   const [filter, setFilter] = useState<WholesaleQuoteStatus | "all">("all");
 
   const visible = quotes.filter((q) => filter === "all" || q.status === filter);

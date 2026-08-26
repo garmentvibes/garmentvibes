@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Package, ShoppingCart, FileText, Building2, ArrowRight, Undo2, BellOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { useWholesaleQuotes } from "@/lib/stores/admin-orders-store";
+import { useAdminQuotes } from "@/lib/hooks/use-admin-quotes";
 import { useAdminOrders } from "@/lib/hooks/use-admin-orders";
 import { useWholesaleAccounts } from "@/lib/stores/admin-accounts-store";
 import {
@@ -21,7 +21,7 @@ export default function AdminDashboardPage() {
   const retailProducts = useAdminRetailProducts();
   const wholesaleProducts = useAdminWholesaleProducts();
   const { orders } = useAdminOrders();
-  const quotes = useWholesaleQuotes();
+  const { quotes } = useAdminQuotes();
   const accounts = useWholesaleAccounts();
   const returns = useReturnsStore((s) => s.requests);
   const messages = useNotificationStore((s) => s.messages);
