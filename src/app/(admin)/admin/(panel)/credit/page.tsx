@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCreditStore } from "@/lib/stores/credit-store";
+import { useCreditLedger } from "@/lib/hooks/use-credit-ledger";
+import { recordCreditPayment, writeOffCreditInvoice } from "@/lib/admin/credit/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
@@ -31,7 +33,7 @@ type Filter = "outstanding" | "overdue" | "paid" | "all";
 export default function AdminCreditPage() {
   const mounted = useHasMounted();
   const now = useNow();
-  const invoices = useCreditStore((s) => s.invoices);
+  const { invoices, loaded, live, refresh } = useCreditLedger();
   const recordPayment = useCreditStore((s) => s.recordPayment);
   const writeOff = useCreditStore((s) => s.writeOff);
 
@@ -42,6 +44,13 @@ export default function AdminCreditPage() {
   const [payReference, setPayReference] = useState("");
 
   if (!mounted || now === null) return null;
+
+  // A ledger that renders empty while the answer is in flight reads as
+  // "nobody owes us anything", which is the wrong thing for a finance screen
+  // to say for even a moment.
+  if (!loaded) {
+    return <p className="py-16 text-center text-neutral-400">Loading the ledger…</p>;
+  }
 
   const visible = invoices.filter((i) => {
     if (filter === "all") return true;
@@ -77,15 +86,37 @@ export default function AdminCreditPage() {
       return;
     }
 
-    recordPayment(invoice.id, {
+    const receipt = {
       amount: minor,
       receivedOn: new Date(now).toISOString().slice(0, 10),
       method: payMethod,
       reference: payReference.trim() || undefined,
-    });
-    setPayingId(null);
-    setPayAmount("");
-    setPayReference("");
+    };
+
+    const clearForm = () => {
+      setPayingId(null);
+      setPayAmount("");
+      setPayReference("");
+    };
+
+    if (live) {
+      // The insert is the whole write: 0008 derives the invoice status from
+      // its payments with a trigger, so open → part_paid → paid follows on its
+      // own and cannot disagree with the arithmetic underneath it.
+      void recordCreditPayment(invoice.id, receipt).then((result) => {
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        clearForm();
+        refresh();
+        toast.success(`${formatPrice(minor)} recorded against ${invoice.id}`);
+      });
+      return;
+    }
+
+    recordPayment(invoice.id, receipt);
+    clearForm();
     toast.success(`${formatPrice(minor)} recorded against ${invoice.id}`);
   };
 
@@ -287,6 +318,18 @@ export default function AdminCreditPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
+                            if (live) {
+                              void writeOffCreditInvoice(invoice.id).then((result) => {
+                                if (result.error) {
+                                  toast.error(result.error);
+                                  return;
+                                }
+                                refresh();
+                                toast.success(`${invoice.id} written off`);
+                              });
+                              return;
+                            }
+
                             writeOff(invoice.id);
                             toast.success(`${invoice.id} written off`);
                           }}
