@@ -10,7 +10,12 @@ import { fileURLToPath } from "node:url";
 // the E2E suite already proves.
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts"],
+    // scripts/qa is included for the pure halves of the QA tooling — the
+    // fingerprint comparison behind qa:drift is a function that decides
+    // whether anybody is told the live project has drifted, and it deserves
+    // tests as much as anything in src/. The suites themselves still need a
+    // database or a browser and stay out.
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     environment: "node",
   },
   resolve: {
