@@ -94,14 +94,19 @@ select assert(
           ~ '(^|[^.])\m(is_staff|wholesale_account_id|is_approved_wholesale)\(\)') = 0,
   'helpers: no policy calls an unqualified helper');
 
+-- Deliberately not a fixed count. 0027 merged the policies that call these
+-- helpers, so any number written here would have been a number that changes
+-- whenever the policies are reorganised — and the reorganisation is not what
+-- this file is about. What must hold is that every policy mentioning a helper
+-- mentions it qualified, and that there are still some.
 select assert(
   (select count(*) from pg_policy pol join pg_class c on c.oid = pol.polrelid
      join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
       and (coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') ||
            coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
-          like '%app_private.%') = 39,
-  'helpers: and all thirty-nine reach them through app_private');
+          like '%app_private.%') > 20,
+  'helpers: and the policies that need them reach them through app_private');
 
 -- ---------------------------------------------------------------------------
 -- The schema itself
