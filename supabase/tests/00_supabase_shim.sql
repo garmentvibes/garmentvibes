@@ -56,3 +56,29 @@ as $$
 $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Default privileges — the part whose absence made a whole class of test lie
+-- ---------------------------------------------------------------------------
+--
+-- A hosted Supabase project carries these, so every function created in
+-- `public` arrives already holding EXECUTE for the three request roles —
+-- granted EXPLICITLY, not through PUBLIC. That matters because
+-- `revoke all on function ... from public` does not remove an explicit grant.
+-- A migration that revokes only from `public` therefore shuts the door here
+-- and leaves it open on the real project.
+--
+-- Without these lines the local database is not a smaller Supabase, it is a
+-- different one, and every `permission denied for function` assertion is a
+-- claim about a database we do not ship to. `npm run qa:drift` measured the
+-- gap: seven functions held EXECUTE for service_role on the project and for
+-- nobody locally, which is exactly this.
+--
+-- Applied to the roles Supabase names, in the schema Supabase names them in.
+alter default privileges in schema public
+  grant execute on functions to anon, authenticated, service_role;
+
+-- The same grant for what already exists, since the migrations run after this
+-- file and default privileges only apply to objects created afterwards — but
+-- a future contributor moving files around should not silently lose it.
+grant execute on all functions in schema public to anon, authenticated, service_role;
