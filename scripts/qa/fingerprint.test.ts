@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changedFields, diffFingerprints } from "./fingerprint.mjs";
+import { FINGERPRINT_SQL, changedFields, diffFingerprints, isCosmetic } from "./fingerprint.mjs";
 
 // ---------------------------------------------------------------------------
 // The comparison behind the drift check.
@@ -100,6 +100,51 @@ describe("diffFingerprints", () => {
     live.policies["retail_orders :: Users can view their own retail orders"].using = "true";
     live.functions["is_staff()"].security_definer = false;
     expect(diffFingerprints(clone(), live)).toHaveLength(2);
+  });
+});
+
+describe("isCosmetic", () => {
+  it("treats a comment-only difference as a note", () => {
+    // Supabase strips comments from function bodies as it applies a migration,
+    // so every commented body differs here and none of it is a fault.
+    const finding = {
+      section: "functions",
+      key: "public.evaluate_promo(p_code text)",
+      verdict: "different",
+      repo: { body: "aaa", source: "bbb", execute: ["authenticated"] },
+      live: { body: "aaa", source: "ccc", execute: ["authenticated"] },
+    };
+    expect(isCosmetic(finding)).toBe(true);
+  });
+
+  it("does not, once the body differs too", () => {
+    const finding = {
+      section: "functions",
+      key: "public.evaluate_promo(p_code text)",
+      verdict: "different",
+      repo: { body: "aaa", source: "bbb" },
+      live: { body: "zzz", source: "ccc" },
+    };
+    expect(isCosmetic(finding)).toBe(false);
+  });
+
+  it("never softens a missing or extra entry", () => {
+    expect(isCosmetic({ section: "policies", key: "x", verdict: "missing-in-live" })).toBe(false);
+    expect(isCosmetic({ section: "policies", key: "x", verdict: "extra-in-live" })).toBe(false);
+  });
+});
+
+describe("the query itself", () => {
+  it("carries no backtick", () => {
+    // The SQL lives in a String.raw template literal, so one backtick inside it
+    // ends the string and the module stops parsing. Three separate edits to the
+    // comments in that query broke it exactly this way; this is cheaper than
+    // remembering.
+    expect(FINGERPRINT_SQL).not.toContain("`");
+  });
+
+  it("covers app_private, where the policy helpers now live", () => {
+    expect(FINGERPRINT_SQL).toContain("'public', 'app_private'");
   });
 });
 
