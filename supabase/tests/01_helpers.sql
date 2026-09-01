@@ -204,12 +204,17 @@ end;
 $$;
 
 /**
- * is_staff() evaluated as a given user.
+ * app_private.is_staff() evaluated as a given user.
  *
  * Reading `profiles.role` directly would test the column; this tests the
  * function that actually gates /admin and every staff RLS policy. They can
  * disagree — is_staff() could be changed to read something else — and the one
  * that matters is the one the policies call.
+ *
+ * Schema-qualified since 0026 moved it out of `public`, where PostgREST was
+ * publishing it at /rest/v1/rpc/. Qualified rather than left to search_path
+ * for the same reason the policies are: a test that resolves the function by
+ * search_path could be testing a different one than the policies call.
  */
 create or replace function is_staff_for(as_user uuid)
 returns boolean language plpgsql as $$
@@ -218,7 +223,7 @@ declare
 begin
   perform set_config('request.jwt.claim.sub', coalesce(as_user::text, ''), true);
   set local role authenticated;
-  select is_staff() into result;
+  select app_private.is_staff() into result;
   reset role;
   return coalesce(result, false);
 end;
