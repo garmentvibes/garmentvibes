@@ -83,8 +83,14 @@ policies as (
 -- rather than as a raw aclitem string: an ACL that reads differently but grants
 -- the same thing is not drift, and one that reads the same while granting
 -- differently does not exist.
+--
+-- Both public and app_private. The second matters more than the first: 0026
+-- moved is_staff(), wholesale_account_id() and is_approved_wholesale() there,
+-- so a fingerprint that looked only at public would report PASS while the
+-- predicate behind all thirty-nine policies had been rewritten on the project.
+-- Keyed by schema, since a name alone no longer identifies a function.
 functions as (
-  select jsonb_object_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
+  select jsonb_object_agg(n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
            jsonb_build_object(
              'returns', pg_get_function_result(p.oid),
              'kind', p.prokind::text,
@@ -121,7 +127,17 @@ functions as (
              'source', md5(regexp_replace(coalesce(p.prosrc, ''), '\s+', ' ', 'g'))
            )) as v
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public'
+   where n.nspname in ('public', 'app_private')
+),
+-- USAGE on app_private is load-bearing: without it every policy that calls a
+-- helper fails closed, which is safe and also a broken site. It is removable
+-- independently of the EXECUTE grants, so it is recorded independently.
+schemas as (
+  select jsonb_object_agg(n.nspname, (
+           select coalesce(jsonb_agg(g order by g), '[]'::jsonb)
+             from unnest(array['anon','authenticated','service_role']) g
+            where has_schema_privilege(g, n.nspname, 'usage'))) as v
+    from pg_namespace n where n.nspname in ('public', 'app_private')
 ),
 triggers as (
   select jsonb_object_agg(c.relname || ' :: ' || t.tgname,
@@ -165,6 +181,7 @@ select (jsonb_build_object(
   'rls',         coalesce((select v from rls), '{}'::jsonb),
   'policies',    coalesce((select v from policies), '{}'::jsonb),
   'functions',   coalesce((select v from functions), '{}'::jsonb),
+  'schemas',     coalesce((select v from schemas), '{}'::jsonb),
   'triggers',    coalesce((select v from triggers), '{}'::jsonb),
   'indexes',     coalesce((select v from indexes), '{}'::jsonb),
   'constraints', coalesce((select v from constraints), '{}'::jsonb),
