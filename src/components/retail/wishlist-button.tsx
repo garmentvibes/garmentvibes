@@ -2,7 +2,7 @@
 
 import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWishlistStore } from "@/lib/stores/wishlist-store";
+import { useWishlist } from "@/lib/hooks/use-wishlist";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { track } from "@/lib/analytics";
 
@@ -16,9 +16,12 @@ export function WishlistButton({
   size?: "sm" | "md";
 }) {
   const mounted = useHasMounted();
-  const isSavedRaw = useWishlistStore((s) => s.isSaved(productId));
-  const isSaved = mounted && isSavedRaw;
-  const toggle = useWishlistStore((s) => s.toggle);
+  // Through the hook rather than the store, so a signed-in customer's hearts
+  // are written to `wishlists` as well as to localStorage. `mounted` still
+  // gates the rendered state: the store is rehydrated after mount, so reading
+  // it during the first client render would disagree with the server's HTML.
+  const { isSaved: isSavedIn, toggle } = useWishlist();
+  const isSaved = mounted && isSavedIn(productId);
 
   return (
     <button

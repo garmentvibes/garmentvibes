@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { decideSync } from "./decide";
+import { decideSync } from "@/lib/sync/decide";
 import { linesFromRows, type StoredCartRow } from "./lines";
 import { mergePayload } from "./payload";
 import { RETAIL_PRODUCTS } from "@/lib/mock/retail-products";
