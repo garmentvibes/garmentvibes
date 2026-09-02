@@ -1,27 +1,41 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { offeredToken, tokenAccepted } from "@/lib/notifications/authorise";
 import { dispatchNotifications } from "@/lib/notifications/dispatch";
 
-// The endpoint a scheduler calls to drain the outbox.
+// The endpoint the scheduled sweep calls to drain the outbox.
 //
 // One pass per request: claim a batch, send it, settle it, answer with what
 // happened. It does not loop until the queue is empty, because a serverless
 // function has a wall-clock limit and a pass that gets killed halfway leaves
 // messages claimed. Claims expire — `claim_notifications` reclaims anything
 // held longer than five minutes — so the recovery is automatic, but it costs
-// those messages five minutes and one of their five attempts. A short pass on
-// a frequent schedule pays neither.
+// those messages five minutes and one of their five attempts.
 //
 // ---------------------------------------------------------------------------
-// Why this is not a cron export
+// What this endpoint is for, now that it is not the delivery mechanism
 // ---------------------------------------------------------------------------
 //
-// Vercel's scheduler drives an HTTP endpoint, so a route is what it needs, and
-// keeping it a route means the same pass can be triggered by hand while
-// debugging a stuck queue. The schedule itself is deployment configuration —
-// see the note in .env.example — rather than something checked in, since the
-// project is not on Vercel yet and inventing a vercel.json now would be
-// guessing at a deployment nobody has made.
+// It used to be the only thing that sent anything, which made its schedule the
+// customer's wait. On the Hobby plan that schedule is once a day, so it is not
+// that any more: messages are sent from the request that queues them, by the
+// `after` pass in lib/notifications/dispatch.ts. What arrives here is the
+// sweep — the messages whose inline pass failed, was killed, or never ran.
+//
+// It is still a route rather than a cron export, because Vercel's scheduler
+// drives an HTTP endpoint and because a route can also be called by hand while
+// debugging a stuck queue. The schedule now lives in vercel.json next to it.
+//
+// ---------------------------------------------------------------------------
+// Why it answers GET
+// ---------------------------------------------------------------------------
+//
+// Because Vercel's scheduler only issues GET. A GET that mutates is a wart —
+// this one claims rows, spends attempts and sends mail, none of which a GET is
+// supposed to do — but the alternative is a second, differently-shaped path
+// that exists only to be scheduled, and one endpoint with a documented wart is
+// easier to reason about than two endpoints that must not drift apart. Both
+// verbs run the identical pass. Nothing links to this URL and nothing
+// prefetches it: it is reachable only with the secret.
 //
 // ---------------------------------------------------------------------------
 // Why it is a shared secret and not a session
@@ -33,34 +47,29 @@ import { dispatchNotifications } from "@/lib/notifications/dispatch";
 // each request still burns attempts and provider quota. So the caller proves
 // it is the scheduler with a secret, compared in constant time.
 //
-// With no secret configured the route answers 503 and does nothing. That is
-// deliberately fail-closed: an unset variable is far more likely to be a
-// deployment that forgot than a deployment that meant "anyone may drain the
-// outbox".
+// Two variables are accepted, and which token matches which is decided in
+// lib/notifications/authorise.ts — see the reasoning there. With neither
+// configured the route answers 503 and does nothing, which is deliberately
+// fail-closed.
 
 /** How many messages one pass handles. See the wall-clock note above. */
 const BATCH = 20;
 
-function authorised(request: Request, secret: string): boolean {
-  const header = request.headers.get("authorization") ?? "";
-  const offered = header.startsWith("Bearer ") ? header.slice(7) : header;
-
-  const a = Buffer.from(offered);
-  const b = Buffer.from(secret);
-
-  // timingSafeEqual throws on a length mismatch, which would itself leak the
-  // length. Compare the lengths separately and always run the comparison.
-  return a.length === b.length && timingSafeEqual(a, b);
+/** Every secret this deployment will accept, in no particular order. */
+function configuredSecrets(): string[] {
+  return [process.env.NOTIFICATIONS_DISPATCH_SECRET, process.env.CRON_SECRET].filter(
+    (s): s is string => Boolean(s)
+  );
 }
 
-export async function POST(request: Request) {
-  const secret = process.env.NOTIFICATIONS_DISPATCH_SECRET;
+async function runPass(request: Request) {
+  const secrets = configuredSecrets();
 
-  if (!secret) {
+  if (secrets.length === 0) {
     return NextResponse.json({ error: "not_configured" }, { status: 503 });
   }
 
-  if (!authorised(request, secret)) {
+  if (!tokenAccepted(offeredToken(request.headers.get("authorization")), secrets)) {
     return NextResponse.json({ error: "unauthorised" }, { status: 401 });
   }
 
@@ -71,4 +80,14 @@ export async function POST(request: Request) {
   // the scheduler to retry a batch that has already been attempted and, for
   // anything that did go out, already delivered.
   return NextResponse.json(summary);
+}
+
+/** The scheduled sweep. Vercel's cron issues GET; see the note above. */
+export async function GET(request: Request) {
+  return runPass(request);
+}
+
+/** The same pass, for callers that can choose their verb. */
+export async function POST(request: Request) {
+  return runPass(request);
 }

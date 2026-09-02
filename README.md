@@ -68,3 +68,27 @@ E2E scripts under `scripts/qa/` (`npm run qa`, `npm run qa:routes`,
 Deployed via Vercel, connected to this GitHub repo. The `garmentvibes.com` domain
 (registered on Hostinger) points to Vercel via DNS records configured in the
 Hostinger domain panel.
+
+### How notifications actually get sent
+
+`vercel.json` schedules one job — a daily pass over the notification outbox at
+02:00 UTC (07:30 IST). That is the ceiling on the Hobby plan, which allows a
+cron no more often than once a day and fires it somewhere within the scheduled
+hour rather than on the minute.
+
+Once a day is not a delivery schedule for an order confirmation, so it is not
+the one being used for that. Messages are sent from the request that queues
+them: `enqueueNotification` schedules a dispatch pass with Next's `after`, which
+runs once the response has been sent, so a customer's checkout does not wait on
+Resend but the email leaves within seconds of the order. The cron is the sweep
+behind it — the messages whose inline pass failed, was killed mid-flight, or
+never ran. Overlapping passes are safe because `claim_notifications` takes its
+batch `for update skip locked`.
+
+Moving to Pro would allow the every-five-minutes schedule the endpoint was
+originally written for. Nothing needs to change if that happens except the
+`schedule` field: a more frequent sweep makes the inline pass redundant rather
+than wrong.
+
+Set `CRON_SECRET` in the Vercel project so the scheduled request can authorise
+itself; see the notes in [`.env.example`](./.env.example).
