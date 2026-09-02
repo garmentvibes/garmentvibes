@@ -172,6 +172,50 @@ select assert(
   'dispatch: while a fresher one inside the window is left alone');
 
 -- ---------------------------------------------------------------------------
+-- What a small batch claims first
+-- ---------------------------------------------------------------------------
+--
+-- Messages are sent from the request that queued them, by a pass with a
+-- deliberately small batch — INLINE_BATCH in lib/notifications/dispatch.ts.
+-- That is only defensible if a brand-new message is claimed ahead of older ones
+-- waiting on a retry. If the order ran the other way, a customer's "your order
+-- is confirmed" could sit behind a handful of stale retries and wait for the
+-- daily sweep, which is the precise outcome the inline pass exists to prevent.
+--
+-- Two things carry it: a retry whose backoff has not elapsed is not due at all
+-- and cannot compete for the batch, and among those that are due, `nulls first`
+-- puts the message that has never been tried at the front.
+
+truncate notifications cascade;
+
+insert into notifications
+  (id, template, channel, recipient, recipient_name, body, attempts, next_attempt_at)
+values
+  -- Three retries whose backoff has elapsed: due, and queued before the new one.
+  ('11111111-0000-0000-0000-0000000000e1', 'order_shipped', 'email',
+   'older1@example.com', 'Older', 'Retry.', 1, now() - interval '10 minutes'),
+  ('11111111-0000-0000-0000-0000000000e2', 'order_shipped', 'email',
+   'older2@example.com', 'Older', 'Retry.', 1, now() - interval '9 minutes'),
+  ('11111111-0000-0000-0000-0000000000e3', 'order_shipped', 'email',
+   'older3@example.com', 'Older', 'Retry.', 1, now() - interval '8 minutes'),
+  -- And one whose backoff has not.
+  ('11111111-0000-0000-0000-0000000000e4', 'order_shipped', 'email',
+   'waiting@example.com', 'Waiting', 'Retry.', 1, now() + interval '10 minutes');
+
+-- The order that has just been placed.
+insert into notifications (id, template, channel, recipient, recipient_name, body)
+values ('11111111-0000-0000-0000-0000000000ff', 'order_placed', 'email',
+        'asha@example.com', 'Asha', 'Thanks for your order.');
+
+select assert(
+  (select recipient from claim_notifications(1)) = 'asha@example.com',
+  'dispatch: a new message is claimed ahead of retries that are already due');
+
+select assert(
+  (select count(*) from claim_notifications(10)) = 3,
+  'dispatch: and a retry still inside its backoff does not take up the batch');
+
+-- ---------------------------------------------------------------------------
 -- The dispatcher is not reachable from a browser
 -- ---------------------------------------------------------------------------
 

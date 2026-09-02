@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMessage, type OutgoingMessage } from "./providers";
 import {
@@ -127,6 +129,90 @@ export async function dispatchNotifications(
   }
 
   return { attempted: claimed.length, sent, failed };
+}
+
+// ---------------------------------------------------------------------------
+// Delivering without waiting for the scheduler
+// ---------------------------------------------------------------------------
+//
+// A pass above is driven by a cron, and the cron can only be as frequent as the
+// hosting plan allows. Vercel's Hobby plan allows once a day. Once a day is not
+// a delivery schedule for "your order is confirmed" — it is a delivery schedule
+// for an apology.
+//
+// So the message also goes out from the request that queued it. `after` runs
+// its callback once the response has been sent, extending the invocation rather
+// than the customer's wait: the order confirmation page renders as fast as it
+// did before, and the email leaves a moment later.
+//
+// That demotes the cron from the delivery mechanism to the retry sweep — the
+// thing that picks up messages whose inline pass failed, or whose invocation
+// was killed before it finished, or that were queued by something with no
+// request behind it at all. Once a day is a perfectly good schedule for that,
+// which is what makes the whole arrangement fit on a Hobby plan.
+//
+// ---------------------------------------------------------------------------
+// Why an inline pass and a swept pass cannot collide
+// ---------------------------------------------------------------------------
+//
+// By construction rather than by timing. `claim_notifications` takes its batch
+// `for update skip locked`, so two passes running at the same instant take
+// disjoint rows — the cron cannot re-send what an inline pass is holding, and
+// two checkouts a millisecond apart cannot both claim the same message. This is
+// the same property that made the endpoint safe to call by hand, now relied on
+// rather more heavily.
+// ---------------------------------------------------------------------------
+
+/**
+ * How many messages an inline pass handles.
+ *
+ * Smaller than the scheduled batch on purpose. One event queues at most three
+ * messages — email, SMS, WhatsApp — so five clears the event that prompted the
+ * pass and leaves a little room for a straggler, without turning a customer's
+ * checkout invocation into a queue drain. Bulk is the sweep's job.
+ */
+const INLINE_BATCH = 5;
+
+/**
+ * Sends what is queued, after the current response has gone out.
+ *
+ * Returns immediately and reports nothing: the caller is finishing an order or
+ * a status change, and neither may fail — or slow down — because of what a
+ * provider does afterwards. Anything that goes wrong is left on the row for the
+ * sweep and for the admin panel.
+ */
+export function dispatchAfterResponse(limit = INLINE_BATCH): void {
+  // A deployment with no transport has nothing to schedule. The pass itself
+  // would notice and stop, but it would notice once per order and say so once
+  // per order — and no deployment has credentials yet, so that is a warning on
+  // every checkout about a state nobody has changed. The queue is the honest
+  // record of what could not be sent; the log does not need to repeat it.
+  if (!anyTransportConfigured(transportConfigFromEnv())) return;
+
+  try {
+    after(async () => {
+      try {
+        const summary = await dispatchNotifications(limit);
+        // Worth a line, because it means the deployment can send but this pass
+        // could not reach the database to find out what — a symptom whose only
+        // other trace is a queue that quietly stops shrinking. A pass that ran
+        // says nothing: that is the ordinary case, on every order.
+        if (summary.skipped) {
+          console.warn("[notifications] inline pass did not run", {
+            reason: summary.skipped,
+          });
+        }
+      } catch (error) {
+        console.error("[notifications] inline pass threw", error);
+      }
+    });
+  } catch (error) {
+    // `after` needs a request to run after, and throws without one. That is not
+    // a failure worth propagating: the message is already in the outbox, and
+    // the sweep exists precisely so that a message nobody managed to send
+    // inline still goes out.
+    console.error("[notifications] could not schedule an inline pass", error);
+  }
 }
 
 /**

@@ -42,6 +42,24 @@ export type SendResult =
   | { ok: false; reason: string; retryable: boolean };
 
 /**
+ * How long a provider gets to answer before the attempt is abandoned.
+ *
+ * `fetch` has no timeout of its own. That was survivable while the only caller
+ * was a scheduled pass: a request that hung wasted an invocation nobody was
+ * waiting on. It stopped being survivable when dispatch moved into the request
+ * that queues the message — a provider that accepts the connection and then
+ * says nothing would hold that invocation until the platform killed it, and a
+ * killed invocation abandons the rest of the pass, leaving its rows claimed
+ * until the five-minute staleness window in 0020 hands them back.
+ *
+ * Ten seconds is far more than either API needs to answer and far less than any
+ * function limit. The abort throws, `sendMessage` catches it, and a thrown fetch
+ * is already classified retryable — which a timeout is: the message may well go
+ * out on the next pass.
+ */
+const PROVIDER_TIMEOUT_MS = 10_000;
+
+/**
  * Sends one message, or explains why it could not be sent.
  *
  * Never throws. A dispatch pass handles many messages and one provider
@@ -96,6 +114,7 @@ async function sendViaResend(
 ): Promise<SendResult> {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${config.resendApiKey}`,
       "Content-Type": "application/json",
@@ -127,6 +146,7 @@ async function sendViaMsg91(
 ): Promise<SendResult> {
   const response = await fetch("https://control.msg91.com/api/v5/flow/", {
     method: "POST",
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     headers: {
       authkey: config.msg91AuthKey ?? "",
       "Content-Type": "application/json",

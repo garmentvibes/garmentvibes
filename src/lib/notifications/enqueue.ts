@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { dispatchAfterResponse } from "./dispatch";
 import { planMessages, type Contact, type PlanOptions } from "./plan";
 import type { TemplateVars } from "./templates";
 import type { NotificationTemplateId } from "@/types/notifications";
@@ -76,5 +77,23 @@ export async function enqueueNotification(
     return 0;
   }
 
-  return data?.length ?? 0;
+  const written = data?.length ?? 0;
+
+  // Queued is not delivered, and the scheduled sweep this deployment can afford
+  // runs once a day. So the pass that actually sends these is kicked from here,
+  // to run after the response — see dispatchAfterResponse.
+  //
+  // Hooked in at the enqueue rather than at each of the callers above it. This
+  // is the one function every notification in the system goes through, so it is
+  // the one place the kick cannot be forgotten when a new event is added — and
+  // an event that queues a message but never sends it is exactly the failure
+  // this whole change is about.
+  //
+  // Only when something was written. Zero rows means either that there was
+  // nothing to send or that the dedupe key caught a message already queued; in
+  // the second case a pass has already been kicked for it, and kicking another
+  // spends an invocation's tail re-reading work that is in hand.
+  if (written > 0) dispatchAfterResponse();
+
+  return written;
 }
