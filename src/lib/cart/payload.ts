@@ -10,13 +10,20 @@ import type { CartLine } from "@/lib/stores/cart-store";
 // bundle to read four fields off an object that already has them.
 // ---------------------------------------------------------------------------
 
-/** The four fields `cart_merge()` reads out of a local line. */
-export interface MergeLine {
+/**
+ * The four fields `cart_merge()` reads out of a local line.
+ *
+ * A type alias rather than an interface, and that is load-bearing: this is
+ * handed to a jsonb parameter, and TypeScript gives an object type alias an
+ * implicit index signature while an interface gets none — so the interface
+ * form is not assignable to Json no matter how JSON-shaped its fields are.
+ */
+export type MergeLine = {
   slug: string;
   size: string;
   color: string;
   qty: number;
-}
+};
 
 /**
  * The variant and quantity of each local line, and nothing else.

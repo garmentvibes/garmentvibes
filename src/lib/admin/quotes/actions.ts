@@ -8,6 +8,7 @@ import { getStaffUser } from "@/lib/auth/dal";
 import { courierById } from "@/lib/couriers";
 import { notifyQuoteStatus } from "@/lib/notifications/quotes";
 import { WHOLESALE_QUOTE_STATUSES, type WholesaleQuoteStatus } from "@/types/admin";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Moving a quote or bulk order through fulfilment.
@@ -69,7 +70,7 @@ export async function setWholesaleQuoteStatus(
     return { error: `${status} is not a quote status` };
   }
 
-  const patch: Record<string, string | null> = { status };
+  const patch: Database["public"]["Tables"]["wholesale_quotes"]["Update"] = { status };
   if (status === "shipped") patch.shipped_at = today();
   if (status === "fulfilled") patch.delivered_at = today();
 

@@ -19,7 +19,11 @@ import type { CartLine } from "@/lib/stores/cart-store";
 // fail the order rather than mispricing it.
 // ---------------------------------------------------------------------------
 
-export interface OrderLinePayload {
+// Type aliases rather than interfaces for the two shapes that travel as jsonb
+// into place_retail_order. TypeScript gives an object type alias an implicit
+// index signature and an interface none, so only the alias form is assignable
+// to Json — which is what the generated parameter types require.
+export type OrderLinePayload = {
   /**
    * The catalogue slug, not the id.
    *
@@ -39,16 +43,16 @@ export interface OrderLinePayload {
   tax_rate: number;
   taxable_value: number;
   tax_amount: number;
-}
+};
 
-export interface ShippingAddress {
+export type ShippingAddress = {
   fullName: string;
   phone: string;
   addressLine1: string;
   city: string;
   state: string;
   pincode: string;
-}
+};
 
 export interface OrderPayload {
   p_items: OrderLinePayload[];

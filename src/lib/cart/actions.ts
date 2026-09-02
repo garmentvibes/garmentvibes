@@ -7,6 +7,7 @@ import { linesFromRows, type StoredCartRow } from "./lines";
 import type { MergeLine } from "./payload";
 import { decideSync } from "./decide";
 import type { CartLine } from "@/lib/stores/cart-store";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // The cart, server side.
@@ -152,14 +153,41 @@ export interface CartWrite {
 
 const NOT_SIGNED_IN: CartWrite = { signedIn: false, qty: null };
 
-async function callCart(fn: string, args: Record<string, unknown>): Promise<CartWrite> {
+// The function name is a variable, so it is typed as the set of functions the
+// database actually has rather than as `string`. A cart helper renamed in a
+// migration, or a typo here, is now a compile error rather than a PostgREST
+// 404 discovered by a customer whose basket silently stopped saving.
+type CartFunction = Extract<
+  keyof Database["public"]["Functions"],
+  "cart_add" | "cart_set_qty" | "cart_clear" | "cart_merge"
+>;
+
+// Generic over which function, so the arguments are checked against that
+// function's parameters rather than against a shape common to all four:
+// cart_clear takes none, and cart_add takes four.
+async function callCart<F extends CartFunction>(
+  fn: F,
+  // `[Args] extends [never]` rather than `Args extends never`: cart_clear takes
+  // no arguments and the generator writes that as `Args: never`, and a naked
+  // `never` in a conditional short-circuits the whole thing to `never`. The
+  // tuple wrapper stops the distribution so the branch is actually taken.
+  args: [Database["public"]["Functions"][F]["Args"]] extends [never]
+    ? Record<string, never>
+    : Database["public"]["Functions"][F]["Args"]
+): Promise<CartWrite> {
   if (!supabaseConfigured()) return NOT_SIGNED_IN;
 
   const customer = await getCustomer();
   if (!customer) return NOT_SIGNED_IN;
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc(fn, args);
+  // The one cast, and it is where the genericity is erased rather than where a
+  // type is being dodged: every call site above is checked against the named
+  // function's own parameters, and this line only has `F` in the abstract.
+  const { data, error } = await supabase.rpc(
+    fn,
+    args as Database["public"]["Functions"][F]["Args"]
+  );
 
   if (error) {
     console.error(`[cart] ${fn} failed`, error.message);

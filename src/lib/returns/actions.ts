@@ -14,6 +14,7 @@ import {
   type ReturnRequest,
   type ReturnStatus,
 } from "@/types/returns";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Raising a return, and deciding one.
@@ -196,7 +197,7 @@ export async function setReturnStatus(
 
   const supabase = await createClient();
 
-  const patch: Record<string, string | null> = { status };
+  const patch: Database["public"]["Tables"]["return_requests"]["Update"] = { status };
   if (decisionNote !== undefined) patch.decision_note = decisionNote || null;
 
   const { data, error } = await supabase

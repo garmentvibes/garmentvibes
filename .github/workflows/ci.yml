@@ -63,6 +63,10 @@ jobs:
           cache: npm
       # No npm install: the schema checks shell out to psql and import nothing.
       - run: npm run qa:schema
+      # The generated types are only worth having if something keeps them in
+      # step with the migrations. This is that something, and it needs the same
+      # Postgres the schema suite already has.
+      - run: npm run qa:types
 
   e2e:
     name: Route sweep + E2E QA

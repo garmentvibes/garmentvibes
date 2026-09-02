@@ -4,6 +4,7 @@ import { notifyOrderPlaced } from "@/lib/notifications/orders";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/auth/demo";
 import { buildOrderPayload, OrderPayloadError, type BuildOrderInput } from "./payload";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Placing an order.
@@ -110,7 +111,17 @@ export async function placeRetailOrder(input: BuildOrderInput): Promise<PlaceOrd
 
   // The function reads auth.uid() itself, so the payload never says who is
   // ordering — there is nothing here for a caller to substitute.
-  const { data, error } = await supabase.rpc("place_retail_order", payload);
+  //
+  // The cast is narrow and is the generator's limitation rather than this
+  // code's: `p_promo_code` and `p_place_of_supply` are plain `text` parameters,
+  // which accept NULL, but SQL cannot record that a parameter is nullable, so
+  // the generated signature types every argument as non-null. Passing null for
+  // an order with no promo code and no recorded place of supply is correct and
+  // is what 0013 expects. Everything else in the payload is checked as usual.
+  const { data, error } = await supabase.rpc(
+    "place_retail_order",
+    payload as unknown as Database["public"]["Functions"]["place_retail_order"]["Args"]
+  );
 
   if (error) {
     console.error("place_retail_order failed", {
