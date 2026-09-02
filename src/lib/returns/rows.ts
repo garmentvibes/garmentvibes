@@ -5,6 +5,7 @@ import type {
   ReturnRequest,
   ReturnStatus,
 } from "@/types/returns";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Stored return rows, as the app's ReturnRequest.
@@ -51,7 +52,15 @@ import type {
 //     on the shelf and no back-in-stock alert ever fires. Silently.
 //
 // One table, used both ways, so the two cannot drift apart.
-const REASON_TO_CODE: Record<ReturnReason, string> = {
+// Typed against the database's own enum rather than `string`. That makes the
+// table below checked in both directions: a code that is not a real
+// return_reason value fails to compile, and a value added to the enum by a
+// later migration leaves this table incomplete until somebody teaches the app
+// what it means. The generated types are kept in step with the migrations by
+// `npm run qa:types`.
+type ReasonCode = Database["public"]["Enums"]["return_reason"];
+
+const REASON_TO_CODE: Record<ReturnReason, ReasonCode> = {
   "Size or fit issue": "size_or_fit",
   "Item damaged or defective": "damaged_or_defective",
   "Wrong item delivered": "wrong_item",
@@ -65,7 +74,7 @@ const REASON_FROM_CODE = Object.fromEntries(
 ) as Record<string, ReturnReason>;
 
 /** The enum code for a reason the customer picked. */
-export function reasonToCode(reason: ReturnReason): string {
+export function reasonToCode(reason: ReturnReason): ReasonCode {
   return REASON_TO_CODE[reason];
 }
 

@@ -8,6 +8,7 @@ import { getCustomer } from "@/lib/auth/customer";
 import { getStaffUser } from "@/lib/auth/dal";
 import { claimReasonToCode } from "./rows";
 import { CLAIM_STATUSES, type ClaimStatus, type WholesaleClaim } from "@/types/claims";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Raising a claim, and settling one.
@@ -165,13 +166,12 @@ export async function setClaimStatus(
 
   if (!claim) return { error: "No such claim" };
 
-  const patch: Record<string, string | null> = { status };
+  const patch: Database["public"]["Tables"]["wholesale_claims"]["Update"] = { status };
   if (decisionNote !== undefined) patch.decision_note = decisionNote || null;
 
   if (status === "settled") {
     patch.settled_at = new Date().toISOString();
-    patch.settled_resolution =
-      (claim.settled_resolution as string | null) ?? (claim.requested_resolution as string);
+    patch.settled_resolution = claim.settled_resolution ?? claim.requested_resolution;
   }
 
   const { error } = await supabase

@@ -8,6 +8,7 @@ import { getStaffUser } from "@/lib/auth/dal";
 import { courierById } from "@/lib/couriers";
 import { notifyOrderStatus } from "@/lib/notifications/orders";
 import { RETAIL_ORDER_STATUSES, type RetailOrderStatus } from "@/types/admin";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Moving an order through fulfilment.
@@ -103,7 +104,10 @@ export async function setRetailOrderStatus(
     return { error: `${status} is not an order status` };
   }
 
-  const patch: Record<string, string | null> = { status };
+  // Typed as the table's own Update row rather than a loose Record, so a key
+  // that is not a column on retail_orders — or a value of the wrong type — is
+  // a compile error instead of a Postgres one seen by an admin.
+  const patch: Database["public"]["Tables"]["retail_orders"]["Update"] = { status };
   if (status === "shipped") patch.shipped_at = today();
   if (status === "delivered") patch.delivered_at = today();
   if (status === "cancelled") patch.cancelled_at = today();

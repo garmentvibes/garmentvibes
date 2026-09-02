@@ -71,17 +71,31 @@ export async function notifyOrderPlaced(orderId: string): Promise<void> {
     // an order that is not.
     if (!order || order.status === "pending" || order.status === "cancelled") return;
 
+    // reference and customer_email are nullable in the schema, and this code
+    // read them as though they were not until the generated types said
+    // otherwise. An order missing either cannot be notified about: the message
+    // would go out addressed to nobody, quoting an order number the customer
+    // has never seen. Better to leave it in the outbox's absence and say so.
+    if (!order.reference || !order.customer_email) {
+      console.error("[notifications] order cannot be notified about", {
+        orderId,
+        hasReference: Boolean(order.reference),
+        hasEmail: Boolean(order.customer_email),
+      });
+      return;
+    }
+
     await enqueueNotification(
       "order_placed",
       {
-        name: order.customer_name,
+        name: order.customer_name ?? "there",
         orderId: order.reference,
         amount: formatPrice(order.total),
       },
       {
-        name: order.customer_name,
+        name: order.customer_name ?? "there",
         email: order.customer_email,
-        phone: order.phone,
+        phone: order.phone ?? undefined,
       },
       {
         // The reference, not the uuid: this is what staff cross-reference
@@ -155,21 +169,31 @@ export async function notifyOrderStatus(orderId: string): Promise<void> {
     const template = STATUS_TEMPLATES[order.status];
     if (!template) return;
 
+    // As in notifyOrderPlaced: nullable in the schema, and unusable when null.
+    if (!order.reference || !order.customer_email) {
+      console.error("[notifications] order cannot be notified about", {
+        orderId,
+        hasReference: Boolean(order.reference),
+        hasEmail: Boolean(order.customer_email),
+      });
+      return;
+    }
+
     await enqueueNotification(
       template,
       {
-        name: order.customer_name,
+        name: order.customer_name ?? "there",
         orderId: order.reference,
         amount: formatPrice(order.total),
         // Only set when there is something to track. The templates fall back to
         // "My Orders in your account", which is a real place the customer can
         // go — a tracking link built from a missing AWB is not.
-        trackingUrl: trackingUrlFor(order.courier_id, order.awb) || undefined,
+        trackingUrl: trackingUrlFor(order.courier_id ?? undefined, order.awb ?? undefined) || undefined,
       },
       {
-        name: order.customer_name,
+        name: order.customer_name ?? "there",
         email: order.customer_email,
-        phone: order.phone,
+        phone: order.phone ?? undefined,
       },
       {
         relatedTo: order.reference,

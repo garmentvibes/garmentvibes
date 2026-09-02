@@ -5,6 +5,7 @@ import type {
   ClaimStatus,
   WholesaleClaim,
 } from "@/types/claims";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Stored claim rows, as the app's WholesaleClaim.
@@ -27,7 +28,11 @@ import type {
 // is no equivalent set-membership check on claims today, so the damage here is
 // smaller — a reason rendering as `short_shipment` in the admin queue — but it
 // is the same mistake and it is avoided the same way.
-const REASON_TO_CODE: Record<ClaimReason, string> = {
+// As on the returns side: typed against the database enum, so the table
+// cannot hold a code the column would reject.
+type ReasonCode = Database["public"]["Enums"]["claim_reason"];
+
+const REASON_TO_CODE: Record<ClaimReason, ReasonCode> = {
   "Short shipment": "short_shipment",
   "Damaged in transit": "damaged_in_transit",
   "Wrong item shipped": "wrong_item_shipped",
@@ -39,7 +44,7 @@ const REASON_FROM_CODE = Object.fromEntries(
 ) as Record<string, ClaimReason>;
 
 /** The enum code for a reason the buyer picked. */
-export function claimReasonToCode(reason: ClaimReason): string {
+export function claimReasonToCode(reason: ClaimReason): ReasonCode {
   return REASON_TO_CODE[reason];
 }
 

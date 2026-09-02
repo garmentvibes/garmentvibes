@@ -96,10 +96,13 @@ export async function POST(request: Request) {
         );
       }
 
+      // `reference` rather than `order.reference`: the column is nullable, and
+      // this is the value the row was found by, so it is a string by the guard
+      // at the top of this branch and needs no assertion to say so.
       const gatewayOrder = await createRazorpayOrder({
         amount: order.total,
-        receipt: order.reference,
-        notes: { receipt: order.reference },
+        receipt: reference,
+        notes: { receipt: reference },
       });
 
       return NextResponse.json({
