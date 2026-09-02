@@ -1,9 +1,19 @@
 // ---------------------------------------------------------------------------
-// What to do with a local bag when a customer turns out to be signed in.
+// What to do with a locally-held list when a customer turns out to be signed
+// in.
 //
 // A pure decision, separated from the round trip that acts on it, because the
 // interesting case is the one that is hard to reach by hand: two people
-// sharing a browser. Everything else about the cart sync is plumbing.
+// sharing a browser. Everything else about a sync is plumbing.
+//
+// Shared by the cart and the wishlist. It lived in lib/cart/ while the cart
+// was the only thing that synced, and moved here when the wishlist turned out
+// to need the identical rule — identical because the rule is not about what is
+// in the list. It is about whose device this is and whether it has reconciled
+// before, and neither of those changes because the items have quantities.
+//
+// A copy in each would have been the alternative, and a copy is how the two
+// stop agreeing: the next person to fix a sync bug fixes it once.
 // ---------------------------------------------------------------------------
 
 export type SyncPlan =

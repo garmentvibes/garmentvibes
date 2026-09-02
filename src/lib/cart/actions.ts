@@ -5,7 +5,7 @@ import { supabaseConfigured } from "@/lib/auth/demo";
 import { getCustomer } from "@/lib/auth/customer";
 import { linesFromRows, type StoredCartRow } from "./lines";
 import type { MergeLine } from "./payload";
-import { decideSync } from "./decide";
+import { decideSync } from "@/lib/sync/decide";
 import type { CartLine } from "@/lib/stores/cart-store";
 import type { Database } from "@/types/database";
 

@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { StoreHydrator } from "@/components/shared/store-hydrator";
 import { SessionSync } from "@/components/shared/session-sync";
 import { CartSync } from "@/components/shared/cart-sync";
+import { WishlistSync } from "@/components/shared/wishlist-sync";
 import { ServiceWorkerRegistrar } from "@/components/shared/service-worker-registrar";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { JsonLd } from "@/components/shared/json-ld";
@@ -77,6 +78,7 @@ export default function RootLayout({
         <StoreHydrator />
         <SessionSync />
         <CartSync />
+        <WishlistSync />
         <ServiceWorkerRegistrar />
         {children}
         <InstallPrompt />

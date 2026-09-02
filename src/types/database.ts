@@ -1,4 +1,4 @@
-// Generated from the database schema. Do not edit by hand.
+// Generated from the database schema. Prefer regenerating over editing.
 //
 // ---------------------------------------------------------------------------
 // Where it comes from and what keeps it honest
@@ -13,9 +13,27 @@
 // A generated file nothing verifies is the reason this did not exist sooner.
 // `npm run qa:types` builds the schema from supabase/migrations and compares
 // it against what this file declares — every table, every column, its type
-// and nullability, and every enum's values in order. It needs no Docker and no
-// credentials, so it runs in CI on every push. Change a migration without
-// updating this file and that check fails and names the difference.
+// and nullability, every enum's values in order, and the name of every
+// function. It needs no Docker and no credentials, so it runs in CI on every
+// push. Change a migration without updating this file and that check fails and
+// names the difference.
+//
+// ---------------------------------------------------------------------------
+// The part that is maintained by hand
+// ---------------------------------------------------------------------------
+//
+// Function signatures. Without Docker there is no way to regenerate this file
+// from a migration that has not been applied to the live project yet, so a
+// migration adding a function is followed by an `Args`/`Returns` entry written
+// here by hand — 0028's three wishlist functions are the current example.
+//
+// qa:types checks that the names line up, which catches a function added to a
+// migration and forgotten here. It does not check the signatures: deciding what
+// `Args` a given SQL signature maps to would mean reimplementing the generator,
+// and a second generator with its own bugs is exactly what this file exists to
+// avoid. A hand-written signature is therefore only as good as the call site
+// that exercises it — which, since every one of these is called from typed
+// code, is a real check, just not an automatic one.
 //
 // To regenerate: `supabase gen types typescript --project-id <id>`, or with
 // Docker available `--db-url postgresql://…/garmentvibes_schema_check` after
@@ -1562,6 +1580,9 @@ export type Database = {
       }
       release_retail_order: { Args: { p_order_id: string }; Returns: boolean }
       require_caller: { Args: never; Returns: string }
+      wishlist_add: { Args: { p_slug: string }; Returns: boolean }
+      wishlist_merge: { Args: { p_slugs: string[] }; Returns: number }
+      wishlist_remove: { Args: { p_slug: string }; Returns: boolean }
     }
     Enums: {
       claim_reason:

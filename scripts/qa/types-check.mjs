@@ -29,12 +29,23 @@
 // to a migration and not to the types, a column that became nullable, an enum
 // that gained a value the app has not been taught.
 //
+// Also compared, by name only: which functions exist. Not their signatures —
+// mapping `Args` and `Returns` would mean reimplementing the generator, and a
+// second generator with its own bugs is the thing being avoided. But the
+// question "does this function exist in both places" needs none of that, and it
+// is the one that actually went wrong: 0028 added three functions and the types
+// file did not know about them. TypeScript caught that only because the new
+// code happened to call them; a function added and not yet called from TS would
+// have drifted in silence.
+//
+// The rule the generator follows is exact, which is what makes this checkable
+// rather than approximate: every function in `public` whose return type is not
+// `trigger`. Trigger functions are not callable over PostgREST and the
+// generator leaves them out.
+//
 // Not compared: Relationships, Insert/Update variants, function signatures.
 // Insert and Update are derived from Row plus defaults, so a Row that matches
-// is strong evidence they do; relationships and functions would need this
-// script to reimplement more of the generator than is wise. A check that tried
-// to verify everything by reimplementing the generator would be a second
-// generator with its own bugs, which is the thing being avoided.
+// is strong evidence they do.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
@@ -103,7 +114,15 @@ select json_build_object(
         from pg_type t join pg_enum e on e.enumtypid = t.oid
         join pg_namespace n on n.oid = t.typnamespace
        where n.nspname = 'public'
-       group by t.typname) e)
+       group by t.typname) e),
+  'functions', (
+    select coalesce(json_agg(proname order by proname), '[]'::json)
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       -- What the generator emits: everything callable over PostgREST, which
+       -- is everything except the trigger functions.
+       and pg_get_function_result(p.oid) <> 'trigger')
 )`]).trim());
 
 // ---------------------------------------------------------------------------
@@ -160,6 +179,7 @@ if (!publicBlock) {
 const tablesBlock = block(publicBlock.body, "Tables:");
 const viewsBlock = block(publicBlock.body, "Views:");
 const enumsBlock = block(publicBlock.body, "Enums:");
+const functionsBlock = block(publicBlock.body, "Functions:");
 
 /** Every `name: { Row: { … } }` in a Tables or Views block. */
 function readRows(text) {
@@ -191,6 +211,14 @@ function readRows(text) {
 }
 
 const declared = { ...readRows(tablesBlock?.body), ...readRows(viewsBlock?.body) };
+
+// Every top-level `name: {` in the Functions block, and only top-level: an
+// entry's own `Args:` and `Returns:` sit two spaces deeper, and a setof return
+// nests deeper still. Anchoring on exactly six spaces is what separates the
+// function names from the shape of any one function.
+const declaredFunctions = functionsBlock
+  ? [...functionsBlock.body.matchAll(/^ {6}(\w+): \{/gm)].map((m) => m[1])
+  : [];
 
 // One line each, now that continuations are folded: `name: "a" | "b"`.
 const declaredEnums = {};
@@ -284,14 +312,31 @@ for (const name of Object.keys(declaredEnums)) {
   if (!schema.enums[name]) fail(`${name} — in the types file, not in the migrations`);
 }
 
+console.log(`\nfunctions (${schema.functions.length} in the schema, by name only)`);
+
+for (const name of schema.functions) {
+  if (!declaredFunctions.includes(name)) {
+    fail(`${name}() — in the migrations, missing from the types file`);
+  }
+}
+
+for (const name of declaredFunctions) {
+  if (!schema.functions.includes(name)) {
+    fail(`${name}() — in the types file, not in the migrations`);
+  }
+}
+
 if (failures === 0) {
   const cols = Object.values(schema.tables).reduce((n, c) => n + Object.keys(c).length, 0);
   console.log(`\nPASS: ${cols} columns across ${Object.keys(schema.tables).length} relations, ` +
-              `and ${Object.keys(schema.enums).length} enums, match the types file.`);
+              `${Object.keys(schema.enums).length} enums, and ${schema.functions.length} functions, ` +
+              `match the types file.`);
   process.exit(0);
 }
 
 console.log(`\nFAIL: ${failures} difference(s) between the migrations and ${TYPES}.`);
 console.log("Regenerate with `supabase gen types typescript --project-id <id>`,");
 console.log("or edit the lines named above — they are the whole of the difference.");
+console.log("A function reported missing needs its Args and Returns written by hand;");
+console.log("this check knows the name should be there, not what its signature is.");
 process.exit(1);
