@@ -533,7 +533,7 @@ export type Database = {
           tax_sgst: number
           total: number
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           awb?: string | null
@@ -565,7 +565,7 @@ export type Database = {
           tax_sgst?: number
           total: number
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           awb?: string | null
@@ -597,7 +597,7 @@ export type Database = {
           tax_sgst?: number
           total?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1565,6 +1565,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      erase_my_account: { Args: never; Returns: Json }
       evaluate_promo: { Args: { p_code: string }; Returns: Json }
       mark_notification_failed: {
         Args: { p_id: string; p_reason: string }
