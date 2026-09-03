@@ -8,7 +8,7 @@ export function QuoteRefLabel() {
   const kind = params.get("kind");
   if (!ref) return null;
   return (
-    <p className="mt-1 text-sm text-slate-400">
+    <p className="mt-1 text-sm text-slate-500">
       {kind === "order" ? "Order" : "Quote"} reference: {ref}
     </p>
   );

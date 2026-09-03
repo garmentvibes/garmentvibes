@@ -49,7 +49,7 @@ export default function AdminCreditPage() {
   // "nobody owes us anything", which is the wrong thing for a finance screen
   // to say for even a moment.
   if (!loaded) {
-    return <p className="py-16 text-center text-neutral-400">Loading the ledger…</p>;
+    return <p className="py-16 text-center text-neutral-500">Loading the ledger…</p>;
   }
 
   const visible = invoices.filter((i) => {
@@ -149,7 +149,7 @@ export default function AdminCreditPage() {
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-neutral-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-neutral-400">Outstanding</p>
+          <p className="text-xs uppercase tracking-wide text-neutral-500">Outstanding</p>
           <p className="mt-1 text-2xl font-bold text-neutral-900">
             {formatPrice(totalOutstanding)}
           </p>
@@ -160,7 +160,7 @@ export default function AdminCreditPage() {
             totalOverdue > 0 ? "border-red-200 bg-red-50" : "border-neutral-200 bg-white"
           )}
         >
-          <p className="text-xs uppercase tracking-wide text-neutral-400">Overdue</p>
+          <p className="text-xs uppercase tracking-wide text-neutral-500">Overdue</p>
           <p
             className={cn(
               "mt-1 text-2xl font-bold",
@@ -174,11 +174,11 @@ export default function AdminCreditPage() {
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
         <table className="w-full min-w-[32rem] text-sm">
-          <caption className="px-4 pt-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <caption className="px-4 pt-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
             Ageing
           </caption>
           <thead>
-            <tr className="text-left text-xs text-neutral-400">
+            <tr className="text-left text-xs text-neutral-500">
               {ageing.map((a) => (
                 <th key={a.bucket} className="px-4 py-2 font-medium">
                   {a.bucket === "current" ? "Within terms" : `${a.bucket} days`}
@@ -264,7 +264,7 @@ export default function AdminCreditPage() {
                     </div>
 
                     <p className="mt-1 text-sm text-neutral-700">{invoice.businessName}</p>
-                    <p className="mt-0.5 text-xs text-neutral-400">
+                    <p className="mt-0.5 text-xs text-neutral-500">
                       Issued {invoice.issuedOn} &middot; due {invoice.dueOn}
                       {overdue && (
                         <span className="ml-1 font-medium text-red-700">
@@ -290,7 +290,7 @@ export default function AdminCreditPage() {
                     <p className="text-sm font-semibold text-neutral-900">
                       {formatPrice(outstanding)}
                     </p>
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-xs text-neutral-500">
                       of {formatPrice(invoice.amount)}
                       {amountPaid(invoice) > 0 && ` · ${formatPrice(amountPaid(invoice))} paid`}
                     </p>

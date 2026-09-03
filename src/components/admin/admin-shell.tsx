@@ -65,7 +65,7 @@ export function AdminShell({ user, children }: { user: StaffUser; children: Reac
           </Link>
           <button
             type="button"
-            className="text-neutral-400 lg:hidden"
+            className="text-neutral-500 lg:hidden"
             aria-label="Close menu"
             onClick={() => setNavOpen(false)}
           >
@@ -101,7 +101,7 @@ export function AdminShell({ user, children }: { user: StaffUser; children: Reac
           <form action={signOutAdmin}>
             <button
               type="submit"
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800/60 hover:text-white"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-neutral-500 hover:bg-neutral-800/60 hover:text-white"
             >
               <LogOut className="h-4 w-4" /> Sign out
             </button>

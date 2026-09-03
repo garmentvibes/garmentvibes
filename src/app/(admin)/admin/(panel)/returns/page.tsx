@@ -355,7 +355,7 @@ export default function AdminReturnsPage() {
                   <p className="text-sm font-semibold text-neutral-900">
                     {formatPrice(returnRefundTotal(request))}
                   </p>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-neutral-500">
                     {request.resolution === "exchange" ? "value exchanged" : "refund value"}
                   </p>
                   {/* Staff need to know whether money still has to move. */}

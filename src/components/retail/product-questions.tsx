@@ -96,7 +96,7 @@ export function ProductQuestions({
               placeholder="Fabric, fit, care, what's included — anything the description doesn't cover."
               className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none"
             />
-            <p className="mt-1 text-xs text-neutral-400">
+            <p className="mt-1 text-xs text-neutral-500">
               {body.trim().length}/{MAX_QUESTION_LENGTH} · answered by our team, usually within a
               day. It appears here once answered.
             </p>
@@ -149,7 +149,7 @@ export function ProductQuestions({
                 </p>
               )}
 
-              <p className="mt-2 text-xs text-neutral-400">
+              <p className="mt-2 text-xs text-neutral-500">
                 {question.askerName} · {question.createdAt.slice(0, 10)}
               </p>
             </li>

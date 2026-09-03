@@ -18,17 +18,17 @@ export function RetailSiteFooter() {
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-neutral-500 sm:px-6">
         <div className="flex flex-wrap gap-x-6 gap-y-2">
           {FOOTER_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="hover:text-rose-600">
+            <Link key={link.href} href={link.href} className="hover:text-rose-700">
               {link.label}
             </Link>
           ))}
         </div>
         <div className="flex flex-wrap gap-6 border-t border-neutral-100 pt-4">
-          <Link href="/wholesale" className="hover:text-rose-600">
+          <Link href="/wholesale" className="hover:text-rose-700">
             Sell wholesale on GarmentVibes &rarr;
           </Link>
         </div>
-        <div className="border-t border-neutral-100 pt-4 text-xs text-neutral-400">
+        <div className="border-t border-neutral-100 pt-4 text-xs text-neutral-500">
           <p>
             &copy; {new Date().getFullYear()} GarmentVibes — operated by {BUSINESS_INFO.legalName}.
             All rights reserved.

@@ -41,7 +41,7 @@ export function SearchResults() {
               <Link
                 key={c.href}
                 href={c.href}
-                className="rounded-full border border-neutral-300 px-4 py-1.5 text-sm text-neutral-700 hover:border-rose-400 hover:text-rose-600"
+                className="rounded-full border border-neutral-300 px-4 py-1.5 text-sm text-neutral-700 hover:border-rose-400 hover:text-rose-700"
               >
                 {c.label}
               </Link>

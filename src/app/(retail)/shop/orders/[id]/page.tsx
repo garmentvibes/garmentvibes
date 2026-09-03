@@ -68,7 +68,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
         <p className="text-neutral-500">Order not found.</p>
-        <Link href="/shop/orders" className="mt-4 inline-block text-sm text-rose-600 underline">
+        <Link href="/shop/orders" className="mt-4 inline-block text-sm text-rose-700 underline">
           Back to my orders
         </Link>
       </div>
@@ -259,7 +259,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         <p
                           className={cn(
                             "text-sm font-medium",
-                            done ? "text-neutral-900" : "text-neutral-400"
+                            done ? "text-neutral-900" : "text-neutral-500"
                           )}
                         >
                           {step.label}
@@ -286,7 +286,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 <li key={`${item.productId}-${i}`} className="flex justify-between gap-3 py-3">
                   <div>
                     <p className="text-sm text-neutral-800">{item.name}</p>
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-xs text-neutral-500">
                       Size {item.size} &middot; {item.color} &middot; Qty {item.qty}
                     </p>
                   </div>
@@ -339,7 +339,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 {courierById(order.shipment.courierId)?.name ?? "Courier"} &middot;{" "}
                 <span className="font-mono text-xs">{order.shipment.awb}</span>
               </p>
-              <p className="mt-0.5 text-xs text-neutral-400">
+              <p className="mt-0.5 text-xs text-neutral-500">
                 Shipped on {order.shipment.shippedAt}
               </p>
               {trackingUrlFor(order.shipment.courierId, order.shipment.awb) && (
@@ -347,7 +347,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   href={trackingUrlFor(order.shipment.courierId, order.shipment.awb)!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block text-sm text-rose-600 underline"
+                  className="mt-2 inline-block text-sm text-rose-700 underline"
                 >
                   Track on the courier&apos;s site
                 </a>
@@ -362,19 +362,19 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 answer. That round trip is the whole cost this saves. */}
             <Link
               href={`/shop/support?order=${order.id}`}
-              className="block text-rose-600 underline underline-offset-4"
+              className="block text-rose-700 underline underline-offset-4"
             >
               Get help with this order
             </Link>
             <Link
               href="/shop/contact"
-              className="mt-1 block text-rose-600 underline underline-offset-4"
+              className="mt-1 block text-rose-700 underline underline-offset-4"
             >
               Contact support
             </Link>
             <Link
               href="/shop/refund-policy"
-              className="mt-1 block text-rose-600 underline underline-offset-4"
+              className="mt-1 block text-rose-700 underline underline-offset-4"
             >
               Refund &amp; cancellation policy
             </Link>

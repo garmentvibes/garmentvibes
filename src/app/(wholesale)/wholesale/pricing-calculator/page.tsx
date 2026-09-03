@@ -58,7 +58,7 @@ export default function PricingCalculatorPage() {
 
           <div>
             <label htmlFor="calc-qty" className="mb-1 block text-sm font-medium text-slate-700">
-              Quantity <span className="text-slate-400">(MOQ {product.moq})</span>
+              Quantity <span className="text-slate-500">(MOQ {product.moq})</span>
             </label>
             <input
               id="calc-qty"
@@ -88,7 +88,7 @@ export default function PricingCalculatorPage() {
         </div>
 
         <table className="mt-6 w-full text-sm">
-          <thead className="text-left text-xs uppercase text-slate-400">
+          <thead className="text-left text-xs uppercase text-slate-500">
             <tr>
               <th className="py-1.5">Quantity</th>
               <th className="py-1.5">Price / unit</th>

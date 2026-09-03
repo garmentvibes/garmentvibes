@@ -73,7 +73,7 @@ export default function RetailAccountPage() {
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="text-neutral-400 hover:text-rose-600"
+              className="text-neutral-500 hover:text-rose-700"
               aria-label="Edit profile"
             >
               <Pencil className="h-4 w-4" />

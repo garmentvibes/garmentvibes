@@ -464,12 +464,12 @@ export default function CheckoutPage() {
                   key={addr.id}
                   type="button"
                   onClick={() => fillFromSavedAddress(addr.id)}
-                  className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 hover:border-rose-400 hover:text-rose-600"
+                  className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 hover:border-rose-400 hover:text-rose-700"
                 >
                   Use {addr.label}
                 </button>
               ))}
-              <Link href="/shop/addresses" className="text-xs text-neutral-400 underline underline-offset-2">
+              <Link href="/shop/addresses" className="text-xs text-neutral-500 underline underline-offset-2">
                 Manage addresses
               </Link>
             </div>
@@ -604,7 +604,7 @@ export default function CheckoutPage() {
             <span>Total ({totalItems} items)</span>
             <span>{formatPrice(amountPayable)}</span>
           </div>
-          <p className="mt-1 text-xs text-neutral-400">
+          <p className="mt-1 text-xs text-neutral-500">
             {/* Scoped to the garments. The COD fee is a service charge with
                 its own rate, and quietly folding it into this figure would
                 misstate the tax on the invoice. */}

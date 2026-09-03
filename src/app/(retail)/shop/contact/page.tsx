@@ -39,7 +39,7 @@ export default function ContactPage() {
             <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
             {BUSINESS_INFO.address}
           </div>
-          <p className="text-xs text-neutral-400">Support hours: {BUSINESS_INFO.supportHours}</p>
+          <p className="text-xs text-neutral-500">Support hours: {BUSINESS_INFO.supportHours}</p>
         </div>
 
         {submitted ? (

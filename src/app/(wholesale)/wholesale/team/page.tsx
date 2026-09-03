@@ -111,7 +111,7 @@ export default function TeamPage() {
                     <button
                       type="button"
                       onClick={() => remove(m.id)}
-                      className="text-slate-400 hover:text-red-600"
+                      className="text-slate-500 hover:text-red-600"
                       aria-label="Remove member"
                     >
                       <Trash2 className="h-4 w-4" />

@@ -84,7 +84,7 @@ export function LoginForm() {
         New to GarmentVibes?{" "}
         <Link
           href={`/shop/signup${redirect !== "/shop" ? `?redirect=${encodeURIComponent(redirect)}` : ""}`}
-          className="font-medium text-rose-600 hover:underline"
+          className="font-medium text-rose-700 hover:underline"
         >
           Create an account
         </Link>

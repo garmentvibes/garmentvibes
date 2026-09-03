@@ -185,7 +185,7 @@ export default function AdminClaimsPage() {
                   <p className="text-sm font-semibold text-neutral-900">
                     {formatPrice(claimValue(claim))}
                   </p>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-neutral-500">
                     {claimedUnits(claim)} units claimed
                   </p>
 

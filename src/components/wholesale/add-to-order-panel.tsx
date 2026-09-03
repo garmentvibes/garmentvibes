@@ -72,7 +72,7 @@ export function AddToOrderPanel({ product }: { product: WholesaleProduct }) {
 
       <div>
         <p className="mb-2 text-sm font-medium text-slate-700">
-          Quantity <span className="text-slate-400">(multiples of {product.packSize}, MOQ {product.moq})</span>
+          Quantity <span className="text-slate-500">(multiples of {product.packSize}, MOQ {product.moq})</span>
         </p>
         <div className="flex items-center gap-3">
           <div className="flex items-center rounded-md border border-slate-300">

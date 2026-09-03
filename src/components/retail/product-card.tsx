@@ -37,14 +37,14 @@ export function ProductCard({ product }: { product: RetailProduct }) {
           <span className="font-semibold text-neutral-900">{formatPrice(product.price)}</span>
           {discount > 0 && (
             <>
-              <span className="text-neutral-400 line-through">{formatPrice(product.mrp)}</span>
+              <span className="text-neutral-500 line-through">{formatPrice(product.mrp)}</span>
               <span className="text-green-700">{discount}% off</span>
             </>
           )}
         </div>
         <div className="flex items-center gap-1 text-xs text-neutral-500">
           <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-          {product.rating} <span className="text-neutral-400">({product.ratingCount})</span>
+          {product.rating} <span className="text-neutral-500">({product.ratingCount})</span>
         </div>
       </div>
     </Link>

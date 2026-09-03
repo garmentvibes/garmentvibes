@@ -112,7 +112,7 @@ export default function AdminDashboardPage() {
               </div>
               <p className="mt-3 text-2xl font-bold text-neutral-900">{stat.value}</p>
               <p className="text-sm font-medium text-neutral-700">{stat.label}</p>
-              <p className="mt-1 text-xs text-neutral-400">{stat.sub}</p>
+              <p className="mt-1 text-xs text-neutral-500">{stat.sub}</p>
             </Link>
           );
         })}

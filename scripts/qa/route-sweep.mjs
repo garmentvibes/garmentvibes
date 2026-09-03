@@ -7,63 +7,27 @@
 //      button/link has an aria-label, every text <input>/<textarea> has an
 //      associated label (via htmlFor, aria-label, or aria-labelledby)
 //
+// (4) is a smoke check, not the accessibility pass. `npm run qa:a11y` runs
+// axe-core over the same routes against WCAG 2.1 AA — around ninety rules,
+// including everything here and a great deal more. These four stay because
+// they cost nothing, need no dependency, and run in a sweep that was already
+// visiting every page. Where the two overlap axe is the stricter of them: it
+// rejects a `placeholder` as an input's only label, and this does not.
+//
 // Requires a running server — start `npm run dev` (or `npm run build &&
 // npm run start`) first, then: node scripts/qa/route-sweep.mjs
 // Override the target with BASE_URL=https://your-preview-url ... node ...
 
-import { readdirSync, statSync, readFileSync } from "fs";
-import { join, relative } from "path";
 import { launchBrowser } from "./_launch-browser.mjs";
 import { goto } from "./_goto.mjs";
+import { buildRoutes } from "./_routes.mjs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
-const APP_DIR = join(process.cwd(), "src/app");
 
-function walk(dir, cb) {
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) walk(full, cb);
-    else cb(full);
-  }
-}
-
-function extractSlugs(file, limit = 2) {
-  const content = readFileSync(file, "utf8");
-  const matches = [...content.matchAll(/slug:\s*"([^"]+)"/g)].map((m) => m[1]);
-  return matches.slice(0, limit);
-}
-
-const retailSlugs = extractSlugs(join(process.cwd(), "src/lib/mock/retail-products.ts"));
-const wholesaleSlugs = extractSlugs(join(process.cwd(), "src/lib/mock/wholesale-products.ts"));
-const retailCategories = ["women", "men", "kids"];
-const wholesaleCategories = ["women", "men", "kids", "unisex", "fabric"];
-
-// Build the route list from the App Router tree, substituting dynamic
-// segments with real sample values so every page template gets exercised.
-const routes = new Set();
-walk(APP_DIR, (file) => {
-  if (!/\/page\.tsx$/.test(file)) return;
-  const dir = relative(APP_DIR, file.replace(/\/page\.tsx$/, ""));
-  const segments = (dir === "" ? [] : dir.split("/")).filter((s) => !/^\(.*\)$/.test(s));
-
-  if (segments.includes("[slug]")) {
-    const isWholesale = segments[0] === "wholesale";
-    const samples = isWholesale ? wholesaleSlugs : retailSlugs;
-    for (const slug of samples) {
-      routes.add("/" + segments.map((s) => (s === "[slug]" ? slug : s)).join("/"));
-    }
-    return;
-  }
-  if (segments.includes("[category]")) {
-    const isWholesale = segments[0] === "wholesale";
-    const samples = isWholesale ? wholesaleCategories.slice(0, 2) : retailCategories.slice(0, 2);
-    for (const cat of samples) {
-      routes.add("/" + segments.map((s) => (s === "[category]" ? cat : s)).join("/"));
-    }
-    return;
-  }
-  routes.add("/" + segments.join("/"));
-});
+// The route list is shared with the accessibility sweep — see _routes.mjs.
+// The 404 probe below is this sweep's own: it asserts that a URL the app does
+// not have answers 404, which is not a page anybody renders.
+const routes = new Set(buildRoutes());
 routes.add("/this-route-should-not-exist"); // 404 probe
 
 let failures = 0;

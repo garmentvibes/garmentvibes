@@ -34,7 +34,7 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
   // A "not found" while the answer is in flight sends staff back to the list
   // for a quote that is about to appear.
   if (!loaded) {
-    return <div className="mx-auto max-w-3xl py-16 text-center text-neutral-400">Loading quote…</div>;
+    return <div className="mx-auto max-w-3xl py-16 text-center text-neutral-500">Loading quote…</div>;
   }
 
   if (!quote) {
@@ -165,7 +165,7 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
           <div className="rounded-lg border border-neutral-200 bg-white p-5">
             <h2 className="mb-3 font-semibold text-neutral-900">Requested items</h2>
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-neutral-400">
+              <thead className="text-left text-xs uppercase text-neutral-500">
                 <tr>
                   <th className="pb-2">SKU / Product</th>
                   <th className="pb-2">Units</th>
@@ -177,7 +177,7 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
                 {quote.items.map((item) => (
                   <tr key={item.productId}>
                     <td className="py-2.5">
-                      <p className="font-mono text-xs text-neutral-400">{item.sku}</p>
+                      <p className="font-mono text-xs text-neutral-500">{item.sku}</p>
                       <p className="text-neutral-800">{item.name}</p>
                     </td>
                     <td className="py-2.5 text-neutral-600">{item.qty}</td>
@@ -197,7 +197,7 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
               <span>Estimated total</span>
               <span>{formatPrice(wholesaleQuoteTotal(quote))}</span>
             </div>
-            <p className="mt-2 text-xs text-neutral-400">
+            <p className="mt-2 text-xs text-neutral-500">
               Indicative at catalog tier pricing. GST and freight are quoted separately.
             </p>
           </div>

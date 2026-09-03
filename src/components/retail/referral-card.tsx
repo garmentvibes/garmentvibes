@@ -74,11 +74,11 @@ export function ReferralCard({ email }: { email: string }) {
 
       <dl className="mt-4 flex gap-6 text-sm">
         <div>
-          <dt className="text-xs text-neutral-400">Friends joined</dt>
+          <dt className="text-xs text-neutral-500">Friends joined</dt>
           <dd className="font-semibold text-neutral-900">{made.length}</dd>
         </div>
         <div>
-          <dt className="text-xs text-neutral-400">Rewards unused</dt>
+          <dt className="text-xs text-neutral-500">Rewards unused</dt>
           <dd className="font-semibold text-neutral-900">{unused.length}</dd>
         </div>
       </dl>

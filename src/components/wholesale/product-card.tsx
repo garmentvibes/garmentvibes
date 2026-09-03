@@ -28,12 +28,12 @@ export function WholesaleProductCard({ product }: { product: WholesaleProduct })
         )}
       </div>
       <div className="space-y-1 p-3">
-        <p className="text-xs font-mono text-slate-400">{product.sku}</p>
+        <p className="text-xs font-mono text-slate-500">{product.sku}</p>
         <p className="truncate text-sm font-medium text-slate-800">{product.name}</p>
         <p className="text-xs text-slate-500">MOQ {product.moq} units</p>
         <div className="flex items-baseline gap-1 text-sm">
           <span className="font-semibold text-slate-900">from {formatPrice(bestTier.pricePerUnit)}</span>
-          <span className="text-xs text-slate-400">/ unit</span>
+          <span className="text-xs text-slate-500">/ unit</span>
         </div>
       </div>
     </Link>

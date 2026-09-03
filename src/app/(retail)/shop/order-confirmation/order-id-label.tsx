@@ -9,7 +9,7 @@ export function OrderIdLabel() {
   if (!orderId) return null;
   return (
     <>
-      <p className="mt-1 text-sm text-neutral-400">Order ID: {orderId}</p>
+      <p className="mt-1 text-sm text-neutral-500">Order ID: {orderId}</p>
       {method === "cod" && (
         <p className="mt-1 text-sm text-neutral-500">Pay in cash when your order arrives.</p>
       )}

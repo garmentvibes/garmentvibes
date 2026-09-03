@@ -20,7 +20,7 @@ export default async function AdminLoginPage() {
         <div className="mb-5 flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-emerald-600" />
           <h1 className="text-lg font-bold text-neutral-900">
-            GarmentVibes <span className="text-emerald-600">Admin</span>
+            GarmentVibes <span className="text-emerald-700">Admin</span>
           </h1>
         </div>
 

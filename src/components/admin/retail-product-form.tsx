@@ -302,7 +302,7 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
                 );
               })}
             </div>
-            <p className="mt-1.5 text-xs text-neutral-400">
+            <p className="mt-1.5 text-xs text-neutral-500">
               Stock saves immediately. A size at 0 shows as sold out and can&apos;t be added to a bag.
             </p>
           </div>

@@ -86,7 +86,7 @@ export default function AdminQuestionsPage() {
             const product = productById(question.productId);
             return (
               <li key={question.id} className="rounded-lg border border-neutral-200 bg-white p-4">
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-neutral-500">
                   {product?.name ?? question.productId} · {question.askerName} ·{" "}
                   {question.createdAt.slice(0, 10)}
                 </p>
@@ -131,7 +131,7 @@ export default function AdminQuestionsPage() {
       <ul className="mt-3 space-y-2">
         {answered.map((question) => (
           <li key={question.id} className="rounded-md border border-neutral-200 bg-white p-3">
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-neutral-500">
               {productById(question.productId)?.name ?? question.productId}
             </p>
             <p className="mt-0.5 text-sm text-neutral-800">Q: {question.body}</p>

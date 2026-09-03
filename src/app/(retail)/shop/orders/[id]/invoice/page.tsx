@@ -28,7 +28,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
         <p className="text-neutral-500">Order not found.</p>
-        <Link href="/shop/orders" className="mt-4 inline-block text-sm text-rose-600 underline">
+        <Link href="/shop/orders" className="mt-4 inline-block text-sm text-rose-700 underline">
           Back to my orders
         </Link>
       </div>
@@ -65,7 +65,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
       <article className="mt-4 rounded-lg border border-neutral-200 bg-white p-8 print:border-0 print:p-0">
         <header className="grid grid-cols-1 gap-4 border-b border-neutral-200 pb-6 sm:grid-cols-[1fr_auto]">
           <div className="min-w-0">
-            <p className="text-lg font-bold text-rose-600">GarmentVibes</p>
+            <p className="text-lg font-bold text-rose-700">GarmentVibes</p>
             <p className="mt-1 max-w-sm text-xs leading-relaxed text-neutral-500">
               {BUSINESS_INFO.legalName}
               <br />
@@ -83,7 +83,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
 
         <section className="grid grid-cols-1 gap-6 border-b border-neutral-200 py-6 sm:grid-cols-2">
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
               Billed to
             </h2>
             <p className="mt-1.5 text-sm font-medium text-neutral-900">{order.customerName}</p>
@@ -92,7 +92,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             <p className="text-sm text-neutral-600">{order.customerEmail}</p>
           </div>
           <div className="sm:text-right">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
               Payment
             </h2>
             <p className="mt-1.5 text-sm text-neutral-800">
@@ -107,7 +107,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         <div className="mt-6 overflow-x-auto print:overflow-x-visible">
           <table className="w-full min-w-[36rem] text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400">
+              <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-500">
                 <th className="pb-2">Item</th>
                 <th className="pb-2 text-right">HSN</th>
                 <th className="pb-2 text-center">Qty</th>
@@ -121,7 +121,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 <tr key={`${order.items[i].productId}-${i}`}>
                   <td className="py-3">
                     <p className="text-neutral-800">{line.name}</p>
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-xs text-neutral-500">
                       Size {order.items[i].size} &middot; {order.items[i].color}
                     </p>
                   </td>
@@ -132,7 +132,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                   </td>
                   <td className="py-3 text-right text-neutral-600">
                     {formatPrice(line.taxAmount)}
-                    <span className="ml-1 text-xs text-neutral-400">@{line.ratePercent}%</span>
+                    <span className="ml-1 text-xs text-neutral-500">@{line.ratePercent}%</span>
                   </td>
                   <td className="py-3 text-right font-medium text-neutral-900">
                     {formatPrice(line.gross)}
@@ -182,11 +182,11 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         {/* A GST invoice must show tax grouped by slab, not just one total. */}
         <div className="mt-6 overflow-x-auto print:overflow-x-visible">
           <table className="w-full min-w-[24rem] text-xs">
-            <caption className="pb-2 text-left font-semibold uppercase tracking-wide text-neutral-400">
+            <caption className="pb-2 text-left font-semibold uppercase tracking-wide text-neutral-500">
               Tax summary
             </caption>
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-neutral-400">
+              <tr className="border-b border-neutral-200 text-left text-neutral-500">
                 <th className="pb-1.5">Rate</th>
                 <th className="pb-1.5 text-right">Taxable value</th>
                 <th className="pb-1.5 text-right">
@@ -217,13 +217,13 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
           </table>
         </div>
 
-        <p className="mt-3 text-xs text-neutral-400">
+        <p className="mt-3 text-xs text-neutral-500">
           Place of supply: {gst.placeOfSupplyCode ?? "—"} &middot; Seller state:{" "}
           {SELLER_STATE_CODE} &middot;{" "}
           {gst.isInterState ? "Inter-state supply (IGST)" : "Intra-state supply (CGST + SGST)"}
         </p>
 
-        <footer className="mt-8 border-t border-neutral-200 pt-4 text-xs leading-relaxed text-neutral-400">
+        <footer className="mt-8 border-t border-neutral-200 pt-4 text-xs leading-relaxed text-neutral-500">
           <p>
             Prices are inclusive of all applicable taxes. This is a computer-generated invoice and
             does not require a signature.

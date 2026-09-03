@@ -262,14 +262,14 @@ export function WholesaleProductForm({ product }: { product?: WholesaleProduct }
                   type="button"
                   aria-label={`Remove tier ${i + 1}`}
                   onClick={() => setTiers((t) => t.filter((_, idx) => idx !== i))}
-                  className="shrink-0 text-neutral-400 hover:text-red-600"
+                  className="shrink-0 text-neutral-500 hover:text-red-600"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
           </div>
-          <p className="mt-1.5 text-xs text-neutral-400">
+          <p className="mt-1.5 text-xs text-neutral-500">
             Higher quantities must cost the same or less per unit.
           </p>
         </div>

@@ -23,7 +23,7 @@ export function WholesaleMegaMenu() {
           <div key={category} className="min-w-40">
             <Link
               href={`/wholesale/catalog/${category}`}
-              className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-blue-700"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-blue-700"
             >
               {WHOLESALE_CATEGORY_LABELS[category]}
             </Link>

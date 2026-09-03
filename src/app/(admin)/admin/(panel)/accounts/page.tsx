@@ -116,7 +116,7 @@ export default function AdminAccountsPage() {
                     {account.contactName} &middot; {account.email}
                     {account.phone ? ` · ${account.phone}` : ""}
                   </p>
-                  <p className="mt-0.5 text-xs text-neutral-400">
+                  <p className="mt-0.5 text-xs text-neutral-500">
                     Registered {account.registeredAt}
                     {account.gstin ? ` · GSTIN ${account.gstin}` : " · no GSTIN provided"}
                   </p>
