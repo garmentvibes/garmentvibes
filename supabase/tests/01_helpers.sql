@@ -50,6 +50,28 @@ end;
 $$;
 
 /**
+ * as_user_scalar()'s counterpart for a signed-out request.
+ *
+ * Needed wherever a function is meant to work without an account and the thing
+ * being asserted is its answer rather than whether it was refused. Passing null
+ * to as_user_scalar() is not the same probe: it clears the subject claim but
+ * still runs as `authenticated`, so it exercises an expired session rather than
+ * a visitor who never had one — and the two have different grants.
+ */
+create or replace function anon_scalar(query text)
+returns text language plpgsql as $$
+declare
+  result text;
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role anon;
+  execute query into result;
+  reset role;
+  return result;
+end;
+$$;
+
+/**
  * True when a signed-out request is refused outright.
  *
  * Distinct from anon_count() returning zero: this is the stronger guarantee

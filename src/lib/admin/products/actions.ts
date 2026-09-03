@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/auth/demo";
 import { getStaffUser } from "@/lib/auth/dal";
 import { placeholderImage } from "@/lib/mock/placeholder-image";
+import { notifyRestocked } from "@/lib/notifications/restock";
 import {
   parseRetailProductForm,
   slugFromName,
@@ -302,6 +303,16 @@ export async function setRetailStock(
 
   republish(slug, product.category);
 
+  // Anyone waiting on this variant is told, if it now has stock.
+  //
+  // Not conditional on the level having *risen*: this action sets an absolute
+  // quantity and does not read the old one, so "did it go up" is a question it
+  // cannot answer without a race. It does not need to — the claim in 0029 asks
+  // only whether a pending registration names a variant that has stock, and a
+  // registration already spent has been stamped and will not be found again.
+  // Setting a level that was already positive therefore claims nothing.
+  await notifyRestocked();
+
   return { error: null, slug };
 }
 
@@ -365,6 +376,10 @@ export async function adjustRetailStock(
     .maybeSingle();
 
   if (product) republish(slug, product.category);
+
+  // As in setRetailStock. A return coming back onto the shelf is the movement
+  // people most often registered for.
+  await notifyRestocked();
 
   return { error: null, slug, stock: data as number };
 }

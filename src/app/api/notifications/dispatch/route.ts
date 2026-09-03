@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { offeredToken, tokenAccepted } from "@/lib/notifications/authorise";
 import { dispatchNotifications } from "@/lib/notifications/dispatch";
+import { notifyRestocked } from "@/lib/notifications/restock";
 
 // The endpoint the scheduled sweep calls to drain the outbox.
 //
@@ -73,13 +74,23 @@ async function runPass(request: Request) {
     return NextResponse.json({ error: "unauthorised" }, { status: 401 });
   }
 
+  // Fill the outbox before draining it, so a restock found by this pass goes
+  // out on this pass rather than waiting a day for the next one.
+  //
+  // Here rather than only after a stock write because the write is not the
+  // only way stock rises — a cancelled order releases its units, and
+  // `release_retail_order` runs from a webhook with no admin behind it. This
+  // is what makes "every restock reaches the people waiting" true rather than
+  // "every restock somebody wired up".
+  const restock = await notifyRestocked();
+
   const summary = await dispatchNotifications(BATCH);
 
   // 200 even when every send failed. The failures are recorded on the rows
   // themselves and visible in the admin panel; answering non-2xx would tell
   // the scheduler to retry a batch that has already been attempted and, for
   // anything that did go out, already delivered.
-  return NextResponse.json(summary);
+  return NextResponse.json({ ...summary, restock });
 }
 
 /** The scheduled sweep. Vercel's cron issues GET; see the note above. */
