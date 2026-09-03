@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useSignOut } from "@/lib/hooks/use-sign-out";
 import { ReferralCard } from "@/components/retail/referral-card";
+import { DeleteAccount } from "@/components/retail/delete-account";
 
 export default function RetailAccountPage() {
   const router = useRouter();
@@ -123,6 +124,8 @@ export default function RetailAccountPage() {
       >
         Sign out
       </Button>
+
+      <DeleteAccount />
     </div>
   );
 }
