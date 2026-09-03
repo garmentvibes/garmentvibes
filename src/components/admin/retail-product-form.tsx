@@ -281,9 +281,13 @@ export function RetailProductForm({ product }: { product?: RetailProduct }) {
                           });
                         }
 
-                        // Restocking from zero is what people asked to hear
-                        // about, so the alert fires from the edit itself.
-                        if (stock === 0 && next > 0) {
+                        // With a database, the alerts live in `stock_alerts`
+                        // and `setRetailStock` above has already claimed and
+                        // queued them server-side — for every device that
+                        // registered, not just this one. This is the local
+                        // fallback, and it fires only when there is nothing
+                        // else to do the job.
+                        if (!CONFIGURED && stock === 0 && next > 0) {
                           const sent = notifyRestocked(product.id, s.label, product.name);
                           if (sent > 0) {
                             toast.success(

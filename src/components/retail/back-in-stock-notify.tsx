@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { BellRing } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useStockStore, getStock } from "@/lib/stores/stock-store";
 import { useStockAlertsStore } from "@/lib/stores/stock-alerts-store";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { subscribeToRestock } from "@/lib/stock-alerts/actions";
 import type { RetailProduct } from "@/types/catalog";
 
 /**
@@ -27,6 +28,7 @@ export function BackInStockNotify({ product }: { product: RetailProduct }) {
 
   const [size, setSize] = useState("");
   const [email, setEmail] = useState("");
+  const [pending, startTransition] = useTransition();
 
   if (!mounted) return null;
 
@@ -35,24 +37,59 @@ export function BackInStockNotify({ product }: { product: RetailProduct }) {
 
   const effectiveEmail = (email || user?.email || "").trim();
 
+  /**
+   * Registers interest, in the database when there is one.
+   *
+   * Awaited rather than fired and forgotten, unlike the cart and the wishlist.
+   * Those have something on screen to update optimistically and a local store
+   * that keeps the customer's place if the write is slow; this has neither —
+   * the only thing it produces is the sentence telling them it worked, and a
+   * sentence shown before the write lands is a promise we might not keep.
+   *
+   * The local store stays as the fallback for a deployment with no database,
+   * which is the same arrangement 0028 left the wishlist in.
+   */
   function submit() {
     const chosen = size || soldOut[0].label;
+
+    // Checked here as well as in the function so the common typo gets an
+    // instant answer rather than a round trip. The database is still the one
+    // that decides — see 0029 — because this check runs in a browser.
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(effectiveEmail)) {
       toast.error("Enter a valid email address");
       return;
     }
-    const added = subscribe({
-      productId: product.id,
-      size: chosen,
-      email: effectiveEmail,
-      name: user?.name ?? effectiveEmail.split("@")[0],
+
+    const name = user?.name ?? effectiveEmail.split("@")[0];
+
+    startTransition(async () => {
+      const result = await subscribeToRestock(product.slug, chosen, effectiveEmail, name);
+
+      if (result.notConfigured) {
+        // No database. The local store is the whole feature here, as it was
+        // before any of this.
+        const added = subscribe({ productId: product.id, size: chosen, email: effectiveEmail, name });
+        toast[added ? "success" : "info"](
+          added
+            ? `We'll email you when size ${chosen} is back`
+            : `You're already on the list for size ${chosen}`
+        );
+        setEmail("");
+        return;
+      }
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast[result.added ? "success" : "info"](
+        result.added
+          ? `We'll email you when size ${chosen} is back`
+          : `You're already on the list for size ${chosen}`
+      );
+      setEmail("");
     });
-    toast[added ? "success" : "info"](
-      added
-        ? `We'll email you when size ${chosen} is back`
-        : `You're already on the list for size ${chosen}`
-    );
-    setEmail("");
   }
 
   return (
@@ -98,8 +135,8 @@ export function BackInStockNotify({ product }: { product: RetailProduct }) {
           />
         </div>
 
-        <Button size="sm" variant="outline" onClick={submit}>
-          Notify me
+        <Button size="sm" variant="outline" onClick={submit} disabled={pending}>
+          {pending ? "Signing you up…" : "Notify me"}
         </Button>
       </div>
     </div>

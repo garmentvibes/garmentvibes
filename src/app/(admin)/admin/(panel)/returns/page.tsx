@@ -174,7 +174,12 @@ export default function AdminReturnsPage() {
       moveStock(item.productId, item.size, item.qty, before);
       restocked += item.qty;
       // Going from zero to available is exactly what people registered for.
-      if (before === 0) {
+      //
+      // Local only. With a database, `adjustRetailStock` inside moveStock has
+      // already claimed the pending registrations and queued their messages
+      // server-side, which reaches everyone waiting rather than only whoever
+      // registered on this browser.
+      if (!CONFIGURED && before === 0) {
         notifyRestocked(item.productId, item.size, item.name);
       }
     }

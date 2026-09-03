@@ -1519,6 +1519,25 @@ export type Database = {
         Args: { p_color: string; p_qty: number; p_size: string; p_slug: string }
         Returns: number
       }
+      claim_stock_alerts: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          notified_at: string | null
+          product_id: string
+          size_label: string
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "stock_alerts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_notifications: {
         Args: { p_limit?: number; p_stale_after?: string }
         Returns: {
@@ -1580,6 +1599,10 @@ export type Database = {
       }
       release_retail_order: { Args: { p_order_id: string }; Returns: boolean }
       require_caller: { Args: never; Returns: string }
+      stock_alert_subscribe: {
+        Args: { p_email: string; p_name: string; p_size: string; p_slug: string }
+        Returns: boolean
+      }
       wishlist_add: { Args: { p_slug: string }; Returns: boolean }
       wishlist_merge: { Args: { p_slugs: string[] }; Returns: number }
       wishlist_remove: { Args: { p_slug: string }; Returns: boolean }
