@@ -38,7 +38,7 @@ export function RetailSiteHeader() {
           {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
 
-        <Link href="/shop" className="text-lg font-bold tracking-tight text-rose-600">
+        <Link href="/shop" className="text-lg font-bold tracking-tight text-rose-700">
           GarmentVibes
         </Link>
 
@@ -93,12 +93,12 @@ export function RetailSiteHeader() {
                   <Link href={`/shop/${category}`} onClick={() => setMenuOpen(false)}>
                     {CATEGORY_LABELS[category]}
                   </Link>
-                  <span className="text-neutral-400 group-open:rotate-180">&#9662;</span>
+                  <span className="text-neutral-500 group-open:rotate-180">&#9662;</span>
                 </summary>
                 <div className="grid grid-cols-2 gap-3 py-2 pl-3">
                   {RETAIL_TAXONOMY[category].map((dept) => (
                     <div key={dept.label}>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
                         {dept.label}
                       </p>
                       <ul className="mt-1 space-y-1">

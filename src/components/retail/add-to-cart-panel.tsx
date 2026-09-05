@@ -120,7 +120,10 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
             className="mb-2 flex w-full items-start gap-2 rounded-md border border-rose-200 bg-rose-50 p-2.5 text-left text-xs text-neutral-700 hover:border-rose-400"
           >
             <span className="font-medium text-rose-700">Try {recommendation.size}</span>
-            <span className="text-neutral-500">{recommendation.reason}</span>
+            {/* neutral-600, not the neutral-500 used elsewhere for muted text:
+                this sits on rose-50 rather than white, and that tint costs
+                enough contrast to drop 500 to 4.31 against the 4.5 AA needs. */}
+            <span className="text-neutral-600">{recommendation.reason}</span>
           </button>
         )}
         <div className="flex flex-wrap gap-2">
@@ -181,7 +184,7 @@ export function AddToCartPanel({ product }: { product: RetailProduct }) {
         </Button>
       </div>
 
-      <p className="text-xs text-neutral-400">
+      <p className="text-xs text-neutral-500">
         Price inclusive of all taxes. {formatPrice(product.price)} per unit.
       </p>
     </div>

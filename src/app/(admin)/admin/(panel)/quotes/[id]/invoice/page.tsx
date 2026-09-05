@@ -95,7 +95,7 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
 
         <section className="grid grid-cols-1 gap-6 border-b border-neutral-200 py-6 sm:grid-cols-2">
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
               Billed to
             </h2>
             <p className="mt-1.5 text-sm font-medium text-neutral-900">{quote.businessName}</p>
@@ -104,7 +104,7 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
             <p className="mt-1 text-sm font-medium text-neutral-800">{billingAddress}</p>
           </div>
           <div className="sm:text-right">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
               Order
             </h2>
             <p className="mt-1.5 text-sm capitalize text-neutral-800">{quote.kind}</p>
@@ -116,7 +116,7 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
         <div className="mt-6 overflow-x-auto print:overflow-x-visible">
           <table className="w-full min-w-[38rem] text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400">
+              <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-500">
                 <th className="pb-2">Item</th>
                 <th className="pb-2 text-right">HSN</th>
                 <th className="pb-2 text-center">Qty</th>
@@ -131,7 +131,7 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
                 <tr key={`${quote.items[i].sku}-${i}`}>
                   <td className="py-3">
                     <p className="text-neutral-800">{line.name}</p>
-                    <p className="font-mono text-xs text-neutral-400">{quote.items[i].sku}</p>
+                    <p className="font-mono text-xs text-neutral-500">{quote.items[i].sku}</p>
                   </td>
                   <td className="py-3 text-right font-mono text-xs text-neutral-500">{line.hsn}</td>
                   <td className="py-3 text-center text-neutral-600">{line.qty}</td>
@@ -143,7 +143,7 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
                   </td>
                   <td className="py-3 text-right text-neutral-600">
                     {formatPrice(line.taxAmount)}
-                    <span className="ml-1 text-xs text-neutral-400">@{line.ratePercent}%</span>
+                    <span className="ml-1 text-xs text-neutral-500">@{line.ratePercent}%</span>
                   </td>
                   <td className="py-3 text-right font-medium text-neutral-900">
                     {formatPrice(line.gross)}
@@ -186,11 +186,11 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
 
         <div className="mt-6 overflow-x-auto print:overflow-x-visible">
           <table className="w-full min-w-[24rem] text-xs">
-            <caption className="pb-2 text-left font-semibold uppercase tracking-wide text-neutral-400">
+            <caption className="pb-2 text-left font-semibold uppercase tracking-wide text-neutral-500">
               Tax summary
             </caption>
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-neutral-400">
+              <tr className="border-b border-neutral-200 text-left text-neutral-500">
                 <th className="pb-1.5">Rate</th>
                 <th className="pb-1.5 text-right">Taxable value</th>
                 <th className="pb-1.5 text-right">{gst.isInterState ? "IGST" : "CGST"}</th>
@@ -217,13 +217,13 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
           </table>
         </div>
 
-        <p className="mt-3 text-xs text-neutral-400">
+        <p className="mt-3 text-xs text-neutral-500">
           Place of supply: {gst.placeOfSupplyCode ?? "—"} &middot; Seller state:{" "}
           {SELLER_STATE_CODE} &middot;{" "}
           {gst.isInterState ? "Inter-state supply (IGST)" : "Intra-state supply (CGST + SGST)"}
         </p>
 
-        <footer className="mt-8 border-t border-neutral-200 pt-4 text-xs leading-relaxed text-neutral-400">
+        <footer className="mt-8 border-t border-neutral-200 pt-4 text-xs leading-relaxed text-neutral-500">
           <p>
             All prices are exclusive of GST; tax is charged in addition as shown above. This is a
             computer-generated invoice and does not require a signature.

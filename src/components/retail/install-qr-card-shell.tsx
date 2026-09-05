@@ -80,7 +80,7 @@ export function InstallQrCardShell({
           dangerouslySetInnerHTML={{ __html: svg }}
         />
 
-        <p className="mt-2 truncate text-center font-mono text-[11px] text-neutral-400">
+        <p className="mt-2 truncate text-center font-mono text-[11px] text-neutral-500">
           {displayUrl}
         </p>
         <p className="mt-1.5 text-center text-[11px] text-neutral-500">

@@ -131,7 +131,7 @@ export default function AddressesPage() {
                     <button
                       type="button"
                       onClick={() => setDefault(addr.id)}
-                      className="text-neutral-500 hover:text-rose-600"
+                      className="text-neutral-500 hover:text-rose-700"
                     >
                       Set default
                     </button>

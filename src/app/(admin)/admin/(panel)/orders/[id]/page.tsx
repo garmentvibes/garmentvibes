@@ -31,7 +31,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
   // A page that says "not found" while the answer is still in flight sends
   // staff back to the list for an order that is about to appear.
   if (!loaded) {
-    return <div className="mx-auto max-w-3xl py-16 text-center text-neutral-400">Loading order…</div>;
+    return <div className="mx-auto max-w-3xl py-16 text-center text-neutral-500">Loading order…</div>;
   }
 
   if (!order) {
@@ -202,7 +202,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
           <div className="rounded-lg border border-neutral-200 bg-white p-5">
             <h2 className="mb-3 font-semibold text-neutral-900">Items</h2>
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-neutral-400">
+              <thead className="text-left text-xs uppercase text-neutral-500">
                 <tr>
                   <th className="pb-2">Product</th>
                   <th className="pb-2">Qty</th>
@@ -214,7 +214,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
                   <tr key={`${item.productId}-${i}`}>
                     <td className="py-2.5">
                       <p className="text-neutral-800">{item.name}</p>
-                      <p className="text-xs text-neutral-400">
+                      <p className="text-xs text-neutral-500">
                         {item.size} &middot; {item.color} &middot; {formatPrice(item.price)} each
                       </p>
                     </td>
@@ -247,7 +247,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
                 </Button>
               ))}
             </div>
-            <p className="mt-3 text-xs text-neutral-400">
+            <p className="mt-3 text-xs text-neutral-500">
               Status changes queue a customer message in the notification outbox.
             </p>
           </div>

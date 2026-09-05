@@ -122,7 +122,7 @@ export default function AdminProductsPage() {
                     >
                       {p.name}
                     </Link>
-                    <p className="text-xs text-neutral-400">{p.subcategory}</p>
+                    <p className="text-xs text-neutral-500">{p.subcategory}</p>
                   </td>
                   <td className="px-4 py-3 text-neutral-600">{p.brand}</td>
                   <td className="px-4 py-3">
@@ -132,7 +132,7 @@ export default function AdminProductsPage() {
                   </td>
                   <td className="px-4 py-3 text-neutral-800">
                     {formatPrice(p.price)}
-                    <span className="ml-1 text-xs text-neutral-400 line-through">
+                    <span className="ml-1 text-xs text-neutral-500 line-through">
                       {formatPrice(p.mrp)}
                     </span>
                   </td>
@@ -166,7 +166,7 @@ export default function AdminProductsPage() {
                         deleteRetail(p.id);
                         toast.success(`${p.name} removed`);
                       }}
-                      className="text-neutral-400 hover:text-red-600"
+                      className="text-neutral-500 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -191,7 +191,7 @@ export default function AdminProductsPage() {
               {visibleWholesale.map((p) => (
                 <tr key={p.id} className="hover:bg-neutral-50">
                   <td className="px-4 py-3">
-                    <p className="font-mono text-xs text-neutral-400">{p.sku}</p>
+                    <p className="font-mono text-xs text-neutral-500">{p.sku}</p>
                     <Link
                       href={`/admin/products/wholesale/${p.id}`}
                       className="font-medium text-neutral-800 hover:underline"
@@ -203,7 +203,7 @@ export default function AdminProductsPage() {
                     <Badge variant="outline" className="capitalize">
                       {p.category}
                     </Badge>
-                    <p className="mt-1 text-xs text-neutral-400">{p.subcategory}</p>
+                    <p className="mt-1 text-xs text-neutral-500">{p.subcategory}</p>
                   </td>
                   <td className="px-4 py-3 text-neutral-600">{p.moq}</td>
                   <td className="px-4 py-3 text-neutral-800">
@@ -235,7 +235,7 @@ export default function AdminProductsPage() {
                         deleteWholesale(p.id);
                         toast.success(`${p.name} removed`);
                       }}
-                      className="text-neutral-400 hover:text-red-600"
+                      className="text-neutral-500 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

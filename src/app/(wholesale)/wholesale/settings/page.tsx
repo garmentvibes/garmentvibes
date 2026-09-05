@@ -91,7 +91,7 @@ export default function WholesaleSettingsPage() {
           <div>
             <Label htmlFor="gstin">Tax ID / GSTIN</Label>
             <Input id="gstin" value={gstin} onChange={(e) => setGstin(e.target.value)} />
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500">
               Stored for your records only — tax calculation isn&apos;t wired up yet.
             </p>
           </div>
@@ -136,7 +136,7 @@ export default function WholesaleSettingsPage() {
               </Button>
             )}
             {user.approvalStatus !== "approved" && !user.creditTermsRequested && (
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-slate-500">
                 Available once your account is approved.
               </p>
             )}

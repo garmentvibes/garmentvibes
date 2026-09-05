@@ -55,7 +55,7 @@ export default function HomePage() {
         </Link>
       </div>
 
-      <footer className="px-6 py-4 text-center text-xs text-neutral-400">
+      <footer className="px-6 py-4 text-center text-xs text-neutral-500">
         &copy; {new Date().getFullYear()} GarmentVibes. All rights reserved.
       </footer>
     </main>

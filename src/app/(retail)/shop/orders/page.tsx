@@ -65,7 +65,7 @@ export default function OrdersPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-mono text-xs text-neutral-400">{order.id}</p>
+                  <p className="font-mono text-xs text-neutral-500">{order.id}</p>
                   <Badge variant={STATUS_VARIANT[order.status]}>
                     {STATUS_LABEL[order.status]}
                   </Badge>
@@ -96,7 +96,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      <Link href="/shop" className="mt-8 inline-block text-sm text-rose-600 underline underline-offset-4">
+      <Link href="/shop" className="mt-8 inline-block text-sm text-rose-700 underline underline-offset-4">
         &larr; Continue Shopping
       </Link>
     </div>

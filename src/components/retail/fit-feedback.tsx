@@ -57,7 +57,7 @@ export function FitFeedback({ productId }: { productId: string }) {
                       style={{ width: `${share}%` }}
                     />
                   </span>
-                  <span className="w-8 shrink-0 text-right tabular-nums text-neutral-400">
+                  <span className="w-8 shrink-0 text-right tabular-nums text-neutral-500">
                     {share}%
                   </span>
                 </div>

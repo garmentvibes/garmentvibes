@@ -165,11 +165,11 @@ export default function AdminPromosPage() {
                   )}
                 </div>
                 {promo.expiresOn && (
-                  <p className="mt-1 text-xs text-neutral-400">
+                  <p className="mt-1 text-xs text-neutral-500">
                     {expired ? "Expired on" : "Expires"} {promo.expiresOn}
                   </p>
                 )}
-                <p className="mt-1 text-xs text-neutral-400">
+                <p className="mt-1 text-xs text-neutral-500">
                   Used {promo.redemptions}
                   {promo.maxRedemptions !== undefined
                     ? ` of ${promo.maxRedemptions}`

@@ -26,6 +26,19 @@ export async function goto(page, url, options = {}) {
   try {
     await page.waitForFunction(
       () => document.documentElement.dataset.hydrated === "true",
+      // `undefined` is the argument passed INTO the page function, and the
+      // options go third. Playwright's signature is
+      // `waitForFunction(pageFunction, arg, options)`, and this used to call
+      // it with two arguments — so the `{ timeout }` object was handed to the
+      // predicate as its argument and silently ignored, leaving Playwright's
+      // own 30-second default in force.
+      //
+      // HYDRATION_TIMEOUT had therefore never applied. Every page that does
+      // not hydrate — the admin login outside the storefront layout, the 404
+      // probe — cost thirty seconds instead of fifteen, in this sweep and in
+      // every other suite that navigates through here. It looked like a slow
+      // network rather than a bug because the number was plausible.
+      undefined,
       { timeout: options.hydrationTimeout ?? HYDRATION_TIMEOUT }
     );
   } catch {

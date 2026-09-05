@@ -38,7 +38,7 @@ export default function WholesaleContactPage() {
             <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
             {BUSINESS_INFO.address}
           </div>
-          <p className="text-xs text-slate-400">Business hours: {BUSINESS_INFO.supportHours}</p>
+          <p className="text-xs text-slate-500">Business hours: {BUSINESS_INFO.supportHours}</p>
         </div>
 
         {submitted ? (

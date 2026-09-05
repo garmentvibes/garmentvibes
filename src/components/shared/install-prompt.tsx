@@ -63,7 +63,7 @@ export function InstallPrompt() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss install prompt"
-        className="text-neutral-400 hover:text-neutral-600"
+        className="text-neutral-500 hover:text-neutral-600"
       >
         <X className="h-4 w-4" />
       </button>

@@ -22,7 +22,7 @@ export function SizeGuideModal({ sizes }: { sizes: string[] }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-xs font-medium text-neutral-500 underline underline-offset-2 hover:text-rose-600"
+        className="text-xs font-medium text-neutral-500 underline underline-offset-2 hover:text-rose-700"
       >
         Size Guide
       </button>
@@ -50,7 +50,7 @@ export function SizeGuideModal({ sizes }: { sizes: string[] }) {
 
             {chart.rows.length > 0 && (
               <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase text-neutral-400">
+                <thead className="text-left text-xs uppercase text-neutral-500">
                   <tr>
                     <th className="py-1">Size</th>
                     {chart.headings.map((heading) => (

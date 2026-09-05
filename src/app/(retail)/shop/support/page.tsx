@@ -64,7 +64,7 @@ function SupportInner() {
             Sign In
           </Button>
         </Link>
-        <p className="mt-4 text-xs text-neutral-400">
+        <p className="mt-4 text-xs text-neutral-500">
           Not a customer yet? Reach us from the{" "}
           <Link href="/shop/contact" className="underline">
             contact page
@@ -187,7 +187,7 @@ function SupportInner() {
           {mine.map((ticket) => (
             <li key={ticket.id} className="rounded-lg border border-neutral-200 bg-white p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-neutral-400">{ticket.reference}</span>
+                <span className="font-mono text-xs text-neutral-500">{ticket.reference}</span>
                 <span className="text-sm font-medium text-neutral-900">{ticket.subject}</span>
                 <Badge
                   variant={
@@ -203,7 +203,7 @@ function SupportInner() {
                 {ticket.orderId && (
                   <Link
                     href={`/shop/orders/${ticket.orderId}`}
-                    className="font-mono text-xs text-rose-600 underline"
+                    className="font-mono text-xs text-rose-700 underline"
                   >
                     {ticket.orderId}
                   </Link>

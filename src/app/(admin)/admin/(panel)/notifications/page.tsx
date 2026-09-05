@@ -96,7 +96,7 @@ export default function AdminNotificationsPage() {
           { label: "Failed", value: failedCount },
         ].map((stat) => (
           <div key={stat.label} className="rounded-lg border border-neutral-200 bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-neutral-400">{stat.label}</p>
+            <p className="text-xs uppercase tracking-wide text-neutral-500">{stat.label}</p>
             <p className="mt-1 text-2xl font-bold text-neutral-900">{stat.value}</p>
           </div>
         ))}
@@ -163,7 +163,7 @@ export default function AdminNotificationsPage() {
                         <StatusIcon className="mr-1 h-3 w-3" />
                         {message.status}
                       </Badge>
-                      <span className="text-xs text-neutral-400">
+                      <span className="text-xs text-neutral-500">
                         {CHANNEL_LABELS[message.channel]}
                       </span>
                     </div>
@@ -171,7 +171,7 @@ export default function AdminNotificationsPage() {
                     <p className="mt-1 truncate text-sm text-neutral-600">
                       {message.recipientName} &middot; {message.recipient}
                     </p>
-                    <p className="mt-0.5 text-xs text-neutral-400">
+                    <p className="mt-0.5 text-xs text-neutral-500">
                       {formatTimestamp(message.createdAt)}
                       {message.relatedTo ? ` · ${message.relatedTo}` : ""}
                     </p>

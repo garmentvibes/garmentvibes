@@ -10,7 +10,7 @@ export const metadata = {
 export default function WholesaleTermsPage() {
   return (
     <ContentPage title="Wholesale Terms" subtitle="Last updated: August 2026" accent="text-blue-800">
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         GarmentVibes Wholesale is operated by {BUSINESS_INFO.legalName} (proprietor{" "}
         {BUSINESS_INFO.proprietor}), GSTIN {BUSINESS_INFO.gstin}, registered at {BUSINESS_INFO.address}.
       </p>

@@ -13,7 +13,7 @@ export function ProductReviews({ reviews }: { reviews: RetailReview[] }) {
             <p className="text-sm font-medium text-neutral-900">{review.title}</p>
           </div>
           <p className="mt-1.5 text-sm text-neutral-600">{review.body}</p>
-          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-neutral-400">
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-neutral-500">
             <span>{review.author}</span>
             <span>&middot;</span>
             <span>{review.date}</span>

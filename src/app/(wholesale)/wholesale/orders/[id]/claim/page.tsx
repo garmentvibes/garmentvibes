@@ -162,7 +162,7 @@ export default function WholesaleClaimPage({ params }: { params: Promise<{ id: s
             >
               <div className="min-w-0">
                 <p className="text-sm text-slate-800">{item.name}</p>
-                <p className="font-mono text-xs text-slate-400">{item.sku}</p>
+                <p className="font-mono text-xs text-slate-500">{item.sku}</p>
                 <p className="text-xs text-slate-500">
                   {item.qty} units billed &middot; {formatPrice(item.pricePerUnit)}/unit
                 </p>

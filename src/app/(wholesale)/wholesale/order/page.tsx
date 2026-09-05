@@ -69,7 +69,7 @@ export default function WholesaleOrderReviewPage() {
                 className="h-24 w-20 rounded object-cover"
               />
               <div className="flex-1">
-                <p className="font-mono text-xs text-slate-400">{line.sku}</p>
+                <p className="font-mono text-xs text-slate-500">{line.sku}</p>
                 <p className="font-medium text-slate-900">{line.name}</p>
                 <p className="mt-1 text-sm text-slate-500">
                   {line.qty} units &times; {formatPrice(line.pricePerUnit)}
@@ -99,13 +99,13 @@ export default function WholesaleOrderReviewPage() {
             <span>Estimated total</span>
             <span>{formatPrice(totalPrice)}</span>
           </div>
-          <div className="mt-1 flex justify-between text-xs text-slate-400">
+          <div className="mt-1 flex justify-between text-xs text-slate-500">
             <span>Payment terms</span>
             <span className="capitalize">
               {isSignedIn ? (user.paymentTerms === "net30" ? "Net 30" : "Prepay") : "Sign in to view"}
             </span>
           </div>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-slate-500">
             Final pricing confirmed on quote. GST and shipping calculated separately.
           </p>
 

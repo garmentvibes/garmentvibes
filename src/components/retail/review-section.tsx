@@ -314,7 +314,7 @@ export function ReviewSection({
                 ))}
               </div>
             )}
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
               <span>{review.author}</span>
               <span>&middot;</span>
               <span>{review.date}</span>

@@ -15,7 +15,7 @@ export default function TermsPage() {
         By using GarmentVibes, you agree to the terms below. Please read them carefully before placing
         an order.
       </p>
-      <p className="text-xs text-neutral-400">
+      <p className="text-xs text-neutral-500">
         GarmentVibes is operated by {BUSINESS_INFO.legalName} (proprietor {BUSINESS_INFO.proprietor}),
         GSTIN {BUSINESS_INFO.gstin}, registered at {BUSINESS_INFO.address}.
       </p>
@@ -39,7 +39,7 @@ export default function TermsPage() {
       <p>
         Orders can be cancelled before shipping, and eligible items returned within 7 days of
         delivery. Full details, including refund timelines, are in our{" "}
-        <Link href="/shop/refund-policy" className="text-rose-600 underline">
+        <Link href="/shop/refund-policy" className="text-rose-700 underline">
           Refund &amp; Cancellation Policy
         </Link>
         .
@@ -54,7 +54,7 @@ export default function TermsPage() {
       <p>
         For complaints that support cannot resolve, contact details for our Grievance Officer are
         published on the{" "}
-        <Link href="/shop/grievance" className="text-rose-600 underline">
+        <Link href="/shop/grievance" className="text-rose-700 underline">
           Grievance Redressal
         </Link>{" "}
         page, as required under the Consumer Protection (E-Commerce) Rules, 2020.

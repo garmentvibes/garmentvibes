@@ -109,7 +109,7 @@ export default async function WholesaleProductPage({
         </div>
 
         <div>
-          <p className="font-mono text-xs text-slate-400">{product.sku}</p>
+          <p className="font-mono text-xs text-slate-500">{product.sku}</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">{product.name}</h1>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -126,19 +126,19 @@ export default async function WholesaleProductPage({
 
           <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-slate-400">Fabric</dt>
+              <dt className="text-slate-500">Fabric</dt>
               <dd className="text-slate-800">{product.fabric}</dd>
             </div>
             <div>
-              <dt className="text-slate-400">Size run</dt>
+              <dt className="text-slate-500">Size run</dt>
               <dd className="text-slate-800">{product.sizeRun}</dd>
             </div>
             <div>
-              <dt className="text-slate-400">Colors</dt>
+              <dt className="text-slate-500">Colors</dt>
               <dd className="text-slate-800">{product.colors.join(", ")}</dd>
             </div>
             <div>
-              <dt className="text-slate-400">Pack size</dt>
+              <dt className="text-slate-500">Pack size</dt>
               <dd className="text-slate-800">{product.packSize} units/pack</dd>
             </div>
           </dl>

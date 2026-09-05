@@ -72,7 +72,7 @@ export function WholesaleSiteHeader() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search SKU / product"
-              className="w-full bg-transparent text-white outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-white outline-none placeholder:text-slate-500"
             />
           </div>
         </form>
@@ -115,7 +115,7 @@ export function WholesaleSiteHeader() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search SKU / product"
-              className="w-full bg-transparent text-white outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-white outline-none placeholder:text-slate-500"
             />
           </form>
           <nav className="flex flex-col gap-1 text-sm font-medium text-slate-300">
@@ -134,7 +134,7 @@ export function WholesaleSiteHeader() {
                         <Link
                           href={`/wholesale/catalog/${category}?subcategory=${encodeURIComponent(sub)}`}
                           onClick={() => setMenuOpen(false)}
-                          className="text-slate-400"
+                          className="text-slate-500"
                         >
                           {sub}
                         </Link>

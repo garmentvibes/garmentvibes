@@ -22,31 +22,31 @@ export default function GrievancePage() {
         <h2 className="text-base font-semibold text-neutral-900">{officer.designation}</h2>
         <dl className="mt-3 space-y-1.5 text-sm">
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0 text-neutral-400">Name</dt>
+            <dt className="w-24 shrink-0 text-neutral-500">Name</dt>
             <dd className="text-neutral-800">{officer.name}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0 text-neutral-400">Entity</dt>
+            <dt className="w-24 shrink-0 text-neutral-500">Entity</dt>
             <dd className="text-neutral-800">{BUSINESS_INFO.legalName}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0 text-neutral-400">Email</dt>
+            <dt className="w-24 shrink-0 text-neutral-500">Email</dt>
             <dd>
-              <a href={`mailto:${officer.email}`} className="text-rose-600 underline">
+              <a href={`mailto:${officer.email}`} className="text-rose-700 underline">
                 {officer.email}
               </a>
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0 text-neutral-400">Phone</dt>
+            <dt className="w-24 shrink-0 text-neutral-500">Phone</dt>
             <dd className="text-neutral-800">{BUSINESS_INFO.supportPhone}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0 text-neutral-400">Address</dt>
+            <dt className="w-24 shrink-0 text-neutral-500">Address</dt>
             <dd className="text-neutral-800">{BUSINESS_INFO.address}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0 text-neutral-400">Hours</dt>
+            <dt className="w-24 shrink-0 text-neutral-500">Hours</dt>
             <dd className="text-neutral-800">{BUSINESS_INFO.supportHours}</dd>
           </div>
         </dl>
@@ -57,7 +57,7 @@ export default function GrievancePage() {
         <li>
           <strong>Try support first.</strong> Most issues — delivery delays, returns, refunds — are
           resolved fastest by emailing{" "}
-          <a href={`mailto:${BUSINESS_INFO.supportEmail}`} className="text-rose-600 underline">
+          <a href={`mailto:${BUSINESS_INFO.supportEmail}`} className="text-rose-700 underline">
             {BUSINESS_INFO.supportEmail}
           </a>{" "}
           with your order ID.
@@ -84,7 +84,7 @@ export default function GrievancePage() {
         <li>Supporting photos, for damaged or incorrect items</li>
       </ul>
 
-      <p className="text-xs text-neutral-400">
+      <p className="text-xs text-neutral-500">
         Related: <Link href="/shop/refund-policy" className="underline">Refund &amp; Cancellation
         Policy</Link>, <Link href="/shop/shipping-policy" className="underline">Shipping Policy</Link>,{" "}
         <Link href="/shop/terms" className="underline">Terms of Service</Link>.

@@ -93,7 +93,7 @@ export function SignupForm() {
         Already have an account?{" "}
         <Link
           href={`/shop/login${redirect !== "/shop" ? `?redirect=${encodeURIComponent(redirect)}` : ""}`}
-          className="font-medium text-rose-600 hover:underline"
+          className="font-medium text-rose-700 hover:underline"
         >
           Sign in
         </Link>

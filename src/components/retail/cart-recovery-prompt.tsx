@@ -79,7 +79,7 @@ export function CartRecoveryPrompt() {
           type="button"
           onClick={dismiss}
           aria-label="Dismiss"
-          className="shrink-0 text-neutral-400 hover:text-neutral-600"
+          className="shrink-0 text-neutral-500 hover:text-neutral-600"
         >
           <X className="h-4 w-4" />
         </button>

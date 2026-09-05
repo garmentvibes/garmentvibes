@@ -113,12 +113,12 @@ export default function WholesaleDashboardPage() {
                     <Badge variant={STATUS_VARIANT[quote.status]}>
                       {WHOLESALE_QUOTE_STATUS_LABELS[quote.status]}
                     </Badge>
-                    <span className="text-xs capitalize text-slate-400">{quote.kind}</span>
+                    <span className="text-xs capitalize text-slate-500">{quote.kind}</span>
                   </div>
                   <p className="mt-1 text-sm text-slate-700">
                     {quote.requestedAt} &middot; {wholesaleQuoteUnits(quote)} units &middot;{" "}
                     {formatPrice(wholesaleQuoteTotal(quote))}
-                    <span className="ml-1 text-xs text-slate-400">+ GST</span>
+                    <span className="ml-1 text-xs text-slate-500">+ GST</span>
                   </p>
 
                   {quote.shipment && (

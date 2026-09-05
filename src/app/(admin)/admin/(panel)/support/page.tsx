@@ -80,17 +80,17 @@ export default function AdminSupportPage() {
 
       <div className="mt-4 flex gap-6 text-sm">
         <div>
-          <p className="text-xs text-neutral-400">Waiting on us</p>
+          <p className="text-xs text-neutral-500">Waiting on us</p>
           <p className="font-semibold text-neutral-900">{queue.length}</p>
         </div>
         <div>
-          <p className="text-xs text-neutral-400">Overdue</p>
+          <p className="text-xs text-neutral-500">Overdue</p>
           <p className={cn("font-semibold", overdue.length > 0 ? "text-red-600" : "text-neutral-900")}>
             {overdue.length}
           </p>
         </div>
         <div>
-          <p className="text-xs text-neutral-400">Waiting on customer</p>
+          <p className="text-xs text-neutral-500">Waiting on customer</p>
           <p className="font-semibold text-neutral-900">{waiting.length}</p>
         </div>
       </div>
@@ -111,7 +111,7 @@ export default function AdminSupportPage() {
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs text-neutral-400">{ticket.reference}</span>
+                  <span className="font-mono text-xs text-neutral-500">{ticket.reference}</span>
                   <span className="text-sm font-medium text-neutral-900">{ticket.subject}</span>
                   <Badge variant="outline">{SUPPORT_CATEGORY_LABELS[ticket.category]}</Badge>
                   {late && (
@@ -121,7 +121,7 @@ export default function AdminSupportPage() {
                   )}
                 </div>
 
-                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
                   {ticket.customerName} · {ticket.customerEmail}
                   {ticket.orderId && (
                     <Link

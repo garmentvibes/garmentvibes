@@ -90,18 +90,18 @@ export default function RefundPolicyPage() {
       <h2>6. How to Raise a Request</h2>
       <p>
         Go to <strong>My Orders</strong> and select the order, or email{" "}
-        <a href={`mailto:${BUSINESS_INFO.supportEmail}`} className="text-rose-600 underline">
+        <a href={`mailto:${BUSINESS_INFO.supportEmail}`} className="text-rose-700 underline">
           {BUSINESS_INFO.supportEmail}
         </a>{" "}
         with your order ID. If your concern isn&apos;t resolved to your satisfaction, you can
         escalate to our Grievance Officer — see the{" "}
-        <Link href="/shop/grievance" className="text-rose-600 underline">
+        <Link href="/shop/grievance" className="text-rose-700 underline">
           Grievance Redressal
         </Link>{" "}
         page.
       </p>
 
-      <p className="text-xs text-neutral-400">
+      <p className="text-xs text-neutral-500">
         Wholesale/bulk orders are governed separately — see the Wholesale Terms. Bulk orders already
         in production may not be cancellable.
       </p>

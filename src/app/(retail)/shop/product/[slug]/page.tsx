@@ -126,7 +126,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <span className="text-2xl font-bold text-neutral-900">{formatPrice(product.price)}</span>
             {discount > 0 && (
               <>
-                <span className="text-neutral-400 line-through">{formatPrice(product.mrp)}</span>
+                <span className="text-neutral-500 line-through">{formatPrice(product.mrp)}</span>
                 <span className="font-medium text-green-700">{discount}% off</span>
               </>
             )}

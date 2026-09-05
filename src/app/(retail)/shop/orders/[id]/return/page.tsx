@@ -61,7 +61,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
         <p className="text-neutral-500">Order not found.</p>
-        <Link href="/shop/orders" className="mt-4 inline-block text-sm text-rose-600 underline">
+        <Link href="/shop/orders" className="mt-4 inline-block text-sm text-rose-700 underline">
           Back to my orders
         </Link>
       </div>
@@ -86,7 +86,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
           </p>
           <Link
             href="/shop/refund-policy"
-            className="mt-4 inline-block text-sm text-rose-600 underline"
+            className="mt-4 inline-block text-sm text-rose-700 underline"
           >
             Read the refund &amp; cancellation policy
           </Link>
@@ -240,7 +240,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
             >
               <div className="min-w-0">
                 <p className="text-sm text-neutral-800">{item.name}</p>
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-neutral-500">
                   Size {item.size} &middot; {item.color} &middot; {formatPrice(item.price)} each
                 </p>
               </div>
