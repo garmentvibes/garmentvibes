@@ -184,6 +184,21 @@ const OVERFLOW_ROUTES = [
   "/wholesale/catalog",
 ];
 
+// Phones get every route, not the six above, and the reasoning behind the six
+// is why. Shared chrome is what breaks at tablet widths; at 360 the usual
+// culprit is content — a price table, a CSV preview, an admin grid, one long
+// unbroken string — and not one of the six representative pages has a table on
+// it. Sampling by layout cannot see a class of bug that belongs to the page.
+//
+// Two widths because 360 is the floor in this market and 390 is the modal
+// iPhone; a break at one and not the other is a breakpoint being crossed.
+// Measured before being committed: all 72 routes at both widths take about
+// forty seconds, so the runtime argument for sampling does not apply here.
+const PHONE_VIEWPORTS = [
+  { name: "phone 360", width: 360, height: 780 },
+  { name: "phone 390", width: 390, height: 844 },
+];
+
 for (const viewport of TABLET_VIEWPORTS) {
   const tabletPage = await browser.newPage({
     viewport: { width: viewport.width, height: viewport.height },
@@ -206,9 +221,34 @@ for (const viewport of TABLET_VIEWPORTS) {
   await tabletPage.close();
 }
 
+const phoneRoutes = buildRoutes();
+
+for (const viewport of PHONE_VIEWPORTS) {
+  const phonePage = await browser.newPage({
+    viewport: { width: viewport.width, height: viewport.height },
+  });
+
+  for (const route of phoneRoutes) {
+    try {
+      await goto(phonePage, `${BASE_URL}${route}`);
+      const overflow = await phonePage.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+      );
+      if (overflow > 0) {
+        fail(`${route} — scrolls sideways at ${viewport.name} (${viewport.width}px) by ${overflow}px`);
+      }
+    } catch (e) {
+      fail(`${route} — could not measure overflow at ${viewport.name}: ${e.message}`);
+    }
+  }
+
+  await phonePage.close();
+}
+
 if (failures === 0) {
   pass(
-    `No horizontal overflow on ${OVERFLOW_ROUTES.length} pages at ${TABLET_VIEWPORTS.length} tablet widths`
+    `No horizontal overflow on ${OVERFLOW_ROUTES.length} pages at ${TABLET_VIEWPORTS.length} tablet widths, ` +
+      `or on ${phoneRoutes.length} routes at ${PHONE_VIEWPORTS.length} phone widths`
   );
 }
 
