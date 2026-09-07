@@ -42,6 +42,8 @@
 // are not always the same Postgres version — 16 locally, 17 on the hosted
 // project — and the deparser's line breaking is not stable across them. What
 // the expression *says* is stable, and that is what is compared.
+import { pathToFileURL } from "node:url";
+
 export const FINGERPRINT_SQL = String.raw`
 with
 squash as (select 1),
@@ -259,7 +261,12 @@ export function changedFields(repo, live) {
     .map((k) => ({ field: k, repo: repo[k], live: live[k] }));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL rather than a `file://` template: on Windows argv[1] is
+// `D:\path\to\fingerprint.mjs`, which interpolates to `file://D:\path\...`
+// while import.meta.url is `file:///D:/path/...`. The two never matched, so
+// the script printed nothing and redirecting it produced an empty file — which
+// reads as an empty fingerprint rather than as a script that did not run.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // Printed rather than run: capturing needs credentials this script does not
   // ask for, and any client that can run one query can produce a fingerprint.
   process.stdout.write(FINGERPRINT_SQL.trim() + "\n");
