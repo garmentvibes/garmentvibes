@@ -186,8 +186,9 @@ it is built.
 
 ## Where each store lands
 
-The app currently keeps all of this in `localStorage` via zustand. This is the
-mapping to replace it with, store by store:
+The target mapping, store by store. It is no longer a plan for all of them —
+migrations 0016–0030 moved a good part of it, so read the table as the
+destination and the note under it as how far along each one is:
 
 | Store | Table(s) |
 | --- | --- |
@@ -213,6 +214,24 @@ mapping to replace it with, store by store:
 | `admin-accounts-store` | `wholesale_accounts` |
 | `admin-catalog-store` | `retail_products` / `wholesale_products` |
 | `recently-viewed-store` | **stays local** — see below |
+
+**How far along, as of 0030.** Landed and reading/writing the database: the
+bag, wishlist, stock, promos, returns, claims, the credit ledger,
+notifications, retail and wholesale orders and quotes, the admin catalogue,
+accounts, and back-in-stock alerts.
+
+Not started — these tables have no reader or writer anywhere in `src`:
+`retail_addresses` (the address book is still local; checkout snapshots the
+address it is given onto the order as jsonb), `reviews`, and
+`wholesale_account_members` (`/wholesale/team` is a working page backed by
+`localStorage`). `referrals`, `product_questions` and `product_fit_votes` are
+target names in this table and do not exist yet as tables.
+
+The one that matters most is `session-store`. Identity is still the mock
+`zustand` store, which says so in its own comment — so every row above is
+reached with whatever session that store hands over. Admin sign-in is the
+exception and does use real Supabase Auth once the project is configured
+(`src/lib/auth/demo.ts`).
 
 `supabase/tests/30_store_queries.sql` runs the reads and writes each of these
 will need, as the role that will run them, so the migration is a mechanical

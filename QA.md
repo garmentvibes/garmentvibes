@@ -159,8 +159,18 @@ explicitly asked to look) periodically, especially before a real deploy:
 These are stubbed by product decision, not oversight — don't "fix" them
 without checking with the user first:
 
-- No live Supabase — auth/session is a mock `zustand` store
-  (`src/lib/stores/session-store.ts`)
+- **The session is still a mock — the database is not.** This entry used to
+  read "no live Supabase", and that has not been true since 0016. Thirty
+  migrations are applied to the live project, and the bag, wishlist, promos,
+  stock, returns, claims, the credit ledger, notifications and both order
+  books all read and write it. What has *not* moved is identity:
+  `src/lib/stores/session-store.ts` is a client-side `zustand` store, and its
+  own comment says "do not treat this as secure". Admin sign-in is the
+  exception — real Supabase Auth once the project is configured
+  (`src/lib/auth/demo.ts`), though the admin panel's own data is still
+  localStorage. Still entirely local, with no reader or writer in `src`: the
+  retail address book, reviews, and wholesale team members. See
+  "Where each store lands" in `supabase/README.md` for the row-by-row state.
 - No real payment charge — the Razorpay integration is written (order
   creation, checkout handoff, signature verification, webhook receiver) but
   no merchant account exists, so `NEXT_PUBLIC_RAZORPAY_KEY_ID` /
