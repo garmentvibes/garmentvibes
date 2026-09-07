@@ -7,7 +7,7 @@
 // Usage: node scripts/qa/static-checks.mjs
 
 import { readdirSync, statSync, readFileSync } from "fs";
-import { join, relative } from "path";
+import { join, relative, sep } from "path";
 
 const ROOT = process.cwd();
 const APP_DIR = join(ROOT, "src/app");
@@ -26,12 +26,19 @@ function pass(msg) {
 // 1. Build the known route tree from src/app
 // ---------------------------------------------------------------------------
 
+// Every path below is matched against `/`-based regexes and split on "/". On
+// Windows the native separator survived into those, so a route collapsed into
+// one garbled segment: every internal link read as broken and the sitemap check
+// found zero static pages. Paths are normalised here, at the one place they
+// enter the script, rather than at each use.
+const toPosix = (p) => p.split(sep).join("/");
+
 function walk(dir, cb) {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     const stat = statSync(full);
     if (stat.isDirectory()) walk(full, cb);
-    else cb(full);
+    else cb(toPosix(full));
   }
 }
 
@@ -39,7 +46,7 @@ const routePatterns = []; // regexes matching valid pathnames
 
 walk(APP_DIR, (file) => {
   if (!/\/page\.tsx$/.test(file)) return;
-  const dir = relative(APP_DIR, file.replace(/\/page\.tsx$/, ""));
+  const dir = toPosix(relative(APP_DIR, file.replace(/\/page\.tsx$/, "")));
   const segments = dir === "" ? [] : dir.split("/");
   const kept = segments.filter((s) => !/^\(.*\)$/.test(s)); // drop route groups
   const regexParts = kept.map((s) => (/^\[.+\]$/.test(s) ? "[^/]+" : s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -72,7 +79,7 @@ walk(SRC_DIR, (file) => {
     if (!href.startsWith("/")) continue; // skip external, mailto:, tel:, #anchors
     // Strip query string / template interpolation tail, keep static prefix
     const staticPrefix = href.split(/[?${]/)[0].replace(/\/$/, "") || "/";
-    const rel = relative(ROOT, file);
+    const rel = toPosix(relative(ROOT, file));
     if (!foundLinks.has(staticPrefix)) foundLinks.set(staticPrefix, []);
     foundLinks.get(staticPrefix).push(rel);
   }
@@ -107,7 +114,7 @@ let leftovers = 0;
 walk(SRC_DIR, (file) => {
   if (!/\.(tsx|ts)$/.test(file)) return;
   const content = readFileSync(file, "utf8");
-  const rel = relative(ROOT, file);
+  const rel = toPosix(relative(ROOT, file));
   for (const { re, label } of suspiciousPatterns) {
     if (re.test(content)) {
       fail(`${label} in ${rel}`);
@@ -145,7 +152,7 @@ const NEVER_INDEXED = ["/offline", "/admin"];
 const staticPublicRoutes = [];
 walk(APP_DIR, (file) => {
   if (!/\/page\.tsx$/.test(file)) return;
-  const dir = relative(APP_DIR, file.replace(/\/page\.tsx$/, ""));
+  const dir = toPosix(relative(APP_DIR, file.replace(/\/page\.tsx$/, "")));
   const segments = (dir === "" ? [] : dir.split("/")).filter((s) => !/^\(.*\)$/.test(s));
   if (segments.some((s) => s.startsWith("["))) return; // dynamic, covered separately
   const route = "/" + segments.join("/");

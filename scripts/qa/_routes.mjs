@@ -15,15 +15,22 @@
 // a route the app does not have, not a page anybody renders.
 
 import { readdirSync, statSync, readFileSync } from "fs";
-import { join, relative } from "path";
+import { join, relative, sep } from "path";
 
 const APP_DIR = join(process.cwd(), "src/app");
+
+// Paths are matched against `/`-based regexes and split on "/" below. On
+// Windows the native separator reached those unchanged, so no file matched
+// `page.tsx` at all: buildRoutes() returned an empty list and both sweeps
+// "passed" without visiting a single page. Normalised at the one place paths
+// enter this module.
+const toPosix = (p) => p.split(sep).join("/");
 
 function walk(dir, cb) {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) walk(full, cb);
-    else cb(full);
+    else cb(toPosix(full));
   }
 }
 
@@ -44,7 +51,7 @@ export function buildRoutes() {
 
   walk(APP_DIR, (file) => {
     if (!/\/page\.tsx$/.test(file)) return;
-    const dir = relative(APP_DIR, file.replace(/\/page\.tsx$/, ""));
+    const dir = toPosix(relative(APP_DIR, file.replace(/\/page\.tsx$/, "")));
     // Route groups — `(retail)`, `(admin)` — organise the tree without
     // appearing in the URL, so they are dropped rather than walked into.
     const segments = (dir === "" ? [] : dir.split("/")).filter((s) => !/^\(.*\)$/.test(s));
