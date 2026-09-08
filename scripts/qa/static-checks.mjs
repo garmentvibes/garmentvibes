@@ -54,6 +54,20 @@ walk(APP_DIR, (file) => {
   routePatterns.push(new RegExp(pattern === "^/$" ? "^/$" : pattern));
 });
 
+// Floors, not niceties. Each of the three counts below feeds a message that
+// reads as success at zero — "All 0 public static pages are in the sitemap" is
+// what this file actually printed on Windows while reporting 56 links broken,
+// because no route was discovered to resolve them against. A detector that
+// cannot distinguish "nothing is wrong" from "nothing was examined" is not a
+// detector, so each count now has to clear a floor of one.
+function atLeastOne(count, what) {
+  if (count > 0) return true;
+  fail(`Found no ${what} — this check examined nothing, which is not a pass`);
+  return false;
+}
+
+atLeastOne(routePatterns.length, "routes under src/app");
+
 function isKnownRoute(pathname) {
   return routePatterns.some((re) => re.test(pathname));
 }
@@ -97,7 +111,9 @@ for (const [href, files] of foundLinks) {
     brokenLinks++;
   }
 }
-if (brokenLinks === 0) pass(`All internal links resolve to known routes (${foundLinks.size} unique hrefs checked)`);
+if (brokenLinks === 0 && atLeastOne(foundLinks.size, "internal hrefs in src")) {
+  pass(`All internal links resolve to known routes (${foundLinks.size} unique hrefs checked)`);
+}
 
 // ---------------------------------------------------------------------------
 // 3. Placeholder / debug leftovers
@@ -169,7 +185,7 @@ for (const route of staticPublicRoutes) {
     uncovered++;
   }
 }
-if (uncovered === 0) {
+if (uncovered === 0 && atLeastOne(staticPublicRoutes.length, "public static pages")) {
   pass(`All ${staticPublicRoutes.length} public static pages are in the sitemap`);
 }
 

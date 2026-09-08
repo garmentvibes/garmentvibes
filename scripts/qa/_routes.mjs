@@ -74,5 +74,22 @@ export function buildRoutes() {
     routes.add("/" + segments.join("/"));
   });
 
+  // An empty app tree is not a state this repo can be in, so reaching here with
+  // nothing means the discovery above stopped working — as it did on Windows,
+  // where the path separator kept `page.tsx` from ever matching. That produced
+  // no error. It produced "All 1 routes passed" from the route sweep and a
+  // clean bill of health from the accessibility sweep, both exit 0, because a
+  // loop over an empty list finds nothing wrong with anything.
+  //
+  // Throwing is the point. Both callers turn a zero-length list into a pass,
+  // and the honest failure is at the source rather than in each of them.
+  if (routes.size === 0) {
+    throw new Error(
+      `buildRoutes() found no pages under ${APP_DIR}. The sweeps would report a ` +
+        `pass over an empty list, so this fails instead. Check that page.tsx ` +
+        `files are being matched — path separators are the usual cause.`
+    );
+  }
+
   return [...routes].sort();
 }
