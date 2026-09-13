@@ -104,6 +104,10 @@ async function settles(predicate, { timeout = 5000, interval = 50 } = {}) {
  * broke, and everything else still gets measured.
  */
 async function withPage(browser, flowName, fn) {
+  // Printed as it happens, not in the report at the end: without it a
+  // running suite writes nothing for minutes and looks exactly like a hung one.
+  const startedAt = Date.now();
+  console.log(`… ${flowName}`);
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -125,8 +129,13 @@ async function withPage(browser, flowName, fn) {
     check(flowName, `flow ran to completion — ${detail}`, false);
   }
 
+  console.log(`  ${flowName} finished in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
   await page.close().catch(() => {});
-  return errors;
+  // Tagged with the flow, because the report lists console errors in one pile
+  // after every flow has run. A run that failed on a single
+  // "net::ERR_FAILED [.../_next/static/chunks/1gwj1qyiuryu5.js]" could not
+  // say which of 19 flows had been loading that chunk.
+  return errors.map((e) => `[${flowName}] ${e}`);
 }
 
 const browser = await launchBrowser();
@@ -1539,19 +1548,21 @@ allConsoleErrors.push(
     // them. It should be cleaned up rather than rejected.
     await page.fill("#awb", " 9876 5432 101 ");
     await page.click('button:has-text("Save tracking")');
-    await page.waitForTimeout(300);
-    check("tracking", "admin can record courier and AWB", (await page.locator("text=98765432101").count()) > 0);
+    check("tracking", "admin can record courier and AWB", await appears(page, "text=98765432101"));
 
     // No shipping account is configured, so booking must say so and leave the
     // manual path intact rather than failing silently or half-saving. This is
     // the only path through the Shiprocket adapter that can be exercised
     // without an account — see the header of src/lib/shipping/shiprocket.ts.
+    //
+    // appears(), not a 500ms sleep: booking is a server action, and on the
+    // first run after a server start it took longer than that — the message
+    // arrived after the check had already counted zero (13-Sep).
     await page.click('button:has-text("Book with courier")');
-    await page.waitForTimeout(500);
     check(
       "tracking",
       "booking without a shipping account explains itself",
-      (await page.locator("text=/No shipping account is configured/").count()) > 0
+      await appears(page, "text=/No shipping account is configured/")
     );
     check(
       "tracking",
