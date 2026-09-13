@@ -64,3 +64,36 @@ export async function appears(page, selector, timeout = 5000) {
     return false;
   }
 }
+
+/**
+ * Clicks `selector` once React has attached its handlers to it — or, after
+ * `timeout`, clicks anyway, so a change in React's internals degrades to the
+ * old behaviour instead of failing every flow.
+ *
+ * goto() returns on `data-hydrated`, which StoreHydrator sets from the root
+ * layout. The product page sits inside its own Suspense boundary
+ * (loading.tsx), and that boundary hydrates later: on 10 of 10 fresh loads the
+ * Add to Bag button had no handlers when the flag flipped, by 74-597ms. A click
+ * in that window can be lost outright — 2 of 15 first clicks did nothing, and
+ * the same button worked on a second click — so the suite reported a lost cart
+ * when the item had never been added.
+ *
+ * Reads React's `__reactProps$…` expando, which is an internal. That is why
+ * it degrades rather than throws.
+ */
+export async function clickWhenLive(page, selector, timeout = 5000) {
+  const target = page.locator(selector).first();
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try {
+      const live = await target.evaluate((el) =>
+        Object.keys(el).some((k) => k.startsWith("__reactProps"))
+      );
+      if (live) break;
+    } catch {
+      // Not attached yet — keep waiting.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  await target.click();
+}

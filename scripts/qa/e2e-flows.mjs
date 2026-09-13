@@ -9,7 +9,7 @@
 // within a single flow function rather than across functions.
 
 import { launchBrowser } from "./_launch-browser.mjs";
-import { goto, appears } from "./_goto.mjs";
+import { goto, appears, clickWhenLive } from "./_goto.mjs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
@@ -207,7 +207,7 @@ allConsoleErrors.push(
     check("retail-checkout", "address saved and listed", await appears(page, "text=QA Buyer"));
 
     await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
-    await page.click("text=Add to Bag");
+    await clickWhenLive(page, "text=Add to Bag");
     // Wait for the header's bag badge, which renders only once the store holds
     // the line. Navigating on a timer instead is what made "cart preserved
     // across login redirect" fail below: leave the page before the store has
@@ -485,7 +485,7 @@ allConsoleErrors.push(
 
     async function addToBagAndOpenCheckout() {
       await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
-      await page.click("text=Add to Bag");
+      await clickWhenLive(page, "text=Add to Bag");
       // Measured, not guessed: with the 300ms timer here, a loaded machine
       // navigated before the bag had persisted, checkout rendered its empty
       // state, the promo field never appeared, and the fill below sat out its
@@ -791,7 +791,7 @@ async function ageCart(page, hours) {
 allConsoleErrors.push(
   ...(await withPage(browser, "cart-recovery", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
-    await page.click("text=Add to Bag");
+    await clickWhenLive(page, "text=Add to Bag");
     await page.waitForTimeout(300);
 
     // Someone who just added an item is shopping, not abandoning. Telling
@@ -827,7 +827,7 @@ allConsoleErrors.push(
     // demonstrably back, so the old dismissal no longer applies and neither
     // does the old age.
     await goto(page, `${BASE_URL}/shop/product/satin-cami-top`);
-    await page.click("text=Add to Bag");
+    await clickWhenLive(page, "text=Add to Bag");
     await page.waitForTimeout(300);
     check(
       "cart-recovery",
@@ -1062,7 +1062,7 @@ allConsoleErrors.push(
 allConsoleErrors.push(
   ...(await withPage(browser, "wholesale-pending", async (page) => {
     await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
-    await page.click("text=Add to Order");
+    await clickWhenLive(page, "text=Add to Order");
     await page.waitForTimeout(200);
 
     await goto(page, `${BASE_URL}/wholesale/signup`);
@@ -1098,7 +1098,7 @@ allConsoleErrors.push(
     await page.waitForURL("**/wholesale/dashboard");
 
     await goto(page, `${BASE_URL}/wholesale/product/denim-jeans-bulk`);
-    await page.click("text=Add to Order");
+    await clickWhenLive(page, "text=Add to Order");
     await appears(page, '[aria-label="Current order"] span');
     await goto(page, `${BASE_URL}/wholesale/order`);
     check(
