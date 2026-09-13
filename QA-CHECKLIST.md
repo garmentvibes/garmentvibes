@@ -33,6 +33,8 @@ export DEMO_ADMIN_SECRET=qa-test-demo-admin-secret
 | P1 | `git config core.autocrlf` is `false` for this clone and files are LF (`file supabase/seed.sql`) | no "CRLF" | With `autocrlf=true` checked out, `seed:check` reports the seed stale although only line endings differ |
 | P2 | `NEXT_TELEMETRY_DISABLED=1` set for builds on Windows | build gets past config | Without it the build dies with `EXDEV ... nextjs-nodejs\Config\config.json` |
 | P3 | Nothing listening on :3000 before starting; exactly one server | `server.log` has "Ready", no `EADDRINUSE` | Start a second server: `EADDRINUSE` |
+| P3a *(13-Sep)* | Count **distinct PIDs** listening on :3000, not netstat lines: `netstat -ano \| grep -E ':3000\s+.*LISTENING' \| awk '{print $NF}' \| sort -u \| wc -l` | 1 | One `next start` binds both `0.0.0.0:3000` and `[::]:3000` — two lines, one PID. Counting lines reports a second server that does not exist |
+| P3b *(13-Sep)* | Start the QA server bound to loopback only: `npm run start -- -H 127.0.0.1`. netstat shows only `127.0.0.1:3000`, and this PC's LAN address (`ipconfig`) is refused on :3000 | LAN curl → `000` | A throwaway server bound to `0.0.0.0` on a spare port answers on the LAN address; bound to `127.0.0.1` it is refused. Why: `next start` binds every interface, and this PC's firewall allows `node.exe` inbound on the Public profile — so the QA server, then running Next 16.3.2 with a critical Windows RCE advisory, was reachable from the local network |
 | P4 | Fresh build before any browser check: `rm -rf .next && npm run build` | exit 0 | A server left running across a rebuild serves chunks that no longer exist (500s) and an unstyled page that passes a11y |
 | P5 | Every `/_next/static/*` asset referenced by `/` answers 200 | 0 non-200 | Same stale-server case as P4 |
 | P6 | No two browser jobs at once; nothing heavy during a timing measurement | — | A concurrent `qa:routes` turned a clean e2e batch into timeouts (13-Sep) |
@@ -49,6 +51,8 @@ export DEMO_ADMIN_SECRET=qa-test-demo-admin-secret
 | S5 | `npm run placeholders:check` | PASS | Delete one SVG in `public/placeholders` |
 | S6 | `npm run seed:check` | PASS | Edit one price in `supabase/seed.sql` |
 | S7 | `npm audit` (**not** the `npm ci` summary, which said 0 while audit said 1) | 0 vulnerabilities | — |
+| S7a *(13-Sep)* | After any `npm audit fix` or upgrade, read each changed package's version **from `node_modules/<pkg>/package.json` on disk** | matches `package-lock.json` | On 13-Sep `npm audit` said 0 and `npm ls` said `next@16.3.5` while the file on disk still said **16.3.2** — a critical Windows RCE. Both tools read npm's own records, not the packages. Unit tests and lint then "passed" against the vulnerable code. If disk ≠ lockfile, stop anything holding `node_modules` open and `npm ci` |
+| S7b *(13-Sep)* | New advisories arrive between runs — re-run S7 every pass, never carry a result forward | — | `npm audit` was 0 on 07-Sep and 3 (2 high, 1 critical) on 13-Sep with no change to the repo |
 | S8 | No secret with a `NEXT_PUBLIC_` prefix; service-role key read only in `src/lib/supabase/admin.ts` | grep finds none | `grep -rn "NEXT_PUBLIC_.*SECRET\|SERVICE_ROLE" src scripts .env.example` |
 | S9 | Every `"use server"` file under `src/lib/admin/` calls `getStaffUser()` and returns before touching data when it is null | all guarded | Grep for the guard **name actually used** — `getStaffUser`, not `requireStaff`; grepping the wrong name nearly raised a false alarm (13-Sep) |
 | S10 | Service-role client (`supabase/admin`) imported only by the Razorpay routes and `src/lib/notifications/*` | list unchanged | Any new importer must be justified: it bypasses RLS |
@@ -73,12 +77,16 @@ export DEMO_ADMIN_SECRET=qa-test-demo-admin-secret
 | ID | Command | Pass | Control |
 |---|---|---|---|
 | B1 | `npm run qa:routes` | 73 routes (72 + 404 probe), and the count is 73 | `buildRoutes()` throws on an empty tree; before that it printed "All 1 routes passed" |
+| B1a *(13-Sep)* | Every console error `qa:routes` reports names the URL it came from | each `console error:` line ends in `[url]` | A 13-Sep failure — `/wholesale — console error: … 404 (Not Found)` — could not be traced: it named no resource. Control: inject a fetch to a missing URL on `/` → the report names that URL |
+| B1b *(13-Sep)* | The 404 probe's own "Failed to load resource" is never charged to the route after it | no `[…/this-route-should-not-exist]` on any other route | Routes run in sorted order and `/wholesale` follows the probe, so its late message was reported as a 404 on `/wholesale` (2 runs in a row), which has none. Control: the injected genuine 404 on `/` is still reported — only the probe's own URL is exempt |
 | B2 | `npm run qa:a11y` | 72 routes, 0 WCAG 2.1 AA violations | Same route list as B1 |
 | B3 | Phone widths (inside B1): all routes at 360 and 390 | no sideways scroll | `3fc0d74` control: force an overflow |
 | B4 | `npm run qa:e2e` | 0 check failures, 0 console errors | Swap one `appears()` target for a string that never appears → exactly that check fails (`bf75882`) |
 | B5 | A crashed flow is reported under its own name | no section named `flow` | Throw on the first line of `fit` → reported under `fit` (`9c39784`) |
 | B6 | e2e stability: 3 consecutive B4 runs on a warm server | 3/3 | Record every run, not just the last. The first run after a server start fails more often |
 | B7 | `npm run qa:pwa` | manifest, SW, offline fallback | — |
+| B8 *(13-Sep)* | `qa:e2e` prints `… <flow>` as each flow starts and `<flow> finished in Ns` as it ends | per run: 19 started, 19 finished | Before this, a running suite wrote one 62-byte npm banner for minutes and was twice mistaken for hung (see P7). Count both lines in the log after every run |
+| B9 *(13-Sep)* | Every console error in the e2e report is prefixed with the flow that produced it | every `  - ` line starts with `[flow]` | Before, a lone `net::ERR_FAILED [.../_next/static/chunks/1gwj1qyiuryu5.js]` could not be attributed to any of 19 flows |
 
 ## R — Regression guards for findings (added 13-Sep)
 
