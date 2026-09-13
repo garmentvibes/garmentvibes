@@ -44,6 +44,52 @@ function check(flow, name, cond, detail) {
 const EXPECTED_CONSOLE_ERROR_URLS = [/\/api\/razorpay\/order$/];
 
 /**
+ * Waits for an assertion to become true, up to a budget, and reports whether it
+ * did.
+ *
+ * This file had 106 `waitForTimeout` calls of 200-500ms, each one a guess at
+ * how long some client-side state would take to settle, followed by an
+ * assertion that read the result once. On an idle machine the guesses hold. On
+ * a loaded one they do not, and the suite fails somewhere in retail-checkout —
+ * measured here at roughly two runs in five, with the failure moving between
+ * "cart preserved across login redirect", a click timeout and a fill timeout
+ * depending on which guess ran out first.
+ *
+ * A flaky suite is worse than a slow one. "Merge each when green" only means
+ * anything if red means broken, and a suite that fails two runs in five trains
+ * everyone to re-run it — which is also how a real regression gets waved
+ * through.
+ *
+ * The assertion is not weakened. A predicate that never becomes true still
+ * returns false and still fails its check; the only thing that changes is that
+ * a slow machine gets to finish. It is also faster than what it replaces: this
+ * returns the moment the condition holds, where a fixed sleep always pays its
+ * full duration.
+ *
+ * Reach for `appears()` from _goto.mjs first — it already exists, it already
+ * says why this race happens, and a presence check is what most of these are.
+ * This is for the assertions `appears()` cannot express, where the thing is on
+ * the page from the start and it is a *property* that settles: `isDisabled()`
+ * after a PIN code changes, `inputValue()` after a quick-fill.
+ *
+ * Not `expect(...).toPass()` because this repo runs playwright-core without the
+ * test runner, so there is no expect to reach for.
+ */
+async function settles(predicate, { timeout = 5000, interval = 50 } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    try {
+      if (await predicate()) return true;
+    } catch {
+      // A locator whose element is not in the DOM yet throws rather than
+      // answering false. That is "not yet", not "no" — keep waiting.
+    }
+    if (Date.now() >= deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+}
+
+/**
  * Runs one flow on its own page, and does not let it take the run down with it.
  *
  * Playwright's waiting calls throw on timeout, and this file has twenty
@@ -65,7 +111,11 @@ async function withPage(browser, fn, flowName = "flow") {
     if (msg.type() !== "error") return;
     const url = msg.location()?.url ?? "";
     if (EXPECTED_CONSOLE_ERROR_URLS.some((pattern) => pattern.test(url))) return;
-    errors.push(msg.text());
+    // With the URL, because without it the message can be unactionable. A run
+    // that fails on four "Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR"
+    // lines says nothing about what failed to load or from where, and the
+    // location is already in hand — the suppression list above matches on it.
+    errors.push(url ? `${msg.text()}  [${url}]` : msg.text());
   });
 
   try {
@@ -89,9 +139,16 @@ allConsoleErrors.push(
   ...(await withPage(browser, async (page) => {
     await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     await page.click('button[aria-label="Add to wishlist"]');
-    await page.waitForTimeout(200);
+    // The header badge renders only once the store holds the item. Leaving on a
+    // timer instead can navigate before the write lands, and the next page then
+    // honestly reports an empty wishlist.
+    await appears(page, '[aria-label="Wishlist"] span');
     await goto(page, `${BASE_URL}/shop/wishlist`);
-    check("retail-discovery", "wishlist shows saved item", (await page.locator("text=Floral Printed Anarkali Kurta").count()) > 0);
+    check(
+      "retail-discovery",
+      "wishlist shows saved item",
+      await appears(page, "text=Floral Printed Anarkali Kurta")
+    );
 
     await goto(page, `${BASE_URL}/shop/women`);
     const before = await page.locator("text=/Showing \\d+/").first().textContent();
@@ -147,12 +204,20 @@ allConsoleErrors.push(
     await page.fill("#state", "Maharashtra");
     await page.fill("#pincode", "400001");
     await page.click('button:has-text("Save Address")');
-    await page.waitForTimeout(200);
-    check("retail-checkout", "address saved and listed", (await page.locator("text=QA Buyer").count()) > 0);
+    check("retail-checkout", "address saved and listed", await appears(page, "text=QA Buyer"));
 
     await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
     await page.click("text=Add to Bag");
-    await page.waitForTimeout(200);
+    // Wait for the header's bag badge, which renders only once the store holds
+    // the line. Navigating on a timer instead is what made "cart preserved
+    // across login redirect" fail below: leave the page before the store has
+    // persisted and the bag really is empty afterwards, so the assertion was
+    // reporting a race in the test as a lost cart.
+    check(
+      "retail-checkout",
+      "bag badge shows the added item",
+      await appears(page, '[aria-label="Cart"] span')
+    );
     await goto(page, `${BASE_URL}/shop/checkout`);
     check("retail-checkout", "checkout gated when signed out", (await page.locator("text=Sign in to check out").count()) > 0);
 
@@ -163,15 +228,21 @@ allConsoleErrors.push(
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/shop/checkout");
-    await page.waitForTimeout(300);
-    check("retail-checkout", "cart preserved across login redirect", (await page.locator("text=Classic Crew Neck").count()) > 0);
+    check(
+      "retail-checkout",
+      "cart preserved across login redirect",
+      await appears(page, "text=Classic Crew Neck")
+    );
 
     await page.click('button:has-text("Use Home")');
-    check("retail-checkout", "quick-fill from saved address", (await page.inputValue("#fullName")) === "QA Buyer");
+    check(
+      "retail-checkout",
+      "quick-fill from saved address",
+      await settles(async () => (await page.inputValue("#fullName")) === "QA Buyer")
+    );
     await page.fill('input[placeholder="Promo code"]', "GARMENT10");
     await page.click('button:has-text("Apply")');
-    await page.waitForTimeout(200);
-    check("retail-checkout", "promo code applied", (await page.locator("text=GARMENT10 applied").count()) > 0);
+    check("retail-checkout", "promo code applied", await appears(page, "text=GARMENT10 applied"));
 
     // Payment methods are individually selectable, not one "Pay Online"
     // bucket, and UPI leads because that is how most Indian customers pay.
@@ -204,19 +275,19 @@ allConsoleErrors.push(
     // and said COD was unavailable for remote PIN codes, then checkout
     // offered it anyway. Both now read the same rule.
     await page.fill("#pincode", "790001");
-    await page.waitForTimeout(200);
     check(
       "retail-checkout",
       "COD is withdrawn for a PIN code the delivery estimate excludes",
-      await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled()
+      await settles(() => page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled())
     );
 
     await page.fill("#pincode", "400001");
-    await page.waitForTimeout(200);
     check(
       "retail-checkout",
       "COD returns when the PIN code is serviceable",
-      !(await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled())
+      await settles(async () =>
+        !(await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled())
+      )
     );
 
     await page.click("text=Cash on Delivery");
@@ -415,7 +486,11 @@ allConsoleErrors.push(
     async function addToBagAndOpenCheckout() {
       await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
       await page.click("text=Add to Bag");
-      await page.waitForTimeout(300);
+      // Measured, not guessed: with the 300ms timer here, a loaded machine
+      // navigated before the bag had persisted, checkout rendered its empty
+      // state, the promo field never appeared, and the fill below sat out its
+      // full 30-second timeout — taking the whole referrals flow with it.
+      await appears(page, '[aria-label="Cart"] span');
       await goto(page, `${BASE_URL}/shop/checkout`);
       await appears(page, 'input[placeholder="Promo code"]');
     }
@@ -1024,9 +1099,13 @@ allConsoleErrors.push(
 
     await goto(page, `${BASE_URL}/wholesale/product/denim-jeans-bulk`);
     await page.click("text=Add to Order");
-    await page.waitForTimeout(200);
+    await appears(page, '[aria-label="Current order"] span');
     await goto(page, `${BASE_URL}/wholesale/order`);
-    check("wholesale-approved", "approved account sees Place Order Directly", (await page.locator('button:has-text("Place Order Directly")').count()) > 0);
+    check(
+      "wholesale-approved",
+      "approved account sees Place Order Directly",
+      await appears(page, 'button:has-text("Place Order Directly")')
+    );
 
     await goto(page, `${BASE_URL}/wholesale/settings`);
     check("wholesale-approved", "settings shows Approved badge", (await page.locator("text=Approved").count()) > 0);
@@ -1043,9 +1122,13 @@ allConsoleErrors.push(
 
     await goto(page, `${BASE_URL}/wholesale/dashboard`);
     await page.click('button:has-text("Reorder") >> nth=0');
-    await page.waitForTimeout(200);
+    await appears(page, '[aria-label="Current order"] span');
     await goto(page, `${BASE_URL}/wholesale/order`);
-    check("wholesale-approved", "reorder added items to order review", (await page.locator("text=/units/").count()) > 0);
+    check(
+      "wholesale-approved",
+      "reorder added items to order review",
+      await appears(page, "text=/units/")
+    );
   }))
 );
 
