@@ -12,6 +12,7 @@ import { useAllClaims } from "@/lib/hooks/use-claims";
 import { setClaimStatus } from "@/lib/claims/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import {
   CLAIM_RESOLUTION_LABELS,
   CLAIM_STATUS_LABELS,
@@ -35,7 +36,7 @@ const FILTERS: Filter[] = ["submitted", "under_review", "approved", "settled", "
 
 export default function AdminClaimsPage() {
   const mounted = useHasMounted();
-  const { claims, live, refresh } = useAllClaims();
+  const { claims, loaded, live, refresh } = useAllClaims();
   const setStoreStatus = useClaimsStore((s) => s.setStatus);
   const [filter, setFilter] = useState<Filter>("submitted");
 
@@ -111,6 +112,13 @@ export default function AdminClaimsPage() {
         {openCount} awaiting review. Short shipments and transit damage reported by bulk buyers,
         raised per line against the invoiced quantity.
       </p>
+
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          Showing sample claims. Decisions made here are saved in this browser only and are not
+          shared with other staff.
+        </BrowserOnlyNotice>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => (

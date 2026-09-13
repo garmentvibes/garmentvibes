@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAdminAccountsStore, useWholesaleAccounts } from "@/lib/stores/admin-accounts-store";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import type { WholesaleAccount } from "@/types/admin";
 
 type Filter = "all" | "pending" | "approved" | "rejected";
@@ -71,6 +72,13 @@ export default function AdminAccountsPage() {
         Approve business registrations and manage payment terms. Pending accounts can browse and
         request quotes, but can&apos;t place orders directly until approved.
       </p>
+
+      {/* Always shown: nothing in src reads or writes wholesale_accounts, so a
+          deployment with a database still keeps these decisions here. */}
+      <BrowserOnlyNotice>
+        Approvals and payment terms are saved in this browser only. They are not shared with
+        other staff, and clearing site data removes them.
+      </BrowserOnlyNotice>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {(["pending", "approved", "rejected", "all"] as Filter[]).map((f) => (

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { NOTIFICATION_TEMPLATES } from "@/lib/notifications/templates";
 import {
@@ -88,6 +89,12 @@ export default function AdminNotificationsPage() {
         is connected yet, so nothing actually leaves the system — this is the outbox that shows
         exactly what each customer would receive.
       </p>
+
+      {/* Always shown: this page reads the persisted notification store only. */}
+      <BrowserOnlyNotice>
+        This outbox is saved in this browser only. It is not shared with other staff, and
+        clearing site data removes it.
+      </BrowserOnlyNotice>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         {[

@@ -15,6 +15,7 @@ import { recordCreditPayment, writeOffCreditInvoice } from "@/lib/admin/credit/a
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import {
   AGEING_BUCKETS,
   INVOICE_STATUS_LABELS,
@@ -146,6 +147,13 @@ export default function AdminCreditPage() {
         Net-30 invoices for wholesale accounts on credit terms — what&apos;s outstanding,
         what&apos;s overdue, and who to chase.
       </p>
+
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          Showing sample invoices. Payments and write-offs recorded here are saved in this browser
+          only and are not shared with other staff.
+        </BrowserOnlyNotice>
+      )}
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-neutral-200 bg-white p-4">

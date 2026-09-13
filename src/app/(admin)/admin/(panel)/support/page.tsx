@@ -12,6 +12,7 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { useSupportStore } from "@/lib/stores/support-store";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import {
   MAX_MESSAGE_LENGTH,
   RESPONSE_TARGET_HOURS,
@@ -77,6 +78,12 @@ export default function AdminSupportPage() {
         {RESPONSE_TARGET_HOURS} hours — past that, an ordinary question starts turning into a
         grievance.
       </p>
+
+      {/* Always shown: tickets live in a persisted store with no database path. */}
+      <BrowserOnlyNotice>
+        Support threads are saved in this browser only. They are not shared with other staff,
+        and clearing site data removes them.
+      </BrowserOnlyNotice>
 
       <div className="mt-4 flex gap-6 text-sm">
         <div>

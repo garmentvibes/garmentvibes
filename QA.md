@@ -303,13 +303,21 @@ panel stays out of `robots.txt` and the sitemap.
 - Not every admin area is live. The wholesale account approval queue has no
   database path at all — nothing in `src` reads or writes `wholesale_accounts`
   — so on a configured deployment approvals still live in one browser.
-- The amber "Demo mode — changes are saved to this browser only" banner in
-  `src/components/admin/admin-shell.tsx` has no condition on it. Real staff on
-  a configured deployment see it too, where it is false for orders, quotes,
-  promos, credit and the catalogue, all of which write to the database. The
-  promos page already shows the right shape: its own notice is wrapped in
-  `{!live && …}`. The fix is per page, because the approval queue above really
-  is browser-only and should keep saying so.
+- *(Fixed 14-Sep.)* The amber "Demo mode — changes are saved to this browser
+  only" banner in `src/components/admin/admin-shell.tsx` had no condition on
+  it, so real staff on a configured deployment saw it where it was false. It
+  is gone; each page now says so itself with `BrowserOnlyNotice`
+  (`src/components/admin/browser-only-notice.tsx`):
+  - always — accounts, support, questions, notifications (persisted stores
+    with no database path);
+  - when the page's hook reports `loaded && !live` — orders, quotes (list and
+    detail), credit, claims, returns, and promos (`!live`);
+  - when no Supabase project is configured — products and both product forms.
+
+  The `admin` e2e flow checks each of those pages shows exactly one notice and
+  the dashboard none. **Not covered by any suite:** the configured side, where
+  the database-backed pages must show *no* notice — that needs a build with a
+  Supabase project and a real staff sign-in.
 
 The storefront catalogue itself reads `retail_products` from the database
 when Supabase is configured (`getRetailCatalogue` in

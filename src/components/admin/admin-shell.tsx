@@ -131,11 +131,9 @@ export function AdminShell({ user, children }: { user: StaffUser; children: Reac
           <span className="font-semibold text-neutral-900">Admin</span>
         </header>
 
-        <div className="bg-amber-50 px-4 py-2 text-center text-xs text-amber-800 sm:px-6">
-          Demo mode — changes are saved to this browser only. They will write to the database once
-          Supabase is connected, and are not yet visible on the live storefront.
-        </div>
-
+        {/* No panel-wide "saved to this browser only" banner here: it was
+            false on every page that writes to the database. Each page that
+            keeps data in the browser says so itself — BrowserOnlyNotice. */}
         {user.demo && (
           <div className="bg-red-50 px-4 py-2 text-center text-xs font-medium text-red-800 sm:px-6">
             Demo sign-in — no password was checked. This deployment has no Supabase project, so

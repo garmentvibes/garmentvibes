@@ -14,6 +14,7 @@ import { useStockStore, getStock } from "@/lib/stores/stock-store";
 import { adjustRetailStock } from "@/lib/admin/products/actions";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { notifyRestocked } from "@/lib/notify-restock";
 import { useCatalogue } from "@/components/shared/catalogue-provider";
 import {
@@ -55,7 +56,7 @@ export default function AdminReturnsPage() {
   const productById = (id: string) => catalogue.find((p) => p.id === id);
 
   const mounted = useHasMounted();
-  const { requests, live, refresh } = useAllReturns();
+  const { requests, loaded, live, refresh } = useAllReturns();
   const setStoreStatus = useReturnsStore((s) => s.setStatus);
   const increment = useStockStore((s) => s.increment);
   const decrement = useStockStore((s) => s.decrement);
@@ -257,6 +258,13 @@ export default function AdminReturnsPage() {
         {openCount} awaiting review. The published policy promises a decision within 2 business
         days, and free pickup on anything approved.
       </p>
+
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          Showing sample returns. Decisions made here are saved in this browser only and are not
+          shared with other staff.
+        </BrowserOnlyNotice>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {(

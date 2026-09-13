@@ -37,8 +37,10 @@ export DEMO_ADMIN_SECRET=qa-test-demo-admin-secret
 | P3b *(13-Sep)* | Start the QA server bound to loopback only: `npm run start -- -H 127.0.0.1`. netstat shows only `127.0.0.1:3000`, and this PC's LAN address (`ipconfig`) is refused on :3000 | LAN curl → `000` | A throwaway server bound to `0.0.0.0` on a spare port answers on the LAN address; bound to `127.0.0.1` it is refused. Why: `next start` binds every interface, and this PC's firewall allows `node.exe` inbound on the Public profile — so the QA server, then running Next 16.3.2 with a critical Windows RCE advisory, was reachable from the local network |
 | P4 | Fresh build before any browser check: `rm -rf .next && npm run build` | exit 0 | A server left running across a rebuild serves chunks that no longer exist (500s) and an unstyled page that passes a11y |
 | P5 | Every `/_next/static/*` asset referenced by `/` answers 200 | 0 non-200 | Same stale-server case as P4 |
+| P5a *(14-Sep)* | Extract asset URLs with `grep -oE '/_next/static/[^"\\]+'` — the `\` must be excluded | 17 assets, 0 non-200 (14-Sep) | The page also carries asset URLs inside escaped RSC JSON (`\"`). A pattern that stops only at `"` keeps a trailing `\`, and those 10 "assets" answer **308** — a false P5 failure. Control: request one real asset with `\` appended → 308; without → 200 |
 | P6 | No two browser jobs at once; nothing heavy during a timing measurement | — | A concurrent `qa:routes` turned a clean e2e batch into timeouts (13-Sep) |
 | P7 | Judge a running `qa:e2e` by its node process and `chrome-headless-shell` CPU, not its log size | — | The report prints only at the end, so a 62-byte log for minutes is normal; it was called "hung" twice |
+| P8 *(14-Sep)* | Before a build, check the machine's free **commit** memory, not just free RAM: `(Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory` | > 3 GB free | On 14-Sep the build died with `FATAL ERROR: Committing semi space failed … JavaScript heap out of memory` → `Failed to type check.` It was not a type error: 2.7 GB of 23 GB commit was free, held by ~14 open Claude sessions and ~40 MCP helper processes. Read "out of memory" before reading "Failed to type check" — the second is a consequence. Retry with `NODE_OPTIONS=--max-old-space-size=2560`; never close another session's processes |
 
 ## S — Static (no server)
 
@@ -94,7 +96,7 @@ export DEMO_ADMIN_SECRET=qa-test-demo-admin-secret
 |---|---|---|---|
 | R1 | Signed-out admin RSC navigations over plain http are not upgraded to `https://localhost` | 0 `https://localhost` requests after sign-out | Sign in, clear cookies, click a sidebar link, count requests. Control: with `upgrade-insecure-requests` in the CSP it produced 36 in 3 rounds; with HSTS stripped instead, 28 |
 | R2 | A click straight after `goto()` on the product page lands | 0 lost first clicks | 15 fresh loads, click Add to Bag the instant `goto()` returns. Before `clickWhenLive`: 2/15 lost |
-| R3 | Admin "Demo mode — saved to this browser only" banner shows only where it is true | *open finding* | `src/components/admin/admin-shell.tsx`, unconditional today |
+| R3 | Admin "Demo mode — saved to this browser only" banner shows only where it is true | *fixed 14-Sep* — in B4's `admin` flow: 13 writing pages show exactly one `[data-browser-only-notice]` each, the dashboard 0, and no page shows the old shell banner | Was `src/components/admin/admin-shell.tsx`, unconditional. Control: put the shell banner back and delete the accounts page's notice → exactly those two checks fail. **Configured side not covered** (database-backed pages must show none): needs a Supabase build and real staff sign-in |
 | R4 | Tables with no reader or writer in `src` | the known 5 only (`wholesale_accounts`, `wholesale_ship_to_addresses`, `retail_addresses`, `reviews`, `wholesale_account_members`) | Grep each table name **and** every `.rpc(` name, including calls split across lines — the first pass missed one and flagged 7 |
 
 ---

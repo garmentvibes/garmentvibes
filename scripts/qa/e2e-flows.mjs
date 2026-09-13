@@ -1237,6 +1237,45 @@ allConsoleErrors.push(
     // Restore the session for the rest of this flow.
     await page.context().addCookies(signedInCookies);
 
+    // Each page that keeps data in this browser says so itself, exactly once,
+    // and the dashboard — which writes nothing — says nothing. This build has
+    // no Supabase project, so every page below is browser-only here and must
+    // show one notice. Until 14-Sep a single unconditional banner in the admin
+    // shell said it on every page instead, including pages where a configured
+    // deployment writes to the database and the banner was false.
+    for (const path of [
+      "/admin/products",
+      "/admin/products/retail/new",
+      "/admin/products/wholesale/new",
+      "/admin/orders",
+      "/admin/quotes",
+      "/admin/support",
+      "/admin/questions",
+      "/admin/returns",
+      "/admin/claims",
+      "/admin/credit",
+      "/admin/promos",
+      "/admin/accounts",
+      "/admin/notifications",
+    ]) {
+      await goto(page, `${BASE_URL}${path}`);
+      await appears(page, "[data-browser-only-notice]");
+      const notices = await page.locator("[data-browser-only-notice]").count();
+      check("admin", `${path} says once that it saves to this browser only`, notices === 1, `${notices} notices`);
+    }
+    await goto(page, `${BASE_URL}/admin`);
+    // Wait for the dashboard to render before asserting an absence — a count
+    // taken before the page paints would pass on nothing.
+    const dashboardShown = await appears(page, 'h1:has-text("Dashboard")');
+    const dashboardNotices = await page.locator("[data-browser-only-notice]").count();
+    const shellBanners = await page.locator("text=Demo mode — changes are saved").count();
+    check(
+      "admin",
+      "the dashboard shows no browser-only notice and no panel-wide banner",
+      dashboardShown && dashboardNotices === 0 && shellBanners === 0,
+      `dashboard ${dashboardShown ? "shown" : "NOT shown"}, ${dashboardNotices} notices, ${shellBanners} banners`
+    );
+
     // The approval queue is the counterpart to the storefront's pending state.
     await goto(page, `${BASE_URL}/admin/accounts`);
     const pendingBefore = await page.locator('button:has-text("Approve")').count();

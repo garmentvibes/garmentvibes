@@ -8,6 +8,7 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { useAdminCatalogStore } from "@/lib/stores/admin-catalog-store";
 import { placeholderImage } from "@/lib/mock/placeholder-image";
 import { WHOLESALE_TAXONOMY, WHOLESALE_CATEGORY_LABELS } from "@/lib/mock/wholesale-taxonomy";
@@ -139,6 +140,13 @@ export function WholesaleProductForm({ product }: { product?: WholesaleProduct }
       <h1 className="mt-3 text-2xl font-bold text-neutral-900">
         {isEdit ? "Edit wholesale product" : "New wholesale product"}
       </h1>
+
+      {!CONFIGURED && (
+        <BrowserOnlyNotice>
+          No database is connected, so this product is saved in this browser only. It is not
+          shared with other staff, and clearing site data removes it.
+        </BrowserOnlyNotice>
+      )}
 
       <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4 rounded-lg border border-neutral-200 bg-white p-6">
         <div className="grid grid-cols-2 gap-3">

@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/products/actions";
 import { Plus, Trash2, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatPrice } from "@/lib/utils";
@@ -56,6 +57,12 @@ export default function AdminProductsPage() {
           <p className="mt-1 text-sm text-neutral-500">
             {retailProducts.length} retail &middot; {wholesaleProducts.length} wholesale
           </p>
+          {!CONFIGURED && (
+            <BrowserOnlyNotice>
+              No database is connected, so product changes are saved in this browser only. They
+              are not shared with other staff, and clearing site data removes them.
+            </BrowserOnlyNotice>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

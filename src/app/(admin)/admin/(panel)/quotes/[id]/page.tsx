@@ -11,6 +11,7 @@ import { useAdminOrdersStore } from "@/lib/stores/admin-orders-store";
 import { useAdminQuote } from "@/lib/hooks/use-admin-quotes";
 import { setWholesaleQuoteStatus, setWholesaleShipment } from "@/lib/admin/quotes/actions";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { COURIERS, trackingUrlFor } from "@/lib/couriers";
 import { checkAwb } from "@/lib/shipping/awb";
 import { Input } from "@/components/ui/input";
@@ -159,6 +160,13 @@ export default function AdminQuoteDetailPage({ params }: { params: Promise<{ id:
           </Link>
         </div>
       </div>
+
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          This is a sample request. Changes made here are saved in this browser only and are not
+          shared with other staff.
+        </BrowserOnlyNotice>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
