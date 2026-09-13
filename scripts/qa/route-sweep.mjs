@@ -72,7 +72,20 @@ let checked = 0;
 for (const route of [...routes].sort()) {
   const consoleErrors = [];
   const onConsole = (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text());
+    if (msg.type() !== "error") return;
+    const url = msg.location()?.url ?? "";
+    // The 404 probe's own "Failed to load resource: 404" belongs to the probe,
+    // whichever route is being checked when it arrives. Routes are visited in
+    // sorted order and /wholesale comes straight after
+    // /this-route-should-not-exist, so the probe's message sometimes landed
+    // after the sweep had moved on and was reported as a 404 *on /wholesale* —
+    // which has none: three fresh loads of it showed no 4xx at all (13-Sep).
+    // The exemption at the bottom of this loop is keyed on the route being
+    // checked, which is exactly the case it could not catch.
+    if (url.endsWith("/this-route-should-not-exist")) return;
+    // With the URL, because that is what identified the case above. Before
+    // it, the failure named no resource and could not be traced.
+    consoleErrors.push(url ? `${msg.text()}  [${url}]` : msg.text());
   };
   const onPageError = (err) => consoleErrors.push(err.message);
   page.on("console", onConsole);
