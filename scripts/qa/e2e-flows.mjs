@@ -103,7 +103,7 @@ async function settles(predicate, { timeout = 5000, interval = 50 } = {}) {
  * lets the remaining flows report. The run still fails; it just says what
  * broke, and everything else still gets measured.
  */
-async function withPage(browser, fn, flowName = "flow") {
+async function withPage(browser, flowName, fn) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -136,7 +136,7 @@ let allConsoleErrors = [];
 // Retail: browse, wishlist, filter, search
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-discovery", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     await page.click('button[aria-label="Add to wishlist"]');
     // The header badge renders only once the store holds the item. Leaving on a
@@ -193,7 +193,7 @@ allConsoleErrors.push(
 // Retail: address book -> gated checkout -> redirect-back -> COD order
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-checkout", async (page) => {
     await goto(page, `${BASE_URL}/shop/addresses`);
     await page.click("text=Add Address");
     await page.fill("#label", "Home");
@@ -334,7 +334,7 @@ allConsoleErrors.push(
 // Retail + admin: order-linked support threads
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "support", async (page) => {
     await goto(page, `${BASE_URL}/shop/support`);
     check(
       "support",
@@ -467,7 +467,7 @@ allConsoleErrors.push(
 // code, and claiming somebody else's referral reward.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "referrals", async (page) => {
     // Two accounts have to exist before a code can resolve to a person — the
     // code is a hash of an email and cannot be reversed.
     async function signIn(email) {
@@ -584,7 +584,7 @@ allConsoleErrors.push(
 // customer A's pending question" is the check that matters most.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "qa", async (page) => {
     const PRODUCT = `${BASE_URL}/shop/product/classic-crew-neck-tee`;
 
     await goto(page, PRODUCT);
@@ -687,7 +687,7 @@ allConsoleErrors.push(
 // Retail: fit confidence — per-system size charts, buyer fit feedback
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "fit", async (page) => {
     // The defect this fixes: one S/M/L/XL chart was shown on every product, so
     // a customer buying 32" jeans or a 4-5Y frock saw a chart with no row for
     // their size — worse than no chart, because it looks like an answer.
@@ -789,7 +789,7 @@ async function ageCart(page, hours) {
 }
 
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "cart-recovery", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
     await page.click("text=Add to Bag");
     await page.waitForTimeout(300);
@@ -872,7 +872,7 @@ allConsoleErrors.push(
 // Retail: stock levels, delivery estimate, review submission
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-product", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
 
     // XL is seeded out of stock in the mock catalog, so its size button must
@@ -998,7 +998,7 @@ allConsoleErrors.push(
 // Retail: order detail, timeline, invoice, self-service cancellation
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-orders", async (page) => {
     await goto(page, `${BASE_URL}/shop/orders`);
     // appears(), not count(). The list is populated from a hook that may have
     // to ask the server first — on a deployment with a database it always
@@ -1060,7 +1060,7 @@ allConsoleErrors.push(
 // Wholesale: new signup starts pending -> quote allowed, direct order locked
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-pending", async (page) => {
     await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
     await page.click("text=Add to Order");
     await page.waitForTimeout(200);
@@ -1090,7 +1090,7 @@ allConsoleErrors.push(
 // Wholesale: returning login is approved -> direct order + credit terms
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-approved", async (page) => {
     await goto(page, `${BASE_URL}/wholesale/login`);
     await page.fill("#email", "qa-buyer@example.com");
     await page.fill("#password", "password123");
@@ -1136,7 +1136,7 @@ allConsoleErrors.push(
 // Wholesale: pricing calculator + CSV bulk upload on Quick Order
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-tools", async (page) => {
     await goto(page, `${BASE_URL}/wholesale/pricing-calculator`);
     const priceBefore = await page.locator("text=PRICE PER UNIT").locator("..").textContent();
     await page.fill("#calc-qty", "700");
@@ -1153,7 +1153,7 @@ allConsoleErrors.push(
 // Admin: access gating, approvals, order/quote status, product CRUD
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "admin", async (page) => {
     // Gating: admin routes are unusable without an admin session.
     await goto(page, `${BASE_URL}/admin`);
     check("admin", "admin redirects to login when signed out", page.url().endsWith("/admin/login"));
@@ -1341,7 +1341,7 @@ allConsoleErrors.push(
 // delivery dates are relative — see the note in mock/admin-data.ts.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "returns", async (page) => {
     // Eligibility gating: only delivered orders, and only inside the window.
     await goto(page, `${BASE_URL}/shop/orders/GV84213102`);
     check("returns", "undelivered order offers no return", (await page.locator('a:has-text("Return items")').count()) === 0);
@@ -1432,7 +1432,7 @@ allConsoleErrors.push(
 // Exchanges, restocking, tracking, promos and back-in-stock
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "exchanges", async (page) => {
     // ---- Exchange: request a size swap rather than a refund -------------
     await goto(page, `${BASE_URL}/shop/orders/GV84055120/return`);
     await page.click('button:has-text("Exchange")');
@@ -1597,7 +1597,7 @@ allConsoleErrors.push(
 // Back in stock: register interest on a sold-out size, get notified on restock
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "back-in-stock", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     const hasNotify = await appears(page, "text=Sold out in your size?");
     check("back-in-stock", "sold-out product offers a notify-me form", hasNotify);
@@ -1653,7 +1653,7 @@ allConsoleErrors.push(
 // Wholesale lifecycle: consignment tracking, claims, and the credit ledger
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-lifecycle", async (page) => {
     await goto(page, `${BASE_URL}/admin/login`);
     await page.fill("#email", "staff@garmentvibes.com");
     await page.fill("#password", "password123");
@@ -1959,7 +1959,7 @@ allConsoleErrors.push(
 // asserted to exist.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "install-qr", async (page) => {
     const card = 'aside[aria-label="Continue shopping on your phone"]';
 
     await goto(page, `${BASE_URL}/shop`);
@@ -2082,7 +2082,7 @@ async function jsonLdBlocks(page) {
 }
 
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "seo", async (page) => {
     await goto(page, `${BASE_URL}/`);
     const home = await jsonLdBlocks(page);
     check("seo", "site JSON-LD parses", home.every((b) => !b.__invalid));
