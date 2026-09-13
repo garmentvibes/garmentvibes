@@ -2166,13 +2166,19 @@ allConsoleErrors.push(
     );
 
     // Wholesale uses AggregateOffer because bulk pricing is a range.
-    await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
+    const bulkResponse = await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
     const bulk = (await jsonLdBlocks(page)).find((b) => b["@type"] === "Product");
-    check("seo", "wholesale product uses AggregateOffer", bulk?.offers?.["@type"] === "AggregateOffer");
+    // Say whether the page arrived at all. On 14-Sep both checks below failed
+    // with no detail while Chrome logged ERR_INSUFFICIENT_RESOURCES on a PC
+    // short of memory, and nothing in the report could tell a page that never
+    // loaded from a page with the wrong markup.
+    const bulkSeen = `status ${bulkResponse?.status() ?? "none"}, Product block ${bulk ? "found" : "NOT found"}`;
+    check("seo", "wholesale product uses AggregateOffer", bulk?.offers?.["@type"] === "AggregateOffer", bulkSeen);
     check(
       "seo",
       "wholesale price range is ordered low to high",
-      Number(bulk?.offers?.lowPrice) <= Number(bulk?.offers?.highPrice)
+      Number(bulk?.offers?.lowPrice) <= Number(bulk?.offers?.highPrice),
+      `${bulkSeen}, low ${bulk?.offers?.lowPrice}, high ${bulk?.offers?.highPrice}`
     );
 
     await goto(page, `${BASE_URL}/shop/faq`);

@@ -89,6 +89,7 @@ export DEMO_ADMIN_SECRET=qa-test-demo-admin-secret
 | B7 | `npm run qa:pwa` | manifest, SW, offline fallback | — |
 | B8 *(13-Sep)* | `qa:e2e` prints `… <flow>` as each flow starts and `<flow> finished in Ns` as it ends | per run: 19 started, 19 finished | Before this, a running suite wrote one 62-byte npm banner for minutes and was twice mistaken for hung (see P7). Count both lines in the log after every run |
 | B9 *(13-Sep)* | Every console error in the e2e report is prefixed with the flow that produced it | every `  - ` line starts with `[flow]` | Before, a lone `net::ERR_FAILED [.../_next/static/chunks/1gwj1qyiuryu5.js]` could not be attributed to any of 19 flows |
+| B10 *(14-Sep)* | An e2e failure whose console errors start with `net::ERR_INSUFFICIENT_RESOURCES` is the **browser** out of resources, not the app. Before calling it an app bug: (a) `server.log` has no error, (b) fetch the failing page directly and check what the assertion checks, (c) record the run as a failure in B6 anyway — a starved run is not a pass | run counted, cause named | 14-Sep run 2: 2 `seo` checks failed with 2 × `ERR_INSUFFICIENT_RESOURCES` then 12 × `ERR_FAILED` on chunks that answer 200, at 461 MB free RAM. The page fetched directly: 200, AggregateOffer, 189 ≤ 249. Those two checks now print the page status and whether the Product block was found |
 
 ## R — Regression guards for findings (added 13-Sep)
 
