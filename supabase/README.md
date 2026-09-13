@@ -218,9 +218,14 @@ destination and the note under it as how far along each one is:
 **How far along, as of 0030.** Landed and reading/writing the database: the
 bag, wishlist, stock, promos, returns, claims, the credit ledger,
 notifications, retail and wholesale orders and quotes, the admin catalogue,
-accounts, and back-in-stock alerts.
+and back-in-stock alerts.
 
 Not started — these tables have no reader or writer anywhere in `src`:
+`wholesale_accounts` (the admin approval queue is `useAdminAccountsStore` in
+`localStorage`, so an approval made on one machine is not seen on another — an
+earlier version of this paragraph listed accounts as landed, and they have
+not: no query, RPC or server action touches the table),
+`wholesale_ship_to_addresses` (ship-to addresses are still local),
 `retail_addresses` (the address book is still local; checkout snapshots the
 address it is given onto the order as jsonb), `reviews`, and
 `wholesale_account_members` (`/wholesale/team` is a working page backed by

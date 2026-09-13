@@ -162,15 +162,19 @@ without checking with the user first:
 - **The session is still a mock — the database is not.** This entry used to
   read "no live Supabase", and that has not been true since 0016. Thirty
   migrations are applied to the live project, and the bag, wishlist, promos,
-  stock, returns, claims, the credit ledger, notifications and both order
-  books all read and write it. What has *not* moved is identity:
-  `src/lib/stores/session-store.ts` is a client-side `zustand` store, and its
-  own comment says "do not treat this as secure". Admin sign-in is the
-  exception — real Supabase Auth once the project is configured
-  (`src/lib/auth/demo.ts`), though the admin panel's own data is still
-  localStorage. Still entirely local, with no reader or writer in `src`: the
-  retail address book, reviews, and wholesale team members. See
-  "Where each store lands" in `supabase/README.md` for the row-by-row state.
+  stock, returns, claims, the credit ledger, notifications, both order books
+  and the admin catalogue all read and write it. What has *not* moved is
+  identity: `src/lib/stores/session-store.ts` is a client-side `zustand`
+  store, and its own comment says "do not treat this as secure". Admin
+  sign-in is the exception — real Supabase Auth once the project is
+  configured (`src/lib/auth/demo.ts`) — and admin writes to orders, quotes,
+  promos, credit and the catalogue go to the database behind a server-checked
+  staff role (see "Admin panel" below). Still entirely local, with no reader
+  or writer in `src`: the wholesale account approval queue
+  (`wholesale_accounts` — the admin accounts page is `useAdminAccountsStore`),
+  wholesale ship-to addresses, the retail address book, reviews, and
+  wholesale team members. See "Where each store lands" in
+  `supabase/README.md` for the row-by-row state.
 - No real payment charge — the Razorpay integration is written (order
   creation, checkout handoff, signature verification, webhook receiver) but
   no merchant account exists, so `NEXT_PUBLIC_RAZORPAY_KEY_ID` /
@@ -186,8 +190,11 @@ without checking with the user first:
     `RAZORPAY_WEBHOOK_SECRET` set on both the server process and the test
     runner — CI sets a dummy one; locally the checks skip with a notice if
     it's absent.
-  - Fulfilment on `payment.captured` is still a no-op: there is no
-    server-side order store to update until Supabase lands.
+  - Fulfilment on `payment.captured` and `order.paid` is wired: after the
+    signature check, the webhook records the payment against the placed order
+    through `recordPayment()` in `src/lib/supabase/admin.ts`, and a second
+    delivery of the same payment is a no-op. It has never run against a real
+    Razorpay account.
 - ⚠️ **GST rates and HSN codes are unverified defaults.** `src/lib/gst.ts`
   computes the split correctly (tax-inclusive back-out, CGST/SGST vs IGST by
   place of supply), but the slab thresholds and the subcategory→HSN mapping
@@ -201,23 +208,31 @@ without checking with the user first:
   margin. The buyer's GSTIN on a wholesale invoice is resolved from their
   account; a production system should snapshot it onto the order at the time
   of supply, since a business can re-register later.
-- **Admin-created promo codes are browser-side only.** The built-in codes in
-  `lib/pricing.ts` are compiled into the server's validation list, which is
-  what `/api/razorpay/order` checks; codes created in `/admin/promos` work in
-  the checkout UI, but the payment route will not honour them until promos
-  live in the database. Built-ins can be deactivated but not deleted, so the
-  two lists can never contradict each other.
+- **Promo codes live in the database on a configured deployment.** Codes
+  created in `/admin/promos` are inserted into `promo_codes`, and
+  `place_retail_order` re-validates the code there — active, in date, issued
+  to this customer, under its caps — while holding a row lock. The payment
+  route then charges the order total that validation produced, so an
+  admin-created code is honoured end to end. The built-in list compiled into
+  `lib/pricing.ts` prices only the fallback path for a deployment with no
+  database, where admin-created codes are browser-side only and the promos
+  page says so. Built-ins can be deactivated but not deleted, so the two
+  lists can never contradict each other.
 - Exchange price differences are *shown and recorded* but not *settled* —
   collecting a top-up or refunding the difference needs the payment provider,
   so the admin queue tells staff how much to collect or refund and they do it
   out of band for now
 - Wholesale claims resolve to a credit note or replacement, but the credit
-  note is not yet posted to the credit ledger automatically — the two systems
-  meet once orders and invoices live in the database
-- No warehouse inventory sync — stock is the local store, though returns and
-  exchanges now move it correctly. Returns restock only for reasons where the
-  unit is actually sellable: damaged and poor-quality returns are deliberately
-  **not** put back on the shelf.
+  note is not posted to the credit ledger automatically. Settling a claim
+  stamps `settled_resolution` on `wholesale_claims` and writes nothing to
+  `credit_invoices` or `credit_payments`. Both sides are in the database now;
+  what is missing is the step that connects them.
+- No warehouse inventory sync with an outside system. Stock itself is in the
+  database — `retail_product_sizes.stock_qty`, decremented under a row lock by
+  `place_retail_order`, restored by `release_retail_order`, and adjusted by
+  staff through `adjust_retail_stock`. Returns and exchanges move it too, and
+  restock only for reasons where the unit is actually sellable: damaged and
+  poor-quality returns are deliberately **not** put back on the shelf.
 - No transactional email/SMS/WhatsApp **delivery** — messages are composed
   from real templates and queued into the outbox (`/admin/notifications`),
   where staff can read exactly what a customer would receive, but no
