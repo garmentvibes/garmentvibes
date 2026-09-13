@@ -168,7 +168,9 @@ export default function AdminCreditPage() {
             totalOverdue > 0 ? "border-red-200 bg-red-50" : "border-neutral-200 bg-white"
           )}
         >
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Overdue</p>
+          {/* neutral-600, not 500: this card turns red-50 when anything is
+              overdue, and #737373 on #fef2f2 is 4.33:1 — under AA's 4.5:1. */}
+          <p className="text-xs uppercase tracking-wide text-neutral-600">Overdue</p>
           <p
             className={cn(
               "mt-1 text-2xl font-bold",

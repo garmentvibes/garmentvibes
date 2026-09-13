@@ -231,7 +231,9 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
           <p className="mt-1">
             Questions? {BUSINESS_INFO.supportEmail} &middot; {BUSINESS_INFO.supportPhone}
           </p>
-          <p className="mt-2 text-amber-600 print:hidden">
+          {/* amber-700, not 600: #e17100 on white is 3.19:1, under AA's 4.5:1.
+              Same note as the admin tax invoice, where the a11y sweep found it. */}
+          <p className="mt-2 text-amber-700 print:hidden">
             Note: this is a preview invoice generated from sample data. The GST rates and HSN codes
             shown are defaults that must be confirmed with a chartered accountant before invoicing
             a real customer.

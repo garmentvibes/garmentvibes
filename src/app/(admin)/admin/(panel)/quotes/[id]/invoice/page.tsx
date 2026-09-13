@@ -231,7 +231,8 @@ export default function WholesaleInvoicePage({ params }: { params: Promise<{ id:
           <p className="mt-1">
             Questions? {BUSINESS_INFO.wholesaleEmail} &middot; {BUSINESS_INFO.supportPhone}
           </p>
-          <p className="mt-2 text-amber-600 print:hidden">
+          {/* amber-700, not 600: #e17100 on white is 3.19:1, under AA's 4.5:1. */}
+          <p className="mt-2 text-amber-700 print:hidden">
             Note: preview invoice from sample data. GST rates, HSN codes and the exclusive-pricing
             convention all need confirming with a chartered accountant before real invoicing.
           </p>
