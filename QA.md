@@ -251,22 +251,51 @@ seller-supplied copy, anything of that shape. At that point move to nonces in
 Note that `qa:routes` doubles as CSP-violation detection: violations surface
 as console errors, and that sweep fails on any console error.
 
-### ⚠️ Admin panel: must not ship publicly as-is
+### Admin panel: where the authorisation boundary is
 
-`/admin` is gated **in the browser only**, against the same mock session
-store as the storefront — any visitor could set the role client-side. It is
-safe while the app is a local/preview build with no real data behind it, and
-it is excluded from `robots.txt` and the sitemap, but before anything is
-deployed publicly the admin routes need:
+This section used to say `/admin` was gated in the browser only. That stopped
+being true, and a stale security warning is worse than none — it sends the next
+reader to fix something that is already fixed, and away from what is not.
 
-1. Real Supabase Auth with a server-checked staff role
-2. Enforcement in `src/proxy.ts` (server-side) rather than in a component
-3. RLS policies so the database refuses non-staff writes even if the UI is
-   bypassed
+**What gates it now**, three layers, each checked on the server:
 
-Admin catalog edits are also client-side only right now, so they don't
-appear on the storefront — the panel says so in a banner. That resolves
-itself when the same reads/writes move to the database.
+1. `requireStaff()` in `src/app/(admin)/admin/(panel)/layout.tsx` redirects
+   anyone who is not staff before a panel page renders.
+2. Every admin server action and read in `src/lib/admin/*/actions.ts` and
+   `reads.ts` calls `getStaffUser()` itself and refuses on null. This is the
+   layer that matters most: a server action can be POSTed directly, so the
+   layout protecting the *page* says nothing about the *action*.
+   `getStaffUser()` revalidates the token with `getUser()` — never
+   `getSession()`, which trusts the cookie — and then requires
+   `profiles.role = 'admin'`.
+3. Those actions run on the caller's own JWT (`createClient` from
+   `supabase/server`, not the service-role client), so RLS `is_staff()`
+   refuses a non-staff write even if both layers above were bypassed.
+
+`src/proxy.ts` only bounces signed-out traffic away from `/admin`. By its own
+comment that is a convenience, not the control. `ALLOW_DEMO_ADMIN` is ignored
+whenever Supabase is configured, pinned by `src/lib/auth/demo.test.ts`. The
+panel stays out of `robots.txt` and the sitemap.
+
+**What is still open:**
+
+- The storefront's customer session is still the mocked zustand store. Only
+  `/admin` has a real authorisation boundary today.
+- Not every admin area is live. The wholesale account approval queue has no
+  database path at all — nothing in `src` reads or writes `wholesale_accounts`
+  — so on a configured deployment approvals still live in one browser.
+- The amber "Demo mode — changes are saved to this browser only" banner in
+  `src/components/admin/admin-shell.tsx` has no condition on it. Real staff on
+  a configured deployment see it too, where it is false for orders, quotes,
+  promos, credit and the catalogue, all of which write to the database. The
+  promos page already shows the right shape: its own notice is wrapped in
+  `{!live && …}`. The fix is per page, because the approval queue above really
+  is browser-only and should keep saying so.
+
+The storefront catalogue itself reads `retail_products` from the database
+when Supabase is configured (`getRetailCatalogue` in
+`src/lib/catalogue/retail.ts`), falling back to the compiled module on an
+error or an empty result rather than to an empty shop.
 
 ## Lessons from the first QA pass (2026-08)
 
