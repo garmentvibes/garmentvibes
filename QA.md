@@ -4,6 +4,10 @@ A reusable QA pass for GarmentVibes — run this after any meaningful batch of
 changes, and always before a deploy. It's written so a future session (or a
 human) can follow it without re-deriving what "done" means.
 
+**The ordered list of checks, each with its pass condition and a control that
+proves it can fail, is [`QA-CHECKLIST.md`](QA-CHECKLIST.md).** Run that; this
+file explains why the checks are what they are.
+
 ## Automated checks
 
 All scripts live in `scripts/qa/`. They need a running server (except
