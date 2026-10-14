@@ -298,8 +298,17 @@ panel stays out of `robots.txt` and the sitemap.
 
 **What is still open:**
 
-- The storefront's customer session is still the mocked zustand store. Only
-  `/admin` has a real authorisation boundary today.
+- *(Corrected 11-Oct — the old line said the storefront session was still
+  mocked, which is now true of only half of it.)* **Retail customers have a
+  real session:** `signInCustomer` in `src/lib/auth/customer-actions.ts` calls
+  Supabase auth, and `src/components/shared/session-sync.tsx` mirrors the
+  server's answer into the zustand store for presentation only — its own
+  comment says "The store is presentation. It is not permission."
+  **Wholesale is still mocked:** `src/app/(wholesale)/wholesale/login/page.tsx`
+  writes to `useSessionStore` and calls no auth at all. That buys nothing but
+  UI state: no code in `src` inserts `wholesale_quotes` or touches
+  `wholesale_accounts`, so the entire wholesale buyer flow is browser-only,
+  and RLS scopes every real row by `auth.uid()` whatever the browser claims.
 - Not every admin area is live. The wholesale account approval queue has no
   database path at all — nothing in `src` reads or writes `wholesale_accounts`
   — so on a configured deployment approvals still live in one browser.
