@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { useAdminQuotes } from "@/lib/hooks/use-admin-quotes";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import {
   WHOLESALE_QUOTE_STATUSES,
   WHOLESALE_QUOTE_STATUS_LABELS,
@@ -27,7 +28,7 @@ const STATUS_VARIANT: Record<
 };
 
 export default function AdminQuotesPage() {
-  const { quotes } = useAdminQuotes();
+  const { quotes, loaded, live } = useAdminQuotes();
   const [filter, setFilter] = useState<WholesaleQuoteStatus | "all">("all");
 
   const visible = quotes.filter((q) => filter === "all" || q.status === filter);
@@ -36,6 +37,13 @@ export default function AdminQuotesPage() {
     <div className="mx-auto max-w-6xl">
       <h1 className="text-2xl font-bold text-neutral-900">Quotes &amp; Bulk Orders</h1>
       <p className="mt-1 text-sm text-neutral-500">{quotes.length} requests</p>
+
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          Showing sample requests. Changes made here are saved in this browser only and are not
+          shared with other staff.
+        </BrowserOnlyNotice>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {(["all", ...WHOLESALE_QUOTE_STATUSES] as const).map((f) => (

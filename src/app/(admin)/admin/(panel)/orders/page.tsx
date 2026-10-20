@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { useAdminOrders } from "@/lib/hooks/use-admin-orders";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { RETAIL_ORDER_STATUSES, retailOrderTotal, type RetailOrderStatus } from "@/types/admin";
 
 const STATUS_VARIANT: Record<RetailOrderStatus, "outline" | "warning" | "wholesale" | "success" | "destructive"> = {
@@ -17,7 +18,7 @@ const STATUS_VARIANT: Record<RetailOrderStatus, "outline" | "warning" | "wholesa
 };
 
 export default function AdminOrdersPage() {
-  const { orders } = useAdminOrders();
+  const { orders, loaded, live } = useAdminOrders();
   const [filter, setFilter] = useState<RetailOrderStatus | "all">("all");
 
   const visible = orders.filter((o) => filter === "all" || o.status === filter);
@@ -26,6 +27,13 @@ export default function AdminOrdersPage() {
     <div className="mx-auto max-w-6xl">
       <h1 className="text-2xl font-bold text-neutral-900">Retail Orders</h1>
       <p className="mt-1 text-sm text-neutral-500">{orders.length} orders</p>
+
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          Showing sample orders. Changes made here are saved in this browser only and are not
+          shared with other staff.
+        </BrowserOnlyNotice>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {(["all", ...RETAIL_ORDER_STATUSES] as const).map((f) => (

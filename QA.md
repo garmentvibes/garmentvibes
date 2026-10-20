@@ -4,6 +4,10 @@ A reusable QA pass for GarmentVibes — run this after any meaningful batch of
 changes, and always before a deploy. It's written so a future session (or a
 human) can follow it without re-deriving what "done" means.
 
+**The ordered list of checks, each with its pass condition and a control that
+proves it can fail, is [`QA-CHECKLIST.md`](QA-CHECKLIST.md).** Run that; this
+file explains why the checks are what they are.
+
 ## Automated checks
 
 All scripts live in `scripts/qa/`. They need a running server (except
@@ -159,8 +163,22 @@ explicitly asked to look) periodically, especially before a real deploy:
 These are stubbed by product decision, not oversight — don't "fix" them
 without checking with the user first:
 
-- No live Supabase — auth/session is a mock `zustand` store
-  (`src/lib/stores/session-store.ts`)
+- **The session is still a mock — the database is not.** This entry used to
+  read "no live Supabase", and that has not been true since 0016. Thirty
+  migrations are applied to the live project, and the bag, wishlist, promos,
+  stock, returns, claims, the credit ledger, notifications, both order books
+  and the admin catalogue all read and write it. What has *not* moved is
+  identity: `src/lib/stores/session-store.ts` is a client-side `zustand`
+  store, and its own comment says "do not treat this as secure". Admin
+  sign-in is the exception — real Supabase Auth once the project is
+  configured (`src/lib/auth/demo.ts`) — and admin writes to orders, quotes,
+  promos, credit and the catalogue go to the database behind a server-checked
+  staff role (see "Admin panel" below). Still entirely local, with no reader
+  or writer in `src`: the wholesale account approval queue
+  (`wholesale_accounts` — the admin accounts page is `useAdminAccountsStore`),
+  wholesale ship-to addresses, the retail address book, reviews, and
+  wholesale team members. See "Where each store lands" in
+  `supabase/README.md` for the row-by-row state.
 - No real payment charge — the Razorpay integration is written (order
   creation, checkout handoff, signature verification, webhook receiver) but
   no merchant account exists, so `NEXT_PUBLIC_RAZORPAY_KEY_ID` /
@@ -176,8 +194,11 @@ without checking with the user first:
     `RAZORPAY_WEBHOOK_SECRET` set on both the server process and the test
     runner — CI sets a dummy one; locally the checks skip with a notice if
     it's absent.
-  - Fulfilment on `payment.captured` is still a no-op: there is no
-    server-side order store to update until Supabase lands.
+  - Fulfilment on `payment.captured` and `order.paid` is wired: after the
+    signature check, the webhook records the payment against the placed order
+    through `recordPayment()` in `src/lib/supabase/admin.ts`, and a second
+    delivery of the same payment is a no-op. It has never run against a real
+    Razorpay account.
 - ⚠️ **GST rates and HSN codes are unverified defaults.** `src/lib/gst.ts`
   computes the split correctly (tax-inclusive back-out, CGST/SGST vs IGST by
   place of supply), but the slab thresholds and the subcategory→HSN mapping
@@ -191,23 +212,31 @@ without checking with the user first:
   margin. The buyer's GSTIN on a wholesale invoice is resolved from their
   account; a production system should snapshot it onto the order at the time
   of supply, since a business can re-register later.
-- **Admin-created promo codes are browser-side only.** The built-in codes in
-  `lib/pricing.ts` are compiled into the server's validation list, which is
-  what `/api/razorpay/order` checks; codes created in `/admin/promos` work in
-  the checkout UI, but the payment route will not honour them until promos
-  live in the database. Built-ins can be deactivated but not deleted, so the
-  two lists can never contradict each other.
+- **Promo codes live in the database on a configured deployment.** Codes
+  created in `/admin/promos` are inserted into `promo_codes`, and
+  `place_retail_order` re-validates the code there — active, in date, issued
+  to this customer, under its caps — while holding a row lock. The payment
+  route then charges the order total that validation produced, so an
+  admin-created code is honoured end to end. The built-in list compiled into
+  `lib/pricing.ts` prices only the fallback path for a deployment with no
+  database, where admin-created codes are browser-side only and the promos
+  page says so. Built-ins can be deactivated but not deleted, so the two
+  lists can never contradict each other.
 - Exchange price differences are *shown and recorded* but not *settled* —
   collecting a top-up or refunding the difference needs the payment provider,
   so the admin queue tells staff how much to collect or refund and they do it
   out of band for now
 - Wholesale claims resolve to a credit note or replacement, but the credit
-  note is not yet posted to the credit ledger automatically — the two systems
-  meet once orders and invoices live in the database
-- No warehouse inventory sync — stock is the local store, though returns and
-  exchanges now move it correctly. Returns restock only for reasons where the
-  unit is actually sellable: damaged and poor-quality returns are deliberately
-  **not** put back on the shelf.
+  note is not posted to the credit ledger automatically. Settling a claim
+  stamps `settled_resolution` on `wholesale_claims` and writes nothing to
+  `credit_invoices` or `credit_payments`. Both sides are in the database now;
+  what is missing is the step that connects them.
+- No warehouse inventory sync with an outside system. Stock itself is in the
+  database — `retail_product_sizes.stock_qty`, decremented under a row lock by
+  `place_retail_order`, restored by `release_retail_order`, and adjusted by
+  staff through `adjust_retail_stock`. Returns and exchanges move it too, and
+  restock only for reasons where the unit is actually sellable: damaged and
+  poor-quality returns are deliberately **not** put back on the shelf.
 - No transactional email/SMS/WhatsApp **delivery** — messages are composed
   from real templates and queued into the outbox (`/admin/notifications`),
   where staff can read exactly what a customer would receive, but no
@@ -241,22 +270,68 @@ seller-supplied copy, anything of that shape. At that point move to nonces in
 Note that `qa:routes` doubles as CSP-violation detection: violations surface
 as console errors, and that sweep fails on any console error.
 
-### ⚠️ Admin panel: must not ship publicly as-is
+### Admin panel: where the authorisation boundary is
 
-`/admin` is gated **in the browser only**, against the same mock session
-store as the storefront — any visitor could set the role client-side. It is
-safe while the app is a local/preview build with no real data behind it, and
-it is excluded from `robots.txt` and the sitemap, but before anything is
-deployed publicly the admin routes need:
+This section used to say `/admin` was gated in the browser only. That stopped
+being true, and a stale security warning is worse than none — it sends the next
+reader to fix something that is already fixed, and away from what is not.
 
-1. Real Supabase Auth with a server-checked staff role
-2. Enforcement in `src/proxy.ts` (server-side) rather than in a component
-3. RLS policies so the database refuses non-staff writes even if the UI is
-   bypassed
+**What gates it now**, three layers, each checked on the server:
 
-Admin catalog edits are also client-side only right now, so they don't
-appear on the storefront — the panel says so in a banner. That resolves
-itself when the same reads/writes move to the database.
+1. `requireStaff()` in `src/app/(admin)/admin/(panel)/layout.tsx` redirects
+   anyone who is not staff before a panel page renders.
+2. Every admin server action and read in `src/lib/admin/*/actions.ts` and
+   `reads.ts` calls `getStaffUser()` itself and refuses on null. This is the
+   layer that matters most: a server action can be POSTed directly, so the
+   layout protecting the *page* says nothing about the *action*.
+   `getStaffUser()` revalidates the token with `getUser()` — never
+   `getSession()`, which trusts the cookie — and then requires
+   `profiles.role = 'admin'`.
+3. Those actions run on the caller's own JWT (`createClient` from
+   `supabase/server`, not the service-role client), so RLS `is_staff()`
+   refuses a non-staff write even if both layers above were bypassed.
+
+`src/proxy.ts` only bounces signed-out traffic away from `/admin`. By its own
+comment that is a convenience, not the control. `ALLOW_DEMO_ADMIN` is ignored
+whenever Supabase is configured, pinned by `src/lib/auth/demo.test.ts`. The
+panel stays out of `robots.txt` and the sitemap.
+
+**What is still open:**
+
+- *(Corrected 11-Oct — the old line said the storefront session was still
+  mocked, which is now true of only half of it.)* **Retail customers have a
+  real session:** `signInCustomer` in `src/lib/auth/customer-actions.ts` calls
+  Supabase auth, and `src/components/shared/session-sync.tsx` mirrors the
+  server's answer into the zustand store for presentation only — its own
+  comment says "The store is presentation. It is not permission."
+  **Wholesale is still mocked:** `src/app/(wholesale)/wholesale/login/page.tsx`
+  writes to `useSessionStore` and calls no auth at all. That buys nothing but
+  UI state: no code in `src` inserts `wholesale_quotes` or touches
+  `wholesale_accounts`, so the entire wholesale buyer flow is browser-only,
+  and RLS scopes every real row by `auth.uid()` whatever the browser claims.
+- Not every admin area is live. The wholesale account approval queue has no
+  database path at all — nothing in `src` reads or writes `wholesale_accounts`
+  — so on a configured deployment approvals still live in one browser.
+- *(Fixed 14-Sep.)* The amber "Demo mode — changes are saved to this browser
+  only" banner in `src/components/admin/admin-shell.tsx` had no condition on
+  it, so real staff on a configured deployment saw it where it was false. It
+  is gone; each page now says so itself with `BrowserOnlyNotice`
+  (`src/components/admin/browser-only-notice.tsx`):
+  - always — accounts, support, questions, notifications (persisted stores
+    with no database path);
+  - when the page's hook reports `loaded && !live` — orders, quotes (list and
+    detail), credit, claims, returns, and promos (`!live`);
+  - when no Supabase project is configured — products and both product forms.
+
+  The `admin` e2e flow checks each of those pages shows exactly one notice and
+  the dashboard none. **Not covered by any suite:** the configured side, where
+  the database-backed pages must show *no* notice — that needs a build with a
+  Supabase project and a real staff sign-in.
+
+The storefront catalogue itself reads `retail_products` from the database
+when Supabase is configured (`getRetailCatalogue` in
+`src/lib/catalogue/retail.ts`), falling back to the compiled module on an
+error or an empty result rather than to an empty shop.
 
 ## Lessons from the first QA pass (2026-08)
 

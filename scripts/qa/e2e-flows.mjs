@@ -9,7 +9,7 @@
 // within a single flow function rather than across functions.
 
 import { launchBrowser } from "./_launch-browser.mjs";
-import { goto, appears } from "./_goto.mjs";
+import { goto, appears, clickWhenLive } from "./_goto.mjs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
@@ -44,6 +44,52 @@ function check(flow, name, cond, detail) {
 const EXPECTED_CONSOLE_ERROR_URLS = [/\/api\/razorpay\/order$/];
 
 /**
+ * Waits for an assertion to become true, up to a budget, and reports whether it
+ * did.
+ *
+ * This file had 106 `waitForTimeout` calls of 200-500ms, each one a guess at
+ * how long some client-side state would take to settle, followed by an
+ * assertion that read the result once. On an idle machine the guesses hold. On
+ * a loaded one they do not, and the suite fails somewhere in retail-checkout —
+ * measured here at roughly two runs in five, with the failure moving between
+ * "cart preserved across login redirect", a click timeout and a fill timeout
+ * depending on which guess ran out first.
+ *
+ * A flaky suite is worse than a slow one. "Merge each when green" only means
+ * anything if red means broken, and a suite that fails two runs in five trains
+ * everyone to re-run it — which is also how a real regression gets waved
+ * through.
+ *
+ * The assertion is not weakened. A predicate that never becomes true still
+ * returns false and still fails its check; the only thing that changes is that
+ * a slow machine gets to finish. It is also faster than what it replaces: this
+ * returns the moment the condition holds, where a fixed sleep always pays its
+ * full duration.
+ *
+ * Reach for `appears()` from _goto.mjs first — it already exists, it already
+ * says why this race happens, and a presence check is what most of these are.
+ * This is for the assertions `appears()` cannot express, where the thing is on
+ * the page from the start and it is a *property* that settles: `isDisabled()`
+ * after a PIN code changes, `inputValue()` after a quick-fill.
+ *
+ * Not `expect(...).toPass()` because this repo runs playwright-core without the
+ * test runner, so there is no expect to reach for.
+ */
+async function settles(predicate, { timeout = 5000, interval = 50 } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    try {
+      if (await predicate()) return true;
+    } catch {
+      // A locator whose element is not in the DOM yet throws rather than
+      // answering false. That is "not yet", not "no" — keep waiting.
+    }
+    if (Date.now() >= deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+}
+
+/**
  * Runs one flow on its own page, and does not let it take the run down with it.
  *
  * Playwright's waiting calls throw on timeout, and this file has twenty
@@ -57,7 +103,11 @@ const EXPECTED_CONSOLE_ERROR_URLS = [/\/api\/razorpay\/order$/];
  * lets the remaining flows report. The run still fails; it just says what
  * broke, and everything else still gets measured.
  */
-async function withPage(browser, fn, flowName = "flow") {
+async function withPage(browser, flowName, fn) {
+  // Printed as it happens, not in the report at the end: without it a
+  // running suite writes nothing for minutes and looks exactly like a hung one.
+  const startedAt = Date.now();
+  console.log(`… ${flowName}`);
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -65,7 +115,11 @@ async function withPage(browser, fn, flowName = "flow") {
     if (msg.type() !== "error") return;
     const url = msg.location()?.url ?? "";
     if (EXPECTED_CONSOLE_ERROR_URLS.some((pattern) => pattern.test(url))) return;
-    errors.push(msg.text());
+    // With the URL, because without it the message can be unactionable. A run
+    // that fails on four "Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR"
+    // lines says nothing about what failed to load or from where, and the
+    // location is already in hand — the suppression list above matches on it.
+    errors.push(url ? `${msg.text()}  [${url}]` : msg.text());
   });
 
   try {
@@ -75,8 +129,13 @@ async function withPage(browser, fn, flowName = "flow") {
     check(flowName, `flow ran to completion — ${detail}`, false);
   }
 
+  console.log(`  ${flowName} finished in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
   await page.close().catch(() => {});
-  return errors;
+  // Tagged with the flow, because the report lists console errors in one pile
+  // after every flow has run. A run that failed on a single
+  // "net::ERR_FAILED [.../_next/static/chunks/1gwj1qyiuryu5.js]" could not
+  // say which of 19 flows had been loading that chunk.
+  return errors.map((e) => `[${flowName}] ${e}`);
 }
 
 const browser = await launchBrowser();
@@ -86,12 +145,19 @@ let allConsoleErrors = [];
 // Retail: browse, wishlist, filter, search
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-discovery", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     await page.click('button[aria-label="Add to wishlist"]');
-    await page.waitForTimeout(200);
+    // The header badge renders only once the store holds the item. Leaving on a
+    // timer instead can navigate before the write lands, and the next page then
+    // honestly reports an empty wishlist.
+    await appears(page, '[aria-label="Wishlist"] span');
     await goto(page, `${BASE_URL}/shop/wishlist`);
-    check("retail-discovery", "wishlist shows saved item", (await page.locator("text=Floral Printed Anarkali Kurta").count()) > 0);
+    check(
+      "retail-discovery",
+      "wishlist shows saved item",
+      await appears(page, "text=Floral Printed Anarkali Kurta")
+    );
 
     await goto(page, `${BASE_URL}/shop/women`);
     const before = await page.locator("text=/Showing \\d+/").first().textContent();
@@ -136,7 +202,7 @@ allConsoleErrors.push(
 // Retail: address book -> gated checkout -> redirect-back -> COD order
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-checkout", async (page) => {
     await goto(page, `${BASE_URL}/shop/addresses`);
     await page.click("text=Add Address");
     await page.fill("#label", "Home");
@@ -147,12 +213,20 @@ allConsoleErrors.push(
     await page.fill("#state", "Maharashtra");
     await page.fill("#pincode", "400001");
     await page.click('button:has-text("Save Address")');
-    await page.waitForTimeout(200);
-    check("retail-checkout", "address saved and listed", (await page.locator("text=QA Buyer").count()) > 0);
+    check("retail-checkout", "address saved and listed", await appears(page, "text=QA Buyer"));
 
     await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
-    await page.click("text=Add to Bag");
-    await page.waitForTimeout(200);
+    await clickWhenLive(page, "text=Add to Bag");
+    // Wait for the header's bag badge, which renders only once the store holds
+    // the line. Navigating on a timer instead is what made "cart preserved
+    // across login redirect" fail below: leave the page before the store has
+    // persisted and the bag really is empty afterwards, so the assertion was
+    // reporting a race in the test as a lost cart.
+    check(
+      "retail-checkout",
+      "bag badge shows the added item",
+      await appears(page, '[aria-label="Cart"] span')
+    );
     await goto(page, `${BASE_URL}/shop/checkout`);
     check("retail-checkout", "checkout gated when signed out", (await page.locator("text=Sign in to check out").count()) > 0);
 
@@ -163,15 +237,21 @@ allConsoleErrors.push(
     await page.fill("#password", "password123");
     await page.click('button:has-text("Sign in")');
     await page.waitForURL("**/shop/checkout");
-    await page.waitForTimeout(300);
-    check("retail-checkout", "cart preserved across login redirect", (await page.locator("text=Classic Crew Neck").count()) > 0);
+    check(
+      "retail-checkout",
+      "cart preserved across login redirect",
+      await appears(page, "text=Classic Crew Neck")
+    );
 
     await page.click('button:has-text("Use Home")');
-    check("retail-checkout", "quick-fill from saved address", (await page.inputValue("#fullName")) === "QA Buyer");
+    check(
+      "retail-checkout",
+      "quick-fill from saved address",
+      await settles(async () => (await page.inputValue("#fullName")) === "QA Buyer")
+    );
     await page.fill('input[placeholder="Promo code"]', "GARMENT10");
     await page.click('button:has-text("Apply")');
-    await page.waitForTimeout(200);
-    check("retail-checkout", "promo code applied", (await page.locator("text=GARMENT10 applied").count()) > 0);
+    check("retail-checkout", "promo code applied", await appears(page, "text=GARMENT10 applied"));
 
     // Payment methods are individually selectable, not one "Pay Online"
     // bucket, and UPI leads because that is how most Indian customers pay.
@@ -204,19 +284,19 @@ allConsoleErrors.push(
     // and said COD was unavailable for remote PIN codes, then checkout
     // offered it anyway. Both now read the same rule.
     await page.fill("#pincode", "790001");
-    await page.waitForTimeout(200);
     check(
       "retail-checkout",
       "COD is withdrawn for a PIN code the delivery estimate excludes",
-      await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled()
+      await settles(() => page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled())
     );
 
     await page.fill("#pincode", "400001");
-    await page.waitForTimeout(200);
     check(
       "retail-checkout",
       "COD returns when the PIN code is serviceable",
-      !(await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled())
+      await settles(async () =>
+        !(await page.locator('[role="radio"]:has-text("Cash on Delivery")').isDisabled())
+      )
     );
 
     await page.click("text=Cash on Delivery");
@@ -263,7 +343,7 @@ allConsoleErrors.push(
 // Retail + admin: order-linked support threads
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "support", async (page) => {
     await goto(page, `${BASE_URL}/shop/support`);
     check(
       "support",
@@ -396,7 +476,7 @@ allConsoleErrors.push(
 // code, and claiming somebody else's referral reward.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "referrals", async (page) => {
     // Two accounts have to exist before a code can resolve to a person — the
     // code is a hash of an email and cannot be reversed.
     async function signIn(email) {
@@ -414,8 +494,12 @@ allConsoleErrors.push(
 
     async function addToBagAndOpenCheckout() {
       await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
-      await page.click("text=Add to Bag");
-      await page.waitForTimeout(300);
+      await clickWhenLive(page, "text=Add to Bag");
+      // Measured, not guessed: with the 300ms timer here, a loaded machine
+      // navigated before the bag had persisted, checkout rendered its empty
+      // state, the promo field never appeared, and the fill below sat out its
+      // full 30-second timeout — taking the whole referrals flow with it.
+      await appears(page, '[aria-label="Cart"] span');
       await goto(page, `${BASE_URL}/shop/checkout`);
       await appears(page, 'input[placeholder="Promo code"]');
     }
@@ -509,7 +593,7 @@ allConsoleErrors.push(
 // customer A's pending question" is the check that matters most.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "qa", async (page) => {
     const PRODUCT = `${BASE_URL}/shop/product/classic-crew-neck-tee`;
 
     await goto(page, PRODUCT);
@@ -612,7 +696,7 @@ allConsoleErrors.push(
 // Retail: fit confidence — per-system size charts, buyer fit feedback
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "fit", async (page) => {
     // The defect this fixes: one S/M/L/XL chart was shown on every product, so
     // a customer buying 32" jeans or a 4-5Y frock saw a chart with no row for
     // their size — worse than no chart, because it looks like an answer.
@@ -714,9 +798,9 @@ async function ageCart(page, hours) {
 }
 
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "cart-recovery", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/classic-crew-neck-tee`);
-    await page.click("text=Add to Bag");
+    await clickWhenLive(page, "text=Add to Bag");
     await page.waitForTimeout(300);
 
     // Someone who just added an item is shopping, not abandoning. Telling
@@ -752,7 +836,7 @@ allConsoleErrors.push(
     // demonstrably back, so the old dismissal no longer applies and neither
     // does the old age.
     await goto(page, `${BASE_URL}/shop/product/satin-cami-top`);
-    await page.click("text=Add to Bag");
+    await clickWhenLive(page, "text=Add to Bag");
     await page.waitForTimeout(300);
     check(
       "cart-recovery",
@@ -797,7 +881,7 @@ allConsoleErrors.push(
 // Retail: stock levels, delivery estimate, review submission
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-product", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
 
     // XL is seeded out of stock in the mock catalog, so its size button must
@@ -923,7 +1007,7 @@ allConsoleErrors.push(
 // Retail: order detail, timeline, invoice, self-service cancellation
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "retail-orders", async (page) => {
     await goto(page, `${BASE_URL}/shop/orders`);
     // appears(), not count(). The list is populated from a hook that may have
     // to ask the server first — on a deployment with a database it always
@@ -985,9 +1069,9 @@ allConsoleErrors.push(
 // Wholesale: new signup starts pending -> quote allowed, direct order locked
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-pending", async (page) => {
     await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
-    await page.click("text=Add to Order");
+    await clickWhenLive(page, "text=Add to Order");
     await page.waitForTimeout(200);
 
     await goto(page, `${BASE_URL}/wholesale/signup`);
@@ -1015,7 +1099,7 @@ allConsoleErrors.push(
 // Wholesale: returning login is approved -> direct order + credit terms
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-approved", async (page) => {
     await goto(page, `${BASE_URL}/wholesale/login`);
     await page.fill("#email", "qa-buyer@example.com");
     await page.fill("#password", "password123");
@@ -1023,10 +1107,14 @@ allConsoleErrors.push(
     await page.waitForURL("**/wholesale/dashboard");
 
     await goto(page, `${BASE_URL}/wholesale/product/denim-jeans-bulk`);
-    await page.click("text=Add to Order");
-    await page.waitForTimeout(200);
+    await clickWhenLive(page, "text=Add to Order");
+    await appears(page, '[aria-label="Current order"] span');
     await goto(page, `${BASE_URL}/wholesale/order`);
-    check("wholesale-approved", "approved account sees Place Order Directly", (await page.locator('button:has-text("Place Order Directly")').count()) > 0);
+    check(
+      "wholesale-approved",
+      "approved account sees Place Order Directly",
+      await appears(page, 'button:has-text("Place Order Directly")')
+    );
 
     await goto(page, `${BASE_URL}/wholesale/settings`);
     check("wholesale-approved", "settings shows Approved badge", (await page.locator("text=Approved").count()) > 0);
@@ -1043,9 +1131,13 @@ allConsoleErrors.push(
 
     await goto(page, `${BASE_URL}/wholesale/dashboard`);
     await page.click('button:has-text("Reorder") >> nth=0');
-    await page.waitForTimeout(200);
+    await appears(page, '[aria-label="Current order"] span');
     await goto(page, `${BASE_URL}/wholesale/order`);
-    check("wholesale-approved", "reorder added items to order review", (await page.locator("text=/units/").count()) > 0);
+    check(
+      "wholesale-approved",
+      "reorder added items to order review",
+      await appears(page, "text=/units/")
+    );
   }))
 );
 
@@ -1053,7 +1145,7 @@ allConsoleErrors.push(
 // Wholesale: pricing calculator + CSV bulk upload on Quick Order
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-tools", async (page) => {
     await goto(page, `${BASE_URL}/wholesale/pricing-calculator`);
     const priceBefore = await page.locator("text=PRICE PER UNIT").locator("..").textContent();
     await page.fill("#calc-qty", "700");
@@ -1070,7 +1162,7 @@ allConsoleErrors.push(
 // Admin: access gating, approvals, order/quote status, product CRUD
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "admin", async (page) => {
     // Gating: admin routes are unusable without an admin session.
     await goto(page, `${BASE_URL}/admin`);
     check("admin", "admin redirects to login when signed out", page.url().endsWith("/admin/login"));
@@ -1144,6 +1236,45 @@ allConsoleErrors.push(
 
     // Restore the session for the rest of this flow.
     await page.context().addCookies(signedInCookies);
+
+    // Each page that keeps data in this browser says so itself, exactly once,
+    // and the dashboard — which writes nothing — says nothing. This build has
+    // no Supabase project, so every page below is browser-only here and must
+    // show one notice. Until 14-Sep a single unconditional banner in the admin
+    // shell said it on every page instead, including pages where a configured
+    // deployment writes to the database and the banner was false.
+    for (const path of [
+      "/admin/products",
+      "/admin/products/retail/new",
+      "/admin/products/wholesale/new",
+      "/admin/orders",
+      "/admin/quotes",
+      "/admin/support",
+      "/admin/questions",
+      "/admin/returns",
+      "/admin/claims",
+      "/admin/credit",
+      "/admin/promos",
+      "/admin/accounts",
+      "/admin/notifications",
+    ]) {
+      await goto(page, `${BASE_URL}${path}`);
+      await appears(page, "[data-browser-only-notice]");
+      const notices = await page.locator("[data-browser-only-notice]").count();
+      check("admin", `${path} says once that it saves to this browser only`, notices === 1, `${notices} notices`);
+    }
+    await goto(page, `${BASE_URL}/admin`);
+    // Wait for the dashboard to render before asserting an absence — a count
+    // taken before the page paints would pass on nothing.
+    const dashboardShown = await appears(page, 'h1:has-text("Dashboard")');
+    const dashboardNotices = await page.locator("[data-browser-only-notice]").count();
+    const shellBanners = await page.locator("text=Demo mode — changes are saved").count();
+    check(
+      "admin",
+      "the dashboard shows no browser-only notice and no panel-wide banner",
+      dashboardShown && dashboardNotices === 0 && shellBanners === 0,
+      `dashboard ${dashboardShown ? "shown" : "NOT shown"}, ${dashboardNotices} notices, ${shellBanners} banners`
+    );
 
     // The approval queue is the counterpart to the storefront's pending state.
     await goto(page, `${BASE_URL}/admin/accounts`);
@@ -1258,7 +1389,7 @@ allConsoleErrors.push(
 // delivery dates are relative — see the note in mock/admin-data.ts.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "returns", async (page) => {
     // Eligibility gating: only delivered orders, and only inside the window.
     await goto(page, `${BASE_URL}/shop/orders/GV84213102`);
     check("returns", "undelivered order offers no return", (await page.locator('a:has-text("Return items")').count()) === 0);
@@ -1349,7 +1480,7 @@ allConsoleErrors.push(
 // Exchanges, restocking, tracking, promos and back-in-stock
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "exchanges", async (page) => {
     // ---- Exchange: request a size swap rather than a refund -------------
     await goto(page, `${BASE_URL}/shop/orders/GV84055120/return`);
     await page.click('button:has-text("Exchange")');
@@ -1456,19 +1587,21 @@ allConsoleErrors.push(
     // them. It should be cleaned up rather than rejected.
     await page.fill("#awb", " 9876 5432 101 ");
     await page.click('button:has-text("Save tracking")');
-    await page.waitForTimeout(300);
-    check("tracking", "admin can record courier and AWB", (await page.locator("text=98765432101").count()) > 0);
+    check("tracking", "admin can record courier and AWB", await appears(page, "text=98765432101"));
 
     // No shipping account is configured, so booking must say so and leave the
     // manual path intact rather than failing silently or half-saving. This is
     // the only path through the Shiprocket adapter that can be exercised
     // without an account — see the header of src/lib/shipping/shiprocket.ts.
+    //
+    // appears(), not a 500ms sleep: booking is a server action, and on the
+    // first run after a server start it took longer than that — the message
+    // arrived after the check had already counted zero (13-Sep).
     await page.click('button:has-text("Book with courier")');
-    await page.waitForTimeout(500);
     check(
       "tracking",
       "booking without a shipping account explains itself",
-      (await page.locator("text=/No shipping account is configured/").count()) > 0
+      await appears(page, "text=/No shipping account is configured/")
     );
     check(
       "tracking",
@@ -1514,7 +1647,7 @@ allConsoleErrors.push(
 // Back in stock: register interest on a sold-out size, get notified on restock
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "back-in-stock", async (page) => {
     await goto(page, `${BASE_URL}/shop/product/floral-anarkali-kurta`);
     const hasNotify = await appears(page, "text=Sold out in your size?");
     check("back-in-stock", "sold-out product offers a notify-me form", hasNotify);
@@ -1570,7 +1703,7 @@ allConsoleErrors.push(
 // Wholesale lifecycle: consignment tracking, claims, and the credit ledger
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "wholesale-lifecycle", async (page) => {
     await goto(page, `${BASE_URL}/admin/login`);
     await page.fill("#email", "staff@garmentvibes.com");
     await page.fill("#password", "password123");
@@ -1876,7 +2009,7 @@ allConsoleErrors.push(
 // asserted to exist.
 // ---------------------------------------------------------------------------
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "install-qr", async (page) => {
     const card = 'aside[aria-label="Continue shopping on your phone"]';
 
     await goto(page, `${BASE_URL}/shop`);
@@ -1999,7 +2132,7 @@ async function jsonLdBlocks(page) {
 }
 
 allConsoleErrors.push(
-  ...(await withPage(browser, async (page) => {
+  ...(await withPage(browser, "seo", async (page) => {
     await goto(page, `${BASE_URL}/`);
     const home = await jsonLdBlocks(page);
     check("seo", "site JSON-LD parses", home.every((b) => !b.__invalid));
@@ -2033,13 +2166,19 @@ allConsoleErrors.push(
     );
 
     // Wholesale uses AggregateOffer because bulk pricing is a range.
-    await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
+    const bulkResponse = await goto(page, `${BASE_URL}/wholesale/product/cotton-round-neck-tee-bulk`);
     const bulk = (await jsonLdBlocks(page)).find((b) => b["@type"] === "Product");
-    check("seo", "wholesale product uses AggregateOffer", bulk?.offers?.["@type"] === "AggregateOffer");
+    // Say whether the page arrived at all. On 14-Sep both checks below failed
+    // with no detail while Chrome logged ERR_INSUFFICIENT_RESOURCES on a PC
+    // short of memory, and nothing in the report could tell a page that never
+    // loaded from a page with the wrong markup.
+    const bulkSeen = `status ${bulkResponse?.status() ?? "none"}, Product block ${bulk ? "found" : "NOT found"}`;
+    check("seo", "wholesale product uses AggregateOffer", bulk?.offers?.["@type"] === "AggregateOffer", bulkSeen);
     check(
       "seo",
       "wholesale price range is ordered low to high",
-      Number(bulk?.offers?.lowPrice) <= Number(bulk?.offers?.highPrice)
+      Number(bulk?.offers?.lowPrice) <= Number(bulk?.offers?.highPrice),
+      `${bulkSeen}, low ${bulk?.offers?.lowPrice}, high ${bulk?.offers?.highPrice}`
     );
 
     await goto(page, `${BASE_URL}/shop/faq`);

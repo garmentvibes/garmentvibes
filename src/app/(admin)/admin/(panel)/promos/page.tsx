@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Tag, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,10 +66,10 @@ export default function AdminPromosPage() {
         a code created here is not on the shop floor's laptop.
       */}
       {!live && (
-        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <BrowserOnlyNotice>
           These codes are saved in this browser only. They are not shared with other
           staff, and clearing site data removes them.
-        </p>
+        </BrowserOnlyNotice>
       )}
 
       <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-5">

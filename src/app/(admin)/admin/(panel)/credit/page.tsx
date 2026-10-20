@@ -15,6 +15,7 @@ import { recordCreditPayment, writeOffCreditInvoice } from "@/lib/admin/credit/a
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useNow } from "@/lib/hooks/use-now";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import {
   AGEING_BUCKETS,
   INVOICE_STATUS_LABELS,
@@ -147,6 +148,13 @@ export default function AdminCreditPage() {
         what&apos;s overdue, and who to chase.
       </p>
 
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          Showing sample invoices. Payments and write-offs recorded here are saved in this browser
+          only and are not shared with other staff.
+        </BrowserOnlyNotice>
+      )}
+
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-neutral-200 bg-white p-4">
           <p className="text-xs uppercase tracking-wide text-neutral-500">Outstanding</p>
@@ -160,7 +168,9 @@ export default function AdminCreditPage() {
             totalOverdue > 0 ? "border-red-200 bg-red-50" : "border-neutral-200 bg-white"
           )}
         >
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Overdue</p>
+          {/* neutral-600, not 500: this card turns red-50 when anything is
+              overdue, and #737373 on #fef2f2 is 4.33:1 — under AA's 4.5:1. */}
+          <p className="text-xs uppercase tracking-wide text-neutral-600">Overdue</p>
           <p
             className={cn(
               "mt-1 text-2xl font-bold",

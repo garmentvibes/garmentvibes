@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { shouldAllowIndexing } from "./src/lib/indexing";
+import { servedOverHttps } from "./src/lib/https-deployment";
 
 // ---------------------------------------------------------------------------
 // Content Security Policy
@@ -29,7 +30,7 @@ import { shouldAllowIndexing } from "./src/lib/indexing";
 // in global-error.tsx (which cannot use the stylesheet, since it replaces the
 // root layout) both need it.
 // ---------------------------------------------------------------------------
-const CSP_DIRECTIVES = {
+const CSP_DIRECTIVES: Record<string, string[]> = {
   "default-src": ["'self'"],
   "script-src": ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com"],
   "style-src": ["'self'", "'unsafe-inline'"],
@@ -45,7 +46,13 @@ const CSP_DIRECTIVES = {
   "base-uri": ["'self'"],
   "form-action": ["'self'"],
   "frame-ancestors": ["'none'"],
-  "upgrade-insecure-requests": [],
+  // Only where the deployment is actually served over HTTPS. Over plain http
+  // it upgraded the redirect a signed-out admin navigation follows to
+  // https://localhost, and the navigation failed — see
+  // src/lib/https-deployment.ts for the measurement.
+  ...(servedOverHttps({ vercelEnv: process.env.VERCEL_ENV })
+    ? { "upgrade-insecure-requests": [] }
+    : {}),
 };
 
 const contentSecurityPolicy = Object.entries(CSP_DIRECTIVES)

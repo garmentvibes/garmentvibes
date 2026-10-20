@@ -13,6 +13,7 @@ import { useAdminOrdersStore } from "@/lib/stores/admin-orders-store";
 import { useAdminOrder } from "@/lib/hooks/use-admin-orders";
 import { setRetailOrderStatus, setRetailShipment } from "@/lib/admin/orders/actions";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { COURIERS, trackingUrlFor } from "@/lib/couriers";
 import { checkAwb } from "@/lib/shipping/awb";
 import { bookShipment } from "@/lib/shipping/actions";
@@ -196,6 +197,13 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
           {order.status}
         </Badge>
       </div>
+
+      {loaded && !live && (
+        <BrowserOnlyNotice>
+          This is a sample order. Changes made here are saved in this browser only and are not
+          shared with other staff.
+        </BrowserOnlyNotice>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

@@ -15,15 +15,22 @@
 // a route the app does not have, not a page anybody renders.
 
 import { readdirSync, statSync, readFileSync } from "fs";
-import { join, relative } from "path";
+import { join, relative, sep } from "path";
 
 const APP_DIR = join(process.cwd(), "src/app");
+
+// Paths are matched against `/`-based regexes and split on "/" below. On
+// Windows the native separator reached those unchanged, so no file matched
+// `page.tsx` at all: buildRoutes() returned an empty list and both sweeps
+// "passed" without visiting a single page. Normalised at the one place paths
+// enter this module.
+const toPosix = (p) => p.split(sep).join("/");
 
 function walk(dir, cb) {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) walk(full, cb);
-    else cb(full);
+    else cb(toPosix(full));
   }
 }
 
@@ -44,7 +51,7 @@ export function buildRoutes() {
 
   walk(APP_DIR, (file) => {
     if (!/\/page\.tsx$/.test(file)) return;
-    const dir = relative(APP_DIR, file.replace(/\/page\.tsx$/, ""));
+    const dir = toPosix(relative(APP_DIR, file.replace(/\/page\.tsx$/, "")));
     // Route groups — `(retail)`, `(admin)` — organise the tree without
     // appearing in the URL, so they are dropped rather than walked into.
     const segments = (dir === "" ? [] : dir.split("/")).filter((s) => !/^\(.*\)$/.test(s));
@@ -66,6 +73,23 @@ export function buildRoutes() {
     }
     routes.add("/" + segments.join("/"));
   });
+
+  // An empty app tree is not a state this repo can be in, so reaching here with
+  // nothing means the discovery above stopped working — as it did on Windows,
+  // where the path separator kept `page.tsx` from ever matching. That produced
+  // no error. It produced "All 1 routes passed" from the route sweep and a
+  // clean bill of health from the accessibility sweep, both exit 0, because a
+  // loop over an empty list finds nothing wrong with anything.
+  //
+  // Throwing is the point. Both callers turn a zero-length list into a pass,
+  // and the honest failure is at the source rather than in each of them.
+  if (routes.size === 0) {
+    throw new Error(
+      `buildRoutes() found no pages under ${APP_DIR}. The sweeps would report a ` +
+        `pass over an empty list, so this fails instead. Check that page.tsx ` +
+        `files are being matched — path separators are the usual cause.`
+    );
+  }
 
   return [...routes].sort();
 }

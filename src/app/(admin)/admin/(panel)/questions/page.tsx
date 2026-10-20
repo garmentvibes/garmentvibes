@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 import { useQuestionsStore } from "@/lib/stores/questions-store";
 import { notify } from "@/lib/stores/notification-store";
+import { BrowserOnlyNotice } from "@/components/admin/browser-only-notice";
 import { useCatalogue } from "@/components/shared/catalogue-provider";
 import { MAX_ANSWER_LENGTH, pendingQuestions, validateAnswer } from "@/lib/questions";
 
@@ -72,6 +73,12 @@ export default function AdminQuestionsPage() {
         Questions stay private until they are answered, so this queue is the only thing standing
         between a customer and a reply.
       </p>
+
+      {/* Always shown: questions live in a persisted store with no database path. */}
+      <BrowserOnlyNotice>
+        Questions and answers are saved in this browser only. They are not shared with other
+        staff, and clearing site data removes them.
+      </BrowserOnlyNotice>
 
       <h2 className="mt-6 font-semibold text-neutral-900">
         Awaiting an answer{" "}

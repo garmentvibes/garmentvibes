@@ -72,7 +72,20 @@ let checked = 0;
 for (const route of [...routes].sort()) {
   const consoleErrors = [];
   const onConsole = (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text());
+    if (msg.type() !== "error") return;
+    const url = msg.location()?.url ?? "";
+    // The 404 probe's own "Failed to load resource: 404" belongs to the probe,
+    // whichever route is being checked when it arrives. Routes are visited in
+    // sorted order and /wholesale comes straight after
+    // /this-route-should-not-exist, so the probe's message sometimes landed
+    // after the sweep had moved on and was reported as a 404 *on /wholesale* —
+    // which has none: three fresh loads of it showed no 4xx at all (13-Sep).
+    // The exemption at the bottom of this loop is keyed on the route being
+    // checked, which is exactly the case it could not catch.
+    if (url.endsWith("/this-route-should-not-exist")) return;
+    // With the URL, because that is what identified the case above. Before
+    // it, the failure named no resource and could not be traced.
+    consoleErrors.push(url ? `${msg.text()}  [${url}]` : msg.text());
   };
   const onPageError = (err) => consoleErrors.push(err.message);
   page.on("console", onConsole);
@@ -184,6 +197,21 @@ const OVERFLOW_ROUTES = [
   "/wholesale/catalog",
 ];
 
+// Phones get every route, not the six above, and the reasoning behind the six
+// is why. Shared chrome is what breaks at tablet widths; at 360 the usual
+// culprit is content — a price table, a CSV preview, an admin grid, one long
+// unbroken string — and not one of the six representative pages has a table on
+// it. Sampling by layout cannot see a class of bug that belongs to the page.
+//
+// Two widths because 360 is the floor in this market and 390 is the modal
+// iPhone; a break at one and not the other is a breakpoint being crossed.
+// Measured before being committed: all 72 routes at both widths take about
+// forty seconds, so the runtime argument for sampling does not apply here.
+const PHONE_VIEWPORTS = [
+  { name: "phone 360", width: 360, height: 780 },
+  { name: "phone 390", width: 390, height: 844 },
+];
+
 for (const viewport of TABLET_VIEWPORTS) {
   const tabletPage = await browser.newPage({
     viewport: { width: viewport.width, height: viewport.height },
@@ -206,9 +234,34 @@ for (const viewport of TABLET_VIEWPORTS) {
   await tabletPage.close();
 }
 
+const phoneRoutes = buildRoutes();
+
+for (const viewport of PHONE_VIEWPORTS) {
+  const phonePage = await browser.newPage({
+    viewport: { width: viewport.width, height: viewport.height },
+  });
+
+  for (const route of phoneRoutes) {
+    try {
+      await goto(phonePage, `${BASE_URL}${route}`);
+      const overflow = await phonePage.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+      );
+      if (overflow > 0) {
+        fail(`${route} — scrolls sideways at ${viewport.name} (${viewport.width}px) by ${overflow}px`);
+      }
+    } catch (e) {
+      fail(`${route} — could not measure overflow at ${viewport.name}: ${e.message}`);
+    }
+  }
+
+  await phonePage.close();
+}
+
 if (failures === 0) {
   pass(
-    `No horizontal overflow on ${OVERFLOW_ROUTES.length} pages at ${TABLET_VIEWPORTS.length} tablet widths`
+    `No horizontal overflow on ${OVERFLOW_ROUTES.length} pages at ${TABLET_VIEWPORTS.length} tablet widths, ` +
+      `or on ${phoneRoutes.length} routes at ${PHONE_VIEWPORTS.length} phone widths`
   );
 }
 

@@ -95,13 +95,16 @@ export function AdminShell({ user, children }: { user: StaffUser; children: Reac
         </nav>
 
         <div className="absolute inset-x-0 bottom-0 border-t border-neutral-800 p-3">
-          <p className="px-2 pb-2 text-xs text-neutral-500">Signed in as {user.email}</p>
+          {/* neutral-400, not 500: #737373 on this #171717 sidebar is 3.78:1,
+              under AA's 4.5:1. Found 14-Sep, the first time the a11y sweep
+              was signed in — it had only ever scanned the login form. */}
+          <p className="px-2 pb-2 text-xs text-neutral-400">Signed in as {user.email}</p>
           {/* A form posting to a Server Action, not an onClick: signing out
               has to clear an HttpOnly cookie, which only the server can do. */}
           <form action={signOutAdmin}>
             <button
               type="submit"
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-neutral-500 hover:bg-neutral-800/60 hover:text-white"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800/60 hover:text-white"
             >
               <LogOut className="h-4 w-4" /> Sign out
             </button>
@@ -131,11 +134,9 @@ export function AdminShell({ user, children }: { user: StaffUser; children: Reac
           <span className="font-semibold text-neutral-900">Admin</span>
         </header>
 
-        <div className="bg-amber-50 px-4 py-2 text-center text-xs text-amber-800 sm:px-6">
-          Demo mode — changes are saved to this browser only. They will write to the database once
-          Supabase is connected, and are not yet visible on the live storefront.
-        </div>
-
+        {/* No panel-wide "saved to this browser only" banner here: it was
+            false on every page that writes to the database. Each page that
+            keeps data in the browser says so itself — BrowserOnlyNotice. */}
         {user.demo && (
           <div className="bg-red-50 px-4 py-2 text-center text-xs font-medium text-red-800 sm:px-6">
             Demo sign-in — no password was checked. This deployment has no Supabase project, so
